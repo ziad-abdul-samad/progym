@@ -1,0 +1,4 @@
+ALTER TYPE "CoachSubscriptionAction" ADD VALUE IF NOT EXISTS 'RESUMED';
+
+ALTER TABLE "CoachAssignment"
+ADD COLUMN IF NOT EXISTS "pausedAt" TIMESTAMP(3);

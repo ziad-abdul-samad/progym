@@ -28,6 +28,3 @@ test-results/
 Thumbs.db
 .idea/
 .vscode/
-
-# Prisma
-backend/prisma/migrations/
