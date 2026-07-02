@@ -1,0 +1,31 @@
+FROM node:24-alpine AS deps
+WORKDIR /app
+RUN corepack enable
+COPY package.json pnpm-workspace.yaml turbo.json tsconfig.base.json ./
+COPY backend/package.json backend/package.json
+COPY packages/shared/package.json packages/shared/package.json
+RUN pnpm install --frozen-lockfile
+
+FROM deps AS builder
+COPY backend backend
+COPY packages/shared packages/shared
+RUN pnpm --filter @progym/shared build
+RUN pnpm --filter @progym/backend db:generate
+RUN pnpm --filter @progym/backend build
+
+FROM node:24-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+RUN corepack enable
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/backend/node_modules ./backend/node_modules
+COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY --from=builder /app/backend/dist ./backend/dist
+COPY --from=builder /app/backend/prisma ./backend/prisma
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY package.json pnpm-workspace.yaml ./
+COPY backend/package.json backend/package.json
+COPY packages/shared/package.json packages/shared/package.json
+WORKDIR /app/backend
+EXPOSE 4000
+CMD ["node", "dist/main.js"]

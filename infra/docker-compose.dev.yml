@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: progym-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-progym}
+      POSTGRES_USER: ${POSTGRES_USER:-progym}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-progym}
+    ports:
+      - '5432:5432'
+    volumes:
+      - progym-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-progym} -d ${POSTGRES_DB:-progym}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  progym-postgres-data:

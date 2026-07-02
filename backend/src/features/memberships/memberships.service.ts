@@ -1,0 +1,399 @@
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  AuditAction,
+  MembershipAuditAction,
+  ObserverStatus,
+  Prisma,
+  SubscriptionStatus,
+} from '@prisma/client';
+
+import type { PaginationDto } from '../../common/dto/pagination.dto';
+import type { AuthenticatedUser } from '../../common/types/authenticated-user';
+import { addDays, diffDaysCeil, summarizeSubscription } from '../../common/utils/membership.util';
+import { paginated, paginationArgs } from '../../common/utils/pagination.util';
+import { PrismaService } from '../../prisma/prisma.service';
+import type {
+  CreateMembershipPlanDto,
+  CreateSubscriptionDto,
+  MembershipMutationDto,
+  UpdateMembershipPlanDto,
+} from './dto/memberships.dto';
+
+function subscriptionSnapshot(subscription: {
+  status: SubscriptionStatus;
+  startsAt: Date;
+  endsAt: Date;
+  frozenAt: Date | null;
+  planId: string | null;
+}) {
+  return {
+    endsAt: subscription.endsAt.toISOString(),
+    frozenAt: subscription.frozenAt?.toISOString() ?? null,
+    planId: subscription.planId,
+    startsAt: subscription.startsAt.toISOString(),
+    status: subscription.status,
+  };
+}
+
+@Injectable()
+export class MembershipsService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async listPlans() {
+    return this.prisma.membershipPlan.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { durationDays: 'asc' }],
+    });
+  }
+
+  async createPlan(dto: CreateMembershipPlanDto) {
+    return this.prisma.membershipPlan.create({
+      data: {
+        currency: dto.currency ?? 'SYP',
+        descriptionAr: dto.descriptionAr,
+        descriptionEn: dto.descriptionEn,
+        durationDays: dto.durationDays,
+        isActive: dto.isActive ?? true,
+        nameAr: dto.nameAr,
+        nameEn: dto.nameEn,
+        priceMinor: dto.priceMinor,
+      },
+    });
+  }
+
+  async updatePlan(id: string, dto: UpdateMembershipPlanDto) {
+    return this.prisma.membershipPlan.update({
+      data: dto,
+      where: { id },
+    });
+  }
+
+  async getCurrentSubscription(memberId: string) {
+    const subscription = await this.prisma.subscription.findFirst({
+      orderBy: [{ status: 'asc' }, { endsAt: 'desc' }],
+      where: {
+        memberId,
+        status: { in: ['ACTIVE', 'FROZEN', 'PENDING'] },
+      },
+    });
+
+    if (subscription?.status === SubscriptionStatus.ACTIVE && subscription.endsAt <= new Date()) {
+      return this.prisma.subscription.update({
+        data: { status: SubscriptionStatus.EXPIRED },
+        where: { id: subscription.id },
+      });
+    }
+
+    return subscription;
+  }
+
+  async getMembershipSummary(memberId: string) {
+    const subscription = await this.getCurrentSubscription(memberId);
+    const summary = summarizeSubscription(subscription);
+
+    return summary;
+  }
+
+  async listSubscriptions(query: PaginationDto) {
+    const where: Prisma.SubscriptionWhereInput = {
+      ...(query.q
+        ? {
+            member: {
+              user: {
+                OR: [
+                  { fullName: { contains: query.q, mode: 'insensitive' as const } },
+                  { username: { contains: query.q, mode: 'insensitive' as const } },
+                  { phone: { contains: query.q, mode: 'insensitive' as const } },
+                ],
+              },
+            },
+          }
+        : {}),
+      ...(query.status ? { status: query.status as SubscriptionStatus } : {}),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.subscription.findMany({
+        include: {
+          member: { include: { user: true } },
+          plan: true,
+        },
+        orderBy: { updatedAt: 'desc' },
+        where,
+        ...paginationArgs(query),
+      }),
+      this.prisma.subscription.count({ where }),
+    ]);
+
+    return paginated(items, total, query);
+  }
+
+  async createSubscription(dto: CreateSubscriptionDto, admin: AuthenticatedUser) {
+    const member = await this.prisma.memberProfile.findUnique({
+      include: { user: true },
+      where: { id: dto.memberId },
+    });
+
+    if (!member) {
+      throw new NotFoundException('Member not found');
+    }
+    const current = await this.prisma.subscription.findFirst({
+      where: {
+        memberId: member.id,
+        status: { in: ['PENDING', 'ACTIVE', 'FROZEN'] },
+      },
+    });
+    if (current) {
+      throw new BadRequestException('Member already has a current gym subscription');
+    }
+
+    const plan = dto.planId
+      ? await this.prisma.membershipPlan.findUnique({ where: { id: dto.planId } })
+      : null;
+    const days = dto.days ?? plan?.durationDays;
+
+    if (!days) {
+      throw new BadRequestException('Either planId or days is required');
+    }
+
+    const now = new Date();
+    const observer = await this.requireActiveObserver(dto.observerId);
+    return this.prisma.$transaction(async (transaction) => {
+      const subscription = await transaction.subscription.create({
+        data: {
+          endsAt: addDays(now, days),
+          memberId: member.id,
+          planId: plan?.id,
+          startsAt: now,
+          status: SubscriptionStatus.ACTIVE,
+        },
+      });
+
+      await this.writeMembershipAudit(transaction, {
+        action: MembershipAuditAction.CREATE,
+        admin,
+        memberId: member.id,
+        newValue: subscriptionSnapshot(subscription),
+        observer,
+        previousValue: {},
+        reason: dto.reason,
+        subscriptionId: subscription.id,
+      });
+      return subscription;
+    });
+  }
+
+  async mutateSubscription(
+    id: string,
+    action: MembershipAuditAction,
+    dto: MembershipMutationDto,
+    admin: AuthenticatedUser,
+  ) {
+    const subscription = await this.prisma.subscription.findUnique({
+      include: { member: { include: { user: true } }, plan: true },
+      where: { id },
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('Subscription not found');
+    }
+    this.assertAllowedTransition(subscription.status, action);
+
+    const previousValue = subscriptionSnapshot(subscription);
+    const now = new Date();
+    const data: Partial<{
+      cancelledAt: Date | null;
+      endsAt: Date;
+      frozenAt: Date | null;
+      planId: string | null;
+      startsAt: Date;
+      status: SubscriptionStatus;
+    }> = {};
+
+    if (action === MembershipAuditAction.ADD_DAYS) {
+      if (!dto.days) throw new BadRequestException('days is required');
+      data.endsAt = addDays(subscription.endsAt > now ? subscription.endsAt : now, dto.days);
+      data.status =
+        subscription.status === SubscriptionStatus.FROZEN
+          ? SubscriptionStatus.FROZEN
+          : SubscriptionStatus.ACTIVE;
+    }
+
+    if (action === MembershipAuditAction.REMOVE_DAYS) {
+      if (!dto.days) throw new BadRequestException('days is required');
+      data.endsAt = addDays(subscription.endsAt, -dto.days);
+      const effectiveNow = subscription.frozenAt ?? now;
+      if (data.endsAt <= effectiveNow) {
+        data.frozenAt = null;
+        data.status = SubscriptionStatus.EXPIRED;
+      }
+    }
+
+    if (action === MembershipAuditAction.FREEZE) {
+      data.frozenAt = now;
+      data.status = SubscriptionStatus.FROZEN;
+    }
+
+    if (action === MembershipAuditAction.RESUME) {
+      const frozenAt = subscription.frozenAt ?? now;
+      data.endsAt = addDays(now, diffDaysCeil(frozenAt, subscription.endsAt));
+      data.frozenAt = null;
+      data.status = SubscriptionStatus.ACTIVE;
+    }
+
+    if (action === MembershipAuditAction.RENEW) {
+      const plan = dto.planId
+        ? await this.prisma.membershipPlan.findUnique({ where: { id: dto.planId } })
+        : null;
+      const days = dto.days ?? plan?.durationDays;
+
+      if (!days) throw new BadRequestException('days or planId is required');
+
+      data.endsAt = addDays(now, days);
+      data.frozenAt = null;
+      data.planId = plan?.id ?? subscription.planId;
+      data.startsAt = now;
+      data.status = SubscriptionStatus.ACTIVE;
+    }
+
+    if (action === MembershipAuditAction.EXPIRE) {
+      data.endsAt = now;
+      data.frozenAt = null;
+      data.status = SubscriptionStatus.EXPIRED;
+    }
+
+    const observer = await this.requireActiveObserver(dto.observerId);
+    return this.prisma.$transaction(async (transaction) => {
+      const updated = await transaction.subscription.update({
+        data,
+        where: { id },
+      });
+      await this.writeMembershipAudit(transaction, {
+        action,
+        admin,
+        memberId: subscription.memberId,
+        newValue: subscriptionSnapshot(updated),
+        observer,
+        previousValue,
+        reason: dto.reason,
+        subscriptionId: updated.id,
+      });
+      return updated;
+    });
+  }
+
+  async listAuditLogs(query: PaginationDto) {
+    const where: Prisma.MembershipAuditLogWhereInput = {
+      ...(query.q
+        ? {
+            OR: [
+              { adminName: { contains: query.q, mode: 'insensitive' as const } },
+              { observerName: { contains: query.q, mode: 'insensitive' as const } },
+              { reason: { contains: query.q, mode: 'insensitive' as const } },
+              {
+                member: {
+                  user: { fullName: { contains: query.q, mode: 'insensitive' as const } },
+                },
+              },
+            ],
+          }
+        : {}),
+      ...(query.action ? { action: query.action as MembershipAuditAction } : {}),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.membershipAuditLog.findMany({
+        include: {
+          admin: { select: { fullName: true, username: true } },
+          member: { include: { user: { select: { fullName: true, username: true } } } },
+          observer: true,
+          subscription: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        where,
+        ...paginationArgs(query),
+      }),
+      this.prisma.membershipAuditLog.count({ where }),
+    ]);
+
+    return paginated(items, total, query);
+  }
+
+  private async writeMembershipAudit(transaction: Prisma.TransactionClient, input: {
+    action: MembershipAuditAction;
+    admin: AuthenticatedUser;
+    memberId: string;
+    newValue: object;
+    observer: { fullName: string; id: string };
+    previousValue: object;
+    reason: string;
+    subscriptionId: string;
+  }) {
+    if (!input.reason.trim()) {
+      throw new BadRequestException('Reason is required');
+    }
+    await transaction.membershipAuditLog.create({
+      data: {
+        action: input.action,
+        adminId: input.admin.id,
+        adminName: input.admin.fullName,
+        memberId: input.memberId,
+        newValue: input.newValue,
+        observerId: input.observer.id,
+        observerName: input.observer.fullName,
+        previousValue: input.previousValue,
+        reason: input.reason,
+        subscriptionId: input.subscriptionId,
+      },
+    });
+    await transaction.auditLog.create({
+      data: {
+        action: AuditAction.MEMBERSHIP_CHANGE,
+        actorId: input.admin.id,
+        entityId: input.subscriptionId,
+        entityType: 'Subscription',
+        metadata: {
+          action: input.action,
+          newValue: input.newValue,
+          observerId: input.observer.id,
+          observerName: input.observer.fullName,
+          previousValue: input.previousValue,
+          reason: input.reason,
+        },
+      },
+    });
+  }
+
+  private async requireActiveObserver(observerId: string) {
+    const observer = await this.prisma.shiftObserver.findUnique({
+      where: { id: observerId },
+    });
+    if (!observer || observer.status !== ObserverStatus.ACTIVE) {
+      throw new BadRequestException('Active shift observer is required');
+    }
+    return observer;
+  }
+
+  private assertAllowedTransition(
+    status: SubscriptionStatus,
+    action: MembershipAuditAction,
+  ) {
+    const allowed: Record<MembershipAuditAction, SubscriptionStatus[]> = {
+      ADD_DAYS: [SubscriptionStatus.ACTIVE, SubscriptionStatus.FROZEN],
+      REMOVE_DAYS: [SubscriptionStatus.ACTIVE, SubscriptionStatus.FROZEN],
+      FREEZE: [SubscriptionStatus.ACTIVE],
+      RESUME: [SubscriptionStatus.FROZEN],
+      RENEW: [
+        SubscriptionStatus.ACTIVE,
+        SubscriptionStatus.FROZEN,
+        SubscriptionStatus.EXPIRED,
+      ],
+      EXPIRE: [
+        SubscriptionStatus.PENDING,
+        SubscriptionStatus.ACTIVE,
+        SubscriptionStatus.FROZEN,
+      ],
+      CREATE: [],
+    };
+    if (!allowed[action].includes(status)) {
+      throw new BadRequestException(`Cannot ${action.toLowerCase()} a ${status} subscription`);
+    }
+  }
+}

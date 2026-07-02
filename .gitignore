@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Builds
+dist/
+build/
+.next/
+.turbo/
+out/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Runtime
+*.log
+*.pid
+
+# Environment
+.env
+.env.*
+!.env.example
+!*.env.example
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Prisma
+backend/prisma/migrations/

@@ -1,0 +1,16 @@
+import { FlatCompat } from '@eslint/eslintrc';
+import { defineConfig, globalIgnores } from 'eslint/config';
+
+const compat = new FlatCompat({
+  baseDirectory: import.meta.dirname,
+});
+
+export default defineConfig([
+  ...compat.extends('next/core-web-vitals', 'next/typescript'),
+  {
+    rules: {
+      '@next/next/no-html-link-for-pages': 'off',
+    },
+  },
+  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts']),
+]);

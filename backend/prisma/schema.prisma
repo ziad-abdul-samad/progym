@@ -1,0 +1,873 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  MEMBER
+  COACH
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum ObserverStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum CoachPlanRequirement {
+  EITHER
+  WORKOUT
+  NUTRITION
+  BOTH
+}
+
+enum CoachSubscriptionAction {
+  ADDED
+  STARTED
+  RENEWED
+  RESUMED
+  DEACTIVATED
+  EXPIRED
+  ENDED
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  FROZEN
+  EXPIRED
+  CANCELLED
+}
+
+enum MembershipAuditAction {
+  ADD_DAYS
+  REMOVE_DAYS
+  FREEZE
+  RESUME
+  RENEW
+  EXPIRE
+  CREATE
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  BANK_TRANSFER
+  OTHER
+}
+
+enum QrInvitePurpose {
+  MEMBER_REGISTRATION
+  COACH_INVITE
+  ADMIN_INVITE
+}
+
+enum QrInviteStatus {
+  ACTIVE
+  USED
+  EXPIRED
+  REVOKED
+}
+
+enum AttendanceSessionStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum AttendanceSource {
+  QR
+  MANUAL
+  ADMIN
+}
+
+enum NotificationType {
+  SYSTEM
+  MEMBERSHIP
+  ATTENDANCE
+  PROGRESS
+  COACHING
+}
+
+enum WorkoutPlanStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum NutritionPlanStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum WorkoutLogSource {
+  GENERAL_LIBRARY
+  COACH_PLAN
+}
+
+enum CoachRequestType {
+  NEW_PHOTOS
+  WEIGHT_UPDATE
+  PROGRESS_CHECK_IN
+}
+
+enum CoachRequestStatus {
+  PENDING
+  COMPLETED
+  DISMISSED
+}
+
+enum CoachProfileChangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ProgressPhotoType {
+  FRONT
+  SIDE
+  BACK
+  OTHER
+}
+
+enum FileVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  QR_SCAN
+  PAYMENT
+  ATTENDANCE
+  ROLE_CHANGE
+  PASSWORD_RESET
+  MEMBERSHIP_CHANGE
+}
+
+model User {
+  id           String     @id @default(cuid())
+  role         UserRole   @default(MEMBER)
+  status       UserStatus @default(ACTIVE)
+  username     String     @unique
+  fullName     String
+  email        String?    @unique
+  phone        String     @unique
+  passwordHash String
+  avatarUrl    String?
+  locale       String     @default("ar")
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  memberProfile           MemberProfile?
+  coachProfile            CoachProfile?
+  auditLogs               AuditLog[]                   @relation("AuditActor")
+  consumedQrInvites       QrInvite[]                   @relation("QrInviteConsumer")
+  createdAttendanceQrs    AttendanceQrSession[]        @relation("AttendanceQrCreator")
+  createdQrInvites        QrInvite[]                   @relation("QrInviteCreator")
+  files                   FileAsset[]                  @relation("FileOwner")
+  membershipAuditLogs     MembershipAuditLog[]         @relation("MembershipAuditAdmin")
+  notifications           Notification[]
+  paymentsReceived        Payment[]                    @relation("PaymentReceiver")
+  progressEntriesAuthored ProgressEntry[]              @relation("ProgressAuthor")
+  profileHistory          ProfileUpdateHistory[]       @relation("ProfileHistoryUser")
+  reviewedCoachChanges    CoachProfileChangeRequest[]  @relation("CoachProfileChangeReviewer")
+  reviewedMemberChanges   MemberProfileChangeRequest[] @relation("MemberProfileChangeReviewer")
+  voidedAttendanceRecords AttendanceRecord[]           @relation("AttendanceVoidActor")
+  refreshSessions         RefreshSession[]
+  securityAnswers         SecurityAnswer[]
+
+  @@index([role, status])
+  @@index([createdAt])
+}
+
+model RefreshSession {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt, expiresAt])
+}
+
+model SecurityAnswer {
+  id           String   @id @default(cuid())
+  userId       String
+  questionKey  String
+  questionText String
+  answerHash   String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionKey])
+  @@index([userId])
+}
+
+model MemberProfile {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  memberCode            String   @unique
+  dateOfBirth           DateTime @db.Date
+  gender                Gender
+  heightCm              Decimal  @db.Decimal(6, 2)
+  currentWeightKg       Decimal  @db.Decimal(6, 2)
+  fitnessGoal           String
+  healthNotes           String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  joinedAt              DateTime @default(now())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user                    User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments             CoachAssignment[]
+  coachSubscriptionEvents CoachSubscriptionEvent[]
+  attendanceRecords       AttendanceRecord[]
+  coachRequests           CoachRequest[]
+  membershipAuditLogs     MembershipAuditLog[]
+  nutritionPlans          NutritionPlan[]
+  progressEntries         ProgressEntry[]
+  progressPhotos          ProgressPhoto[]
+  subscriptions           Subscription[]
+  workoutPlans            WorkoutPlan[]
+  workoutLogs             WorkoutLog[]
+  changeRequests          MemberProfileChangeRequest[]
+
+  @@index([memberCode])
+  @@index([joinedAt])
+}
+
+model CoachProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  publicSlug  String?  @unique
+  specialties String[]
+  bioAr       String?
+  bioEn       String?
+  isPublic    Boolean  @default(false)
+  socialLinks Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user               User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments        CoachAssignment[]
+  subscriptionEvents CoachSubscriptionEvent[]
+  coachRequests      CoachRequest[]
+  exercises          Exercise[]
+  nutritionPlans     NutritionPlan[]
+  progressEntries    ProgressEntry[]
+  workoutPlans       WorkoutPlan[]
+  changeRequests     CoachProfileChangeRequest[]
+
+  @@index([isPublic])
+}
+
+model CoachAssignment {
+  id               String               @id @default(cuid())
+  memberId         String
+  coachId          String
+  status           AssignmentStatus     @default(PAUSED)
+  startedAt        DateTime             @default(now())
+  endedAt          DateTime?
+  coachingStartsAt DateTime?
+  coachingEndsAt   DateTime?
+  pausedAt         DateTime?
+  planRequirement  CoachPlanRequirement @default(EITHER)
+  reminderEnabled  Boolean              @default(true)
+  notes            String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  member             MemberProfile            @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  coach              CoachProfile             @relation(fields: [coachId], references: [id], onDelete: Restrict)
+  subscriptionEvents CoachSubscriptionEvent[]
+
+  @@unique([memberId, coachId, startedAt])
+  @@index([memberId, status])
+  @@index([coachId, status])
+  @@index([status, coachingEndsAt])
+}
+
+model CoachSubscriptionEvent {
+  id             String                  @id @default(cuid())
+  assignmentId   String
+  memberId       String
+  coachId        String
+  action         CoachSubscriptionAction
+  days           Int?
+  previousEndsAt DateTime?
+  newEndsAt      DateTime?
+  createdAt      DateTime                @default(now())
+
+  assignment CoachAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  member     MemberProfile   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  coach      CoachProfile    @relation(fields: [coachId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId, createdAt])
+  @@index([memberId, createdAt])
+  @@index([coachId, createdAt])
+  @@index([action, createdAt])
+}
+
+model MembershipPlan {
+  id            String   @id @default(cuid())
+  nameAr        String
+  nameEn        String
+  descriptionAr String?
+  descriptionEn String?
+  durationDays  Int
+  priceMinor    Int
+  currency      String   @default("SYP")
+  features      Json?
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  subscriptions Subscription[]
+
+  @@index([isActive, sortOrder])
+}
+
+model Subscription {
+  id          String             @id @default(cuid())
+  memberId    String
+  planId      String?
+  status      SubscriptionStatus @default(PENDING)
+  startsAt    DateTime
+  endsAt      DateTime
+  frozenAt    DateTime?
+  cancelledAt DateTime?
+  notes       String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  member    MemberProfile        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  plan      MembershipPlan?      @relation(fields: [planId], references: [id], onDelete: SetNull)
+  auditLogs MembershipAuditLog[]
+  payments  Payment[]
+
+  @@index([memberId, status])
+  @@index([status, endsAt])
+}
+
+model MembershipAuditLog {
+  id             String                @id @default(cuid())
+  subscriptionId String
+  memberId       String
+  adminId        String?
+  adminName      String
+  observerId     String?
+  observerName   String?
+  action         MembershipAuditAction
+  previousValue  Json
+  newValue       Json
+  reason         String
+  createdAt      DateTime              @default(now())
+
+  subscription Subscription   @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  member       MemberProfile  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  admin        User?          @relation("MembershipAuditAdmin", fields: [adminId], references: [id], onDelete: SetNull)
+  observer     ShiftObserver? @relation(fields: [observerId], references: [id], onDelete: SetNull)
+
+  @@index([memberId, createdAt])
+  @@index([adminId, createdAt])
+  @@index([observerId, createdAt])
+  @@index([subscriptionId, createdAt])
+}
+
+model ShiftObserver {
+  id        String         @id @default(cuid())
+  fullName  String
+  phone     String?
+  notes     String?
+  status    ObserverStatus @default(ACTIVE)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  membershipAuditLogs MembershipAuditLog[]
+
+  @@index([status, fullName])
+  @@index([createdAt])
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  subscriptionId String
+  receivedById   String?
+  amountMinor    Int
+  currency       String        @default("SYP")
+  method         PaymentMethod
+  status         PaymentStatus @default(PENDING)
+  paidAt         DateTime?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  receivedBy   User?        @relation("PaymentReceiver", fields: [receivedById], references: [id], onDelete: SetNull)
+
+  @@index([subscriptionId, status])
+  @@index([paidAt])
+}
+
+model QrInvite {
+  id               String          @id @default(cuid())
+  tokenHash        String          @unique
+  purpose          QrInvitePurpose
+  status           QrInviteStatus  @default(ACTIVE)
+  createdById      String?
+  consumedByUserId String?
+  expiresAt        DateTime
+  usedAt           DateTime?
+  revokedAt        DateTime?
+  metadata         Json?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  createdBy  User? @relation("QrInviteCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  consumedBy User? @relation("QrInviteConsumer", fields: [consumedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([purpose, status])
+  @@index([expiresAt])
+}
+
+model AttendanceQrSession {
+  id          String                  @id @default(cuid())
+  tokenHash   String                  @unique
+  status      AttendanceSessionStatus @default(ACTIVE)
+  createdById String?
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  createdBy User?              @relation("AttendanceQrCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  records   AttendanceRecord[]
+
+  @@index([status, expiresAt])
+}
+
+model AttendanceRecord {
+  id             String           @id @default(cuid())
+  memberId       String
+  sessionId      String?
+  source         AttendanceSource @default(QR)
+  checkedInAt    DateTime         @default(now())
+  attendanceDate DateTime         @db.Date
+  notes          String?
+  voidedAt       DateTime?
+  voidedById     String?
+  voidReason     String?
+  createdAt      DateTime         @default(now())
+
+  member   MemberProfile        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  session  AttendanceQrSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  voidedBy User?                @relation("AttendanceVoidActor", fields: [voidedById], references: [id], onDelete: SetNull)
+
+  @@index([memberId, checkedInAt])
+  @@index([attendanceDate])
+  @@index([voidedAt])
+}
+
+model ExerciseCategory {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  nameAr    String
+  nameEn    String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  exercises Exercise[]
+
+  @@index([sortOrder])
+}
+
+model Exercise {
+  id             String   @id @default(cuid())
+  categoryId     String
+  coachId        String?
+  trainingDay    Int?
+  nameAr         String
+  nameEn         String?
+  descriptionAr  String?
+  descriptionEn  String?
+  instructionsAr String?
+  instructionsEn String?
+  videoUrl       String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  category     ExerciseCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  coach        CoachProfile?     @relation(fields: [coachId], references: [id], onDelete: SetNull)
+  workoutItems WorkoutPlanItem[]
+  workoutLogs  WorkoutLog[]
+
+  @@index([categoryId, isActive])
+  @@index([coachId, isActive])
+  @@index([trainingDay, isActive])
+}
+
+model ProgressEntry {
+  id             String   @id @default(cuid())
+  memberId       String
+  authorUserId   String?
+  authorCoachId  String?
+  measuredAt     DateTime
+  weightKg       Decimal? @db.Decimal(6, 2)
+  chestCm        Decimal? @db.Decimal(6, 2)
+  waistCm        Decimal? @db.Decimal(6, 2)
+  armsCm         Decimal? @db.Decimal(6, 2)
+  hipsCm         Decimal? @db.Decimal(6, 2)
+  thighsCm       Decimal? @db.Decimal(6, 2)
+  bodyFatPercent Decimal? @db.Decimal(5, 2)
+  measurements   Json?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  member      MemberProfile   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  authorUser  User?           @relation("ProgressAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+  authorCoach CoachProfile?   @relation(fields: [authorCoachId], references: [id], onDelete: SetNull)
+  photos      ProgressPhoto[]
+
+  @@index([memberId, measuredAt])
+  @@index([authorCoachId])
+}
+
+model ProgressPhoto {
+  id              String            @id @default(cuid())
+  memberId        String
+  progressEntryId String?
+  fileAssetId     String            @unique
+  type            ProgressPhotoType
+  isPrivate       Boolean           @default(true)
+  capturedAt      DateTime?
+  createdAt       DateTime          @default(now())
+
+  member        MemberProfile  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  progressEntry ProgressEntry? @relation(fields: [progressEntryId], references: [id], onDelete: SetNull)
+  fileAsset     FileAsset      @relation(fields: [fileAssetId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, type, createdAt])
+  @@index([progressEntryId])
+}
+
+model FileAsset {
+  id              String         @id @default(cuid())
+  ownerUserId     String?
+  storageProvider String         @default("local")
+  storageKey      String         @unique
+  originalName    String
+  mimeType        String
+  byteSize        Int
+  visibility      FileVisibility @default(PRIVATE)
+  createdAt       DateTime       @default(now())
+
+  owner         User?          @relation("FileOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  progressPhoto ProgressPhoto?
+
+  @@index([ownerUserId, createdAt])
+}
+
+model WorkoutPlan {
+  id        String            @id @default(cuid())
+  memberId  String
+  coachId   String
+  status    WorkoutPlanStatus @default(DRAFT)
+  title     String
+  notes     String?
+  startsAt  DateTime?
+  endsAt    DateTime?
+  seriesId  String
+  version   Int               @default(1)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  member MemberProfile     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  coach  CoachProfile      @relation(fields: [coachId], references: [id], onDelete: Restrict)
+  items  WorkoutPlanItem[]
+
+  @@index([memberId, status])
+  @@index([coachId, status])
+  @@index([seriesId, version])
+  @@unique([seriesId, version])
+}
+
+model WorkoutPlanItem {
+  id           String   @id @default(cuid())
+  planId       String
+  exerciseId   String?
+  exerciseName String?
+  dayIndex     Int
+  dayTitle     String?
+  sortOrder    Int      @default(0)
+  sets         Int?
+  reps         String?
+  videoUrl     String?
+  load         String?
+  restSeconds  Int?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  plan        WorkoutPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+  exercise    Exercise?    @relation(fields: [exerciseId], references: [id], onDelete: SetNull)
+  workoutLogs WorkoutLog[]
+
+  @@index([planId, dayIndex, sortOrder])
+}
+
+model WorkoutLog {
+  id            String           @id @default(cuid())
+  memberId      String
+  planItemId    String?
+  exerciseId    String?
+  source        WorkoutLogSource
+  performedAt   DateTime         @default(now())
+  setsCompleted Int?
+  repsCompleted String?
+  load          String?
+  completed     Boolean          @default(true)
+  isPersonalRecord Boolean       @default(false)
+  notes         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  member   MemberProfile    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  planItem WorkoutPlanItem? @relation(fields: [planItemId], references: [id], onDelete: SetNull)
+  exercise Exercise?        @relation(fields: [exerciseId], references: [id], onDelete: SetNull)
+
+  @@index([memberId, performedAt])
+  @@index([planItemId, performedAt])
+  @@index([exerciseId, performedAt])
+}
+
+model NutritionPlan {
+  id             String              @id @default(cuid())
+  memberId       String
+  coachId        String
+  status         NutritionPlanStatus @default(DRAFT)
+  title          String
+  notes          String?
+  targetMode     String?
+  targetCalories Int?
+  targetProteinG Decimal?            @db.Decimal(7, 2)
+  targetCarbsG   Decimal?            @db.Decimal(7, 2)
+  targetFatG     Decimal?            @db.Decimal(7, 2)
+  startsAt       DateTime?
+  endsAt         DateTime?
+  seriesId       String
+  version        Int                 @default(1)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  member MemberProfile   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  coach  CoachProfile    @relation(fields: [coachId], references: [id], onDelete: Restrict)
+  meals  NutritionMeal[]
+
+  @@index([memberId, status])
+  @@index([coachId, status])
+  @@index([seriesId, version])
+  @@unique([seriesId, version])
+}
+
+model NutritionMeal {
+  id        String   @id @default(cuid())
+  planId    String
+  name      String
+  timing    String?
+  sortOrder Int      @default(0)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  plan  NutritionPlan       @relation(fields: [planId], references: [id], onDelete: Cascade)
+  items NutritionFoodItem[]
+
+  @@index([planId, sortOrder])
+}
+
+model CoachProfileChangeRequest {
+  id            String                   @id @default(cuid())
+  coachId       String
+  reviewerId    String?
+  requestedData Json
+  status        CoachProfileChangeStatus @default(PENDING)
+  reviewReason  String?
+  reviewedAt    DateTime?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+
+  coach    CoachProfile @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  reviewer User?        @relation("CoachProfileChangeReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([coachId, status, createdAt])
+  @@index([status, createdAt])
+}
+
+model MemberProfileChangeRequest {
+  id             String                   @id @default(cuid())
+  memberId       String
+  reviewerId     String?
+  stagedAvatarId String?
+  requestedData  Json
+  status         CoachProfileChangeStatus @default(PENDING)
+  reviewReason   String?
+  reviewedAt     DateTime?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  member   MemberProfile @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  reviewer User?         @relation("MemberProfileChangeReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([memberId, status, createdAt])
+  @@index([status, createdAt])
+}
+
+model NutritionFoodItem {
+  id        String   @id @default(cuid())
+  mealId    String
+  name      String
+  quantity  String?
+  calories  Int?
+  proteinG  Decimal? @db.Decimal(6, 2)
+  carbsG    Decimal? @db.Decimal(6, 2)
+  fatG      Decimal? @db.Decimal(6, 2)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  meal NutritionMeal @relation(fields: [mealId], references: [id], onDelete: Cascade)
+
+  @@index([mealId, sortOrder])
+}
+
+model CoachRequest {
+  id                  String              @id @default(cuid())
+  memberId            String
+  coachId             String
+  type                CoachRequestType
+  status              CoachRequestStatus  @default(PENDING)
+  message             String?
+  dueAt               DateTime?
+  completedAt         DateTime?
+  requiredPhotoTypes  ProgressPhotoType[] @default([FRONT, SIDE, BACK])
+  submittedPhotoTypes ProgressPhotoType[] @default([])
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  member MemberProfile @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  coach  CoachProfile  @relation(fields: [coachId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, status, createdAt])
+  @@index([coachId, status, createdAt])
+}
+
+model ProfileUpdateHistory {
+  id            String   @id @default(cuid())
+  userId        String
+  field         String
+  previousValue String?
+  newValue      String?
+  createdAt     DateTime @default(now())
+
+  user User @relation("ProfileHistoryUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  titleAr   String
+  bodyAr    String
+  actionUrl String?
+  metadata  Json?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  actorId    String?
+  action     AuditAction
+  entityType String
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime    @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+}
+
+model GymSettings {
+  id            String   @id @default(cuid())
+  singletonKey  String   @unique @default("primary")
+  nameAr        String
+  nameEn        String
+  descriptionAr String?
+  descriptionEn String?
+  phone         String?
+  email         String?
+  addressAr     String?
+  addressEn     String?
+  latitude      Decimal? @db.Decimal(9, 6)
+  longitude     Decimal? @db.Decimal(9, 6)
+  openingHours  Json?
+  socialLinks   Json?
+  logoUrl       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

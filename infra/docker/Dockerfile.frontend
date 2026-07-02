@@ -1,0 +1,30 @@
+FROM node:24-alpine AS deps
+WORKDIR /app
+RUN corepack enable
+COPY package.json pnpm-workspace.yaml turbo.json tsconfig.base.json ./
+COPY frontend/package.json frontend/package.json
+COPY packages/shared/package.json packages/shared/package.json
+RUN pnpm install --frozen-lockfile
+
+FROM deps AS builder
+COPY frontend frontend
+COPY packages/shared packages/shared
+RUN pnpm --filter @progym/shared build
+RUN pnpm --filter @progym/frontend build
+
+FROM node:24-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+RUN corepack enable
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/frontend/node_modules ./frontend/node_modules
+COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY --from=builder /app/frontend/.next ./frontend/.next
+COPY --from=builder /app/frontend/public ./frontend/public
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY package.json pnpm-workspace.yaml ./
+COPY frontend/package.json frontend/package.json
+COPY packages/shared/package.json packages/shared/package.json
+WORKDIR /app/frontend
+EXPOSE 3000
+CMD ["pnpm", "start"]

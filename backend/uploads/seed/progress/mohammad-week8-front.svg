@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="960" viewBox="0 0 960 960">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.45" stop-color="#eef6e9"/>
+      <stop offset="1" stop-color="#22ff00"/>
+    </linearGradient>
+  </defs>
+  <rect width="960" height="960" rx="80" fill="url(#g)"/>
+  <rect x="58" y="58" width="844" height="844" rx="62" fill="none" stroke="#071006" stroke-opacity=".16" stroke-width="8"/>
+  <circle cx="742" cy="210" r="118" fill="#22ff00" opacity=".55"/>
+  <path d="M168 650h624v44H168zm96-118h432v38H264zm76-118h278v34H340z" fill="#071006" opacity=".88"/>
+  <text x="86" y="180" fill="#071006" font-family="Arial, sans-serif" font-size="76" font-weight="900">محمد</text>
+  <text x="88" y="258" fill="#31402f" font-family="Arial, sans-serif" font-size="32" font-weight="700">FRONT WEEK 8</text>
+</svg>
