@@ -101,7 +101,7 @@ export function PublicNav({ locale }: { locale: PublicLocale }) {
           </Link>
           <Link
             className="group hidden items-center gap-4 bg-[#39ff14] px-4 py-3 text-[0.62rem] font-black text-black transition hover:bg-white md:flex"
-            href={`/${locale}/register`}
+            href={`/${locale}/login`}
           >
             {content.start}
             <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />

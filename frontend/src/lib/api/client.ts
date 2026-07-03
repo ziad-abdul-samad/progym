@@ -33,8 +33,12 @@ export async function apiRequest<TData>(path: string, init: RequestInit = {}): P
     if (csrfToken) headers.set('x-csrf-token', decodeURIComponent(csrfToken));
   }
 
+  const apiBaseUrl =
+    typeof window === 'undefined'
+      ? (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1')
+      : '/api/v1';
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1'}${path}`,
+    `${apiBaseUrl}${path}`,
     {
       ...init,
       credentials: 'include',

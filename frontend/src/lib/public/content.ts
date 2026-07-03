@@ -54,49 +54,49 @@ export const publicImages = {
       ar: 'مدرب يساعد عضوا في تمرين القوة',
       en: 'Coach guiding a member through strength training',
     }),
-    src: 'https://images.unsplash.com/photo-1579758629938-03607ccdbaba?auto=format&fit=crop&w=1400&q=82',
+    src: '/images/gym/optimized/gym-07.webp',
   },
   community: {
     alt: {
       ar: 'مجموعة تتمرن داخل نادي حديث',
       en: 'Group training inside a modern gym',
     },
-    src: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1400&q=82',
+    src: '/images/gym/optimized/gym-06.webp',
   },
   equipment: {
     alt: {
       ar: 'أوزان ومعدات تدريب احترافية',
       en: 'Professional weights and training equipment',
     },
-    src: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&w=1400&q=82',
+    src: '/images/gym/optimized/gym-09.webp',
   },
   facility: {
     alt: {
       ar: 'صالة تدريب واسعة بتجهيزات قوة',
       en: 'Spacious strength training floor',
     },
-    src: 'https://images.unsplash.com/photo-1576678927484-cc907957088c?auto=format&fit=crop&w=1800&q=84',
+    src: '/images/gym/optimized/gym-03.webp',
   },
   hero: {
     alt: {
       ar: 'رياضي يستعد لرفع البار داخل صالة تدريب احترافية',
       en: 'Athlete preparing to lift a barbell in a professional gym',
     },
-    src: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=2200&q=86',
+    src: '/images/gym/optimized/gym-01.webp',
   },
   membership: {
     alt: {
       ar: 'رياضي يتدرب بالحبال داخل النادي',
       en: 'Athlete training with battle ropes',
     },
-    src: 'https://images.unsplash.com/photo-1534258936925-c58bed479fcb?auto=format&fit=crop&w=1500&q=82',
+    src: '/images/gym/optimized/gym-04.webp',
   },
   transformation: {
     alt: localizedRecord({
       ar: 'رياضي يرفع الأوزان ضمن برنامج تطوير القوة',
       en: 'Athlete lifting weights during a strength program',
     }),
-    src: 'https://images.unsplash.com/photo-1605296867304-46d5465a13f1?auto=format&fit=crop&w=1400&q=82',
+    src: '/images/gym/optimized/gym-08.webp',
   },
 } satisfies Record<string, PublicImage>;
 
@@ -439,7 +439,7 @@ export const coaches = [
     experience: { ar: '8 سنوات خبرة', en: '8 years experience' },
     image: {
       alt: { ar: 'المدرب عمر', en: 'Coach Omar' },
-      src: 'https://images.unsplash.com/photo-1579758629938-03607ccdbaba?auto=format&fit=crop&w=900&q=82',
+      src: '/images/gym/optimized/gym-02.webp',
     },
     name: { ar: 'عمر الخطيب', en: 'Omar Al Khatib' },
     specialty: { ar: 'قوة وتحول جسدي', en: 'Strength and Transformation' },
@@ -452,7 +452,7 @@ export const coaches = [
     experience: { ar: '6 سنوات خبرة', en: '6 years experience' },
     image: {
       alt: { ar: 'المدرب كريم', en: 'Coach Karim' },
-      src: 'https://images.unsplash.com/photo-1581009137042-c552e485697a?auto=format&fit=crop&w=900&q=82',
+      src: '/images/gym/optimized/gym-06.webp',
     },
     name: { ar: 'كريم مراد', en: 'Karim Mourad' },
     specialty: { ar: 'لياقة وتغذية', en: 'Fitness and Nutrition' },
@@ -465,7 +465,7 @@ export const coaches = [
     experience: { ar: '10 سنوات خبرة', en: '10 years experience' },
     image: {
       alt: { ar: 'المدرب سامي', en: 'Coach Sami' },
-      src: 'https://images.unsplash.com/photo-1605296867304-46d5465a13f1?auto=format&fit=crop&w=900&q=82',
+      src: '/images/gym/optimized/gym-09.webp',
     },
     name: { ar: 'سامي حمدان', en: 'Sami Hamdan' },
     specialty: { ar: 'أداء وتكنيك', en: 'Performance and Technique' },
