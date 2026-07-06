@@ -94,8 +94,8 @@ export class AuthService {
       throw new ConflictException('Username or phone number already exists');
     }
 
-    const passwordHash = await hashPassword(dto.password);
-    const securityHashes = await Promise.all([
+    const [passwordHash, ...securityHashes] = await Promise.all([
+      hashPassword(dto.password),
       hashSecurityAnswer(dto.question1Answer),
       hashSecurityAnswer(dto.question2Answer),
       hashSecurityAnswer(dto.question3Answer),

@@ -24,6 +24,7 @@ export class FilesController {
   ) {
     const file = await this.prisma.fileAsset.findUnique({
       include: {
+        blob: true,
         owner: {
           include: {
             memberProfile: {
@@ -85,6 +86,11 @@ export class FilesController {
     }
 
     response.type(file.mimeType);
+    response.setHeader('Cache-Control', 'private, max-age=300');
+    if (file.blob) {
+      response.send(Buffer.from(file.blob.data));
+      return;
+    }
     response.sendFile(this.storage.getAbsolutePath(file.storageKey));
   }
 }

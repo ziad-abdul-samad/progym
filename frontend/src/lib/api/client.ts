@@ -40,6 +40,7 @@ export async function apiRequest<TData>(path: string, init: RequestInit = {}): P
   const request = () =>
     fetch(`${apiBaseUrl}${path}`, {
       ...init,
+      cache: init.cache ?? 'no-store',
       credentials: 'include',
       headers,
     });
@@ -47,7 +48,13 @@ export async function apiRequest<TData>(path: string, init: RequestInit = {}): P
 
   const canRefresh =
     response.status === 401 &&
-    !['/auth/login', '/auth/logout', '/auth/refresh', '/auth/register', '/auth/registration-status'].includes(path);
+    ![
+      '/auth/login',
+      '/auth/logout',
+      '/auth/refresh',
+      '/auth/register',
+      '/auth/registration-status',
+    ].includes(path);
   if (canRefresh) {
     const csrfToken = getCookie('csrf_token');
     const refreshHeaders = new Headers({ 'Content-Type': 'application/json' });

@@ -213,7 +213,7 @@ model User {
   profileHistory          ProfileUpdateHistory[]       @relation("ProfileHistoryUser")
   reviewedCoachChanges    CoachProfileChangeRequest[]  @relation("CoachProfileChangeReviewer")
   reviewedMemberChanges   MemberProfileChangeRequest[] @relation("MemberProfileChangeReviewer")
-  reviewedRegistrations   RegistrationRequest[]         @relation("RegistrationRequestReviewer")
+  reviewedRegistrations   RegistrationRequest[]        @relation("RegistrationRequestReviewer")
   voidedAttendanceRecords AttendanceRecord[]           @relation("AttendanceVoidActor")
   refreshSessions         RefreshSession[]
   securityAnswers         SecurityAnswer[]
@@ -433,7 +433,7 @@ model ShiftObserver {
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
-  membershipAuditLogs MembershipAuditLog[]
+  membershipAuditLogs  MembershipAuditLog[]
   registrationRequests RegistrationRequest[]
 
   @@index([status, fullName])
@@ -441,19 +441,19 @@ model ShiftObserver {
 }
 
 model RegistrationRequest {
-  id               String                    @id @default(cuid())
-  memberId         String                    @unique
-  status           RegistrationRequestStatus @default(PENDING)
-  reviewerId       String?
-  observerId       String?
-  requestedDays    Int                       @default(30)
-  approvedDays     Int?
-  reviewReason     String?
-  claimTokenHash   String                    @unique
-  claimedAt        DateTime?
-  reviewedAt       DateTime?
-  createdAt        DateTime                  @default(now())
-  updatedAt        DateTime                  @updatedAt
+  id             String                    @id @default(cuid())
+  memberId       String                    @unique
+  status         RegistrationRequestStatus @default(PENDING)
+  reviewerId     String?
+  observerId     String?
+  requestedDays  Int                       @default(30)
+  approvedDays   Int?
+  reviewReason   String?
+  claimTokenHash String                    @unique
+  claimedAt      DateTime?
+  reviewedAt     DateTime?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
 
   member   MemberProfile  @relation(fields: [memberId], references: [id], onDelete: Cascade)
   reviewer User?          @relation("RegistrationRequestReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
@@ -640,8 +640,16 @@ model FileAsset {
 
   owner         User?          @relation("FileOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   progressPhoto ProgressPhoto?
+  blob          FileAssetBlob?
 
   @@index([ownerUserId, createdAt])
+}
+
+model FileAssetBlob {
+  fileAssetId String @id
+  data        Bytes
+
+  fileAsset FileAsset @relation(fields: [fileAssetId], references: [id], onDelete: Cascade)
 }
 
 model WorkoutPlan {
@@ -662,10 +670,10 @@ model WorkoutPlan {
   coach  CoachProfile      @relation(fields: [coachId], references: [id], onDelete: Restrict)
   items  WorkoutPlanItem[]
 
+  @@unique([seriesId, version])
   @@index([memberId, status])
   @@index([coachId, status])
   @@index([seriesId, version])
-  @@unique([seriesId, version])
 }
 
 model WorkoutPlanItem {
@@ -693,20 +701,20 @@ model WorkoutPlanItem {
 }
 
 model WorkoutLog {
-  id            String           @id @default(cuid())
-  memberId      String
-  planItemId    String?
-  exerciseId    String?
-  source        WorkoutLogSource
-  performedAt   DateTime         @default(now())
-  setsCompleted Int?
-  repsCompleted String?
-  load          String?
-  completed     Boolean          @default(true)
-  isPersonalRecord Boolean       @default(false)
-  notes         String?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  id               String           @id @default(cuid())
+  memberId         String
+  planItemId       String?
+  exerciseId       String?
+  source           WorkoutLogSource
+  performedAt      DateTime         @default(now())
+  setsCompleted    Int?
+  repsCompleted    String?
+  load             String?
+  completed        Boolean          @default(true)
+  isPersonalRecord Boolean          @default(false)
+  notes            String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
   member   MemberProfile    @relation(fields: [memberId], references: [id], onDelete: Cascade)
   planItem WorkoutPlanItem? @relation(fields: [planItemId], references: [id], onDelete: SetNull)
@@ -740,10 +748,10 @@ model NutritionPlan {
   coach  CoachProfile    @relation(fields: [coachId], references: [id], onDelete: Restrict)
   meals  NutritionMeal[]
 
+  @@unique([seriesId, version])
   @@index([memberId, status])
   @@index([coachId, status])
   @@index([seriesId, version])
-  @@unique([seriesId, version])
 }
 
 model NutritionMeal {

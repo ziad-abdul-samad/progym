@@ -9,6 +9,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -73,11 +74,9 @@ export class AuthController {
   }
 
   @Post('register')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @UseInterceptors(FileInterceptor('photo'))
-  async register(
-    @Body() dto: RegisterDto,
-    @UploadedFile() photo: Express.Multer.File | undefined,
-  ) {
+  async register(@Body() dto: RegisterDto, @UploadedFile() photo: Express.Multer.File | undefined) {
     const result = await this.authService.register(dto, photo);
     return { data: result };
   }
@@ -96,6 +95,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @Throttle({ default: { limit: 15, ttl: 60_000 } })
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) response: Response) {
     const result = await this.authService.login(dto);
     setAuthCookies(response, result.tokens);

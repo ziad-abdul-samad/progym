@@ -1,7 +1,16 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowUpRight, Camera, Dumbbell, Eye, EyeOff, LockKeyhole, ShieldQuestion, UserRound } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Camera,
+  Dumbbell,
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  ShieldQuestion,
+  UserRound,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
@@ -135,7 +144,10 @@ export function LoginForm({ locale = 'ar' }: { locale?: PublicLocale }) {
       }),
     onSuccess: async (user) => {
       await queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
-      push({ title: locale === 'ar' ? 'تم تسجيل الدخول' : 'Signed in successfully', tone: 'success' });
+      push({
+        title: locale === 'ar' ? 'تم تسجيل الدخول' : 'Signed in successfully',
+        tone: 'success',
+      });
       const next = searchParams.get('next');
       const safeNext = next?.startsWith(`/${locale}/`) && !next.startsWith('//') ? next : null;
       router.push(user.role === 'MEMBER' && safeNext ? safeNext : dashboardPath(user, locale));
@@ -232,7 +244,9 @@ export function LoginForm({ locale = 'ar' }: { locale?: PublicLocale }) {
 
       <div className="flex items-center gap-4 py-1">
         <span className="h-px flex-1 bg-white/10" />
-        <span className="text-[0.54rem] font-black uppercase tracking-[0.14em] text-white/24">{copy.noAccount}</span>
+        <span className="text-[0.54rem] font-black uppercase tracking-[0.14em] text-white/24">
+          {copy.noAccount}
+        </span>
         <span className="h-px flex-1 bg-white/10" />
       </div>
       <Link
@@ -351,7 +365,7 @@ export function ImmersiveRegisterForm({ locale = 'ar' }: { locale?: PublicLocale
         method: 'POST',
       }),
     queryKey: ['registration-status', claimToken],
-    refetchInterval: (query) => (query.state.data?.status === 'PENDING' ? 3000 : false),
+    refetchInterval: (query) => (query.state.data?.status === 'PENDING' ? 1_000 : false),
     retry: true,
   });
 
@@ -369,7 +383,10 @@ export function ImmersiveRegisterForm({ locale = 'ar' }: { locale?: PublicLocale
       }),
     onSuccess: (result) => {
       push({
-        body: locale === 'ar' ? 'سيظهر حسابك مباشرة بعد اعتماد المراقب' : 'Your account will open after staff approval',
+        body:
+          locale === 'ar'
+            ? 'سيظهر حسابك مباشرة بعد اعتماد المراقب'
+            : 'Your account will open after staff approval',
         title: locale === 'ar' ? 'تم إرسال طلبك' : 'Request submitted',
         tone: 'success',
       });
@@ -390,7 +407,9 @@ export function ImmersiveRegisterForm({ locale = 'ar' }: { locale?: PublicLocale
     const rejected = approval.data?.status === 'REJECTED';
     return (
       <div className="border border-white/10 bg-[#080a08]/95 p-7 text-center md:p-12">
-        <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full border ${rejected ? 'border-red-400/40 text-red-300' : 'border-[#39ff14]/40 text-[#39ff14]'}`}>
+        <div
+          className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full border ${rejected ? 'border-red-400/40 text-red-300' : 'border-[#39ff14]/40 text-[#39ff14]'}`}
+        >
           <ShieldQuestion className="h-7 w-7" />
         </div>
         <p className="mt-6 text-[0.6rem] font-black uppercase tracking-[0.2em] text-[#39ff14]">
@@ -398,17 +417,26 @@ export function ImmersiveRegisterForm({ locale = 'ar' }: { locale?: PublicLocale
         </p>
         <h2 className="mt-4 font-ar-display text-3xl font-black leading-[1.45] text-white">
           {rejected
-            ? locale === 'ar' ? 'تعذّر اعتماد الطلب' : 'Request not approved'
-            : locale === 'ar' ? 'طلبك بانتظار اعتماد المراقب' : 'Waiting for staff approval'}
+            ? locale === 'ar'
+              ? 'تعذّر اعتماد الطلب'
+              : 'Request not approved'
+            : locale === 'ar'
+              ? 'طلبك بانتظار اعتماد المراقب'
+              : 'Waiting for staff approval'}
         </h2>
         <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-white/50">
           {rejected
-            ? approval.data?.reason || (locale === 'ar' ? 'راجع موظف الاستقبال لمعرفة السبب.' : 'Please ask reception for details.')
+            ? approval.data?.reason ||
+              (locale === 'ar'
+                ? 'راجع موظف الاستقبال لمعرفة السبب.'
+                : 'Please ask reception for details.')
             : locale === 'ar'
               ? 'ابقَ في هذه الصفحة. سيتم تسجيل دخولك تلقائياً بعد مراجعة بياناتك وصورتك وتحديد مدة الاشتراك.'
               : 'Keep this page open. You will be signed in automatically after your details, photo, and membership duration are approved.'}
         </p>
-        {!rejected ? <span className="mx-auto mt-7 block h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-[#39ff14]" /> : null}
+        {!rejected ? (
+          <span className="mx-auto mt-7 block h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-[#39ff14]" />
+        ) : null}
       </div>
     );
   }
@@ -416,7 +444,9 @@ export function ImmersiveRegisterForm({ locale = 'ar' }: { locale?: PublicLocale
   return (
     <form className="border border-white/10 bg-[#080a08]/90 p-5 md:p-8 lg:p-10" onSubmit={submit}>
       <div className="mb-10">
-        <p className="text-[0.58rem] font-black uppercase tracking-[0.2em] text-[#39ff14]">Pro Gym / Onboarding</p>
+        <p className="text-[0.58rem] font-black uppercase tracking-[0.2em] text-[#39ff14]">
+          Pro Gym / Onboarding
+        </p>
         <h2
           className={`mt-4 font-black text-white ${
             locale === 'ar'
@@ -432,9 +462,25 @@ export function ImmersiveRegisterForm({ locale = 'ar' }: { locale?: PublicLocale
       <section>
         <RegisterSectionHeader icon={UserRound} number="01" title={copy.identity} />
         <div className="grid gap-4 md:grid-cols-2">
-          <Input className={registerInputClass} name="fullName" placeholder={copy.fullName} required />
-          <Input className={registerInputClass} name="username" placeholder={copy.username} required />
-          <Input className={registerInputClass} name="password" placeholder={copy.password} required type="password" />
+          <Input
+            className={registerInputClass}
+            name="fullName"
+            placeholder={copy.fullName}
+            required
+          />
+          <Input
+            className={registerInputClass}
+            name="username"
+            placeholder={copy.username}
+            required
+          />
+          <Input
+            className={registerInputClass}
+            name="password"
+            placeholder={copy.password}
+            required
+            type="password"
+          />
           <Input
             className={registerInputClass}
             name="passwordConfirmation"
@@ -443,7 +489,7 @@ export function ImmersiveRegisterForm({ locale = 'ar' }: { locale?: PublicLocale
             type="password"
           />
           <Input className={registerInputClass} name="phone" placeholder={copy.phone} required />
-          <div className="relative">
+          <div className="relative min-w-0 overflow-hidden">
             <label
               className="pointer-events-none absolute start-4 top-2 z-10 text-[0.48rem] font-black uppercase tracking-[0.12em] text-white/30"
               htmlFor="register-birth-date"
@@ -452,7 +498,7 @@ export function ImmersiveRegisterForm({ locale = 'ar' }: { locale?: PublicLocale
             </label>
             <Input
               aria-label={copy.dateOfBirth}
-              className={`${registerInputClass} pt-5 [color-scheme:dark]`}
+              className={`${registerInputClass} min-w-0 max-w-full appearance-none pt-5 [color-scheme:dark]`}
               id="register-birth-date"
               name="dateOfBirth"
               required
@@ -472,9 +518,15 @@ export function ImmersiveRegisterForm({ locale = 'ar' }: { locale?: PublicLocale
               name="gender"
               required
             >
-              <option className="bg-[#080a08]" value="MALE">{copy.male}</option>
-              <option className="bg-[#080a08]" value="FEMALE">{copy.female}</option>
-              <option className="bg-[#080a08]" value="OTHER">{copy.other}</option>
+              <option className="bg-[#080a08]" value="MALE">
+                {copy.male}
+              </option>
+              <option className="bg-[#080a08]" value="FEMALE">
+                {copy.female}
+              </option>
+              <option className="bg-[#080a08]" value="OTHER">
+                {copy.other}
+              </option>
             </select>
           </div>
         </div>
@@ -483,17 +535,29 @@ export function ImmersiveRegisterForm({ locale = 'ar' }: { locale?: PublicLocale
       <section className="mt-12">
         <RegisterSectionHeader icon={Dumbbell} number="02" title={copy.metrics} />
         <div className="grid gap-4 md:grid-cols-2">
-          <Input className={registerInputClass} min="1" name="heightCm" placeholder={copy.height} required type="number" />
-          <Input className={registerInputClass} min="1" name="weightKg" placeholder={copy.weight} required type="number" />
+          <Input
+            className={registerInputClass}
+            min="1"
+            name="heightCm"
+            placeholder={copy.height}
+            required
+            type="number"
+          />
+          <Input
+            className={registerInputClass}
+            min="1"
+            name="weightKg"
+            placeholder={copy.weight}
+            required
+            type="number"
+          />
           <Input
             className={`${registerInputClass} md:col-span-2`}
             name="fitnessGoal"
             placeholder={copy.fitnessGoal}
             required
           />
-          <label
-            className="group flex min-h-28 cursor-pointer items-center gap-5 border border-dashed border-white/16 bg-white/[0.025] p-5 transition hover:border-[#39ff14]/60 md:col-span-2"
-          >
+          <label className="group flex min-h-28 cursor-pointer items-center gap-5 border border-dashed border-white/16 bg-white/[0.025] p-5 transition hover:border-[#39ff14]/60 md:col-span-2">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center border border-white/12 text-[#39ff14]">
               <Camera className="h-5 w-5" />
             </span>
@@ -501,7 +565,9 @@ export function ImmersiveRegisterForm({ locale = 'ar' }: { locale?: PublicLocale
               <span className="block text-sm font-black text-white">{copy.photo}</span>
               <span className="mt-1 block text-xs text-white/30">JPG / PNG / WEBP</span>
             </span>
-            <span className="ms-auto max-w-44 truncate text-xs text-white/35">{photo?.name ?? copy.noFile}</span>
+            <span className="ms-auto max-w-44 truncate text-xs text-white/35">
+              {photo?.name ?? copy.noFile}
+            </span>
             <input
               accept="image/jpeg,image/png,image/webp"
               className="sr-only"

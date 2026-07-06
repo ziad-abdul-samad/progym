@@ -69,6 +69,11 @@ export class StorageService {
     return this.prisma.fileAsset.create({
       data: {
         byteSize: safeBuffer.byteLength,
+        blob: {
+          create: {
+            data: Uint8Array.from(safeBuffer),
+          },
+        },
         mimeType: 'image/jpeg',
         originalName: file.originalname,
         ownerUserId,

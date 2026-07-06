@@ -28,7 +28,7 @@ import { StorageModule } from './storage/storage.module';
     CommonModule,
     ThrottlerModule.forRoot([
       {
-        limit: 100,
+        limit: 240,
         ttl: 60_000,
       },
     ]),

@@ -63,7 +63,7 @@ export function ReceptionEventCenter() {
   const feed = useQuery({
     queryFn: () => apiRequest<ReceptionEvent[]>('/admin/reception-feed'),
     queryKey: ['reception-feed'],
-    refetchInterval: 5_000,
+    refetchInterval: 1_000,
   });
   const observers = useQuery({
     queryFn: () =>
@@ -73,7 +73,12 @@ export function ReceptionEventCenter() {
     queryKey: ['shift-observers', 'reception-select'],
   });
   const review = useMutation({
-    mutationFn: (payload: { approve: boolean; days?: number; observerId?: string; reason: string }) =>
+    mutationFn: (payload: {
+      approve: boolean;
+      days?: number;
+      observerId?: string;
+      reason: string;
+    }) =>
       apiRequest(`/admin/registration-requests/${activeEvent?.requestId}/review`, {
         body: jsonBody(payload),
         method: 'POST',
@@ -186,7 +191,9 @@ export function ReceptionEventCenter() {
                   <Button
                     isLoading={review.isPending}
                     loadingText="جاري رفض الطلب"
-                    onClick={() => review.mutate({ approve: false, reason: 'رفض الطلب من نافذة الاستقبال' })}
+                    onClick={() =>
+                      review.mutate({ approve: false, reason: 'رفض الطلب من نافذة الاستقبال' })
+                    }
                     type="button"
                     variant="danger"
                   >
@@ -208,7 +215,14 @@ export function ReceptionEventCenter() {
                 });
               }}
             >
-              <Input defaultValue={30} min={1} name="days" placeholder="عدد أيام الاشتراك" required type="number" />
+              <Input
+                defaultValue={30}
+                min={1}
+                name="days"
+                placeholder="عدد أيام الاشتراك"
+                required
+                type="number"
+              />
               <select
                 className="min-h-11 w-full rounded-lg border border-input bg-background px-3 text-sm font-bold"
                 name="observerId"

@@ -46,12 +46,16 @@ export function RegistrationRequestsPage() {
   const [reason, setReason] = useState('');
 
   const requests = useQuery({
-    queryFn: () => apiRequest<PaginatedResponse<Request>>(`/admin/registration-requests?page=${page}&pageSize=12&status=${status}&q=${encodeURIComponent(deferredQuery)}`),
+    queryFn: () =>
+      apiRequest<PaginatedResponse<Request>>(
+        `/admin/registration-requests?page=${page}&pageSize=12&status=${status}&q=${encodeURIComponent(deferredQuery)}`,
+      ),
     queryKey: ['registration-requests', page, status, deferredQuery],
-    refetchInterval: 5000,
+    refetchInterval: 1_500,
   });
   const observers = useQuery({
-    queryFn: () => apiRequest<PaginatedResponse<Observer>>('/admin/observers?page=1&pageSize=100&status=ACTIVE'),
+    queryFn: () =>
+      apiRequest<PaginatedResponse<Observer>>('/admin/observers?page=1&pageSize=100&status=ACTIVE'),
     queryKey: ['shift-observers', 'registration-requests'],
   });
   const review = useMutation({
@@ -81,16 +85,35 @@ export function RegistrationRequestsPage() {
       <Card>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-brand-accent">Pro Gym / Reception</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-brand-accent">
+              Pro Gym / Reception
+            </p>
             <CardTitle className="mt-2 text-2xl">طلبات إنشاء الحسابات</CardTitle>
-            <p className="mt-2 text-sm leading-7 text-muted-foreground">سجل كامل للطلبات الجديدة والطلبات المعتمدة أو المرفوضة.</p>
+            <p className="mt-2 text-sm leading-7 text-muted-foreground">
+              سجل كامل للطلبات الجديدة والطلبات المعتمدة أو المرفوضة.
+            </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-[minmax(14rem,1fr)_12rem]">
             <label className="relative">
               <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="ps-10" onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="الاسم، المستخدم، الهاتف" value={query} />
+              <Input
+                className="ps-10"
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setPage(1);
+                }}
+                placeholder="الاسم، المستخدم، الهاتف"
+                value={query}
+              />
             </label>
-            <select className="min-h-11 rounded-lg border border-input bg-card px-4 text-sm font-bold" onChange={(event) => { setStatus(event.target.value); setPage(1); }} value={status}>
+            <select
+              className="min-h-11 rounded-lg border border-input bg-card px-4 text-sm font-bold"
+              onChange={(event) => {
+                setStatus(event.target.value);
+                setPage(1);
+              }}
+              value={status}
+            >
               <option value="">كل الحالات</option>
               <option value="PENDING">قيد الانتظار</option>
               <option value="APPROVED">مقبول</option>
@@ -100,29 +123,56 @@ export function RegistrationRequestsPage() {
         </div>
       </Card>
 
-      {requests.isLoading ? <DashboardLoader /> : requests.error ? <ErrorState message={requests.error.message} /> : !requests.data?.items.length ? (
+      {requests.isLoading ? (
+        <DashboardLoader />
+      ) : requests.error ? (
+        <ErrorState message={requests.error.message} />
+      ) : !requests.data?.items.length ? (
         <EmptyState body="لا توجد طلبات مطابقة للتصفية الحالية." title="لا توجد طلبات" />
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {requests.data.items.map((request) => (
             <Card className="flex flex-col gap-5 sm:flex-row" key={request.id}>
               <div className="relative h-28 w-full shrink-0 overflow-hidden rounded-lg bg-muted sm:h-32 sm:w-28">
-                {request.member.user.avatarUrl ? <Image alt={request.member.user.fullName} fill sizes="112px" className="object-cover" src={request.member.user.avatarUrl} /> : null}
+                {request.member.user.avatarUrl ? (
+                  <Image
+                    alt={request.member.user.fullName}
+                    fill
+                    sizes="112px"
+                    className="object-cover"
+                    src={request.member.user.avatarUrl}
+                  />
+                ) : null}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <h2 className="font-black">{request.member.user.fullName}</h2>
-                    <p className="mt-1 text-xs text-muted-foreground">@{request.member.user.username} · {request.member.user.phone}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      @{request.member.user.username} · {request.member.user.phone}
+                    </p>
                   </div>
                   <StatusBadge status={request.status} />
                 </div>
-                <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{request.member.fitnessGoal}</p>
+                <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
+                  {request.member.fitnessGoal}
+                </p>
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
-                  <span className="text-xs text-muted-foreground">{formatCompactDateTime(request.createdAt)}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatCompactDateTime(request.createdAt)}
+                  </span>
                   {request.status === 'PENDING' ? (
-                    <Button className="h-10" onClick={() => open(request)}><UserCheck className="h-4 w-4" /> مراجعة الطلب</Button>
-                  ) : <span className="text-xs font-bold">{request.reviewer?.fullName ?? '—'} · {request.approvedDays ? `${request.approvedDays} يوم` : request.reviewReason ?? '—'}</span>}
+                    <Button className="h-10" onClick={() => open(request)}>
+                      <UserCheck className="h-4 w-4" /> مراجعة الطلب
+                    </Button>
+                  ) : (
+                    <span className="text-xs font-bold">
+                      {request.reviewer?.fullName ?? '—'} ·{' '}
+                      {request.approvedDays
+                        ? `${request.approvedDays} يوم`
+                        : (request.reviewReason ?? '—')}
+                    </span>
+                  )}
                 </div>
               </div>
             </Card>
@@ -131,38 +181,83 @@ export function RegistrationRequestsPage() {
       )}
       {requests.data ? <Pagination meta={requests.data.meta} onPageChange={setPage} /> : null}
 
-      <Dialog description="راجع صورة اللاعب وبياناته، ثم حدد المراقب ومدة الاشتراك عند القبول." onClose={() => setSelected(null)} open={Boolean(selected)} title="مراجعة طلب التسجيل">
+      <Dialog
+        description="راجع صورة اللاعب وبياناته، ثم حدد المراقب ومدة الاشتراك عند القبول."
+        onClose={() => setSelected(null)}
+        open={Boolean(selected)}
+        title="مراجعة طلب التسجيل"
+      >
         {selected ? (
           <div className="space-y-5">
             <div className="grid gap-4 rounded-lg border border-border p-4 sm:grid-cols-[8rem_1fr]">
               <div className="relative h-36 overflow-hidden rounded-lg bg-muted">
-                {selected.member.user.avatarUrl ? <Image alt={selected.member.user.fullName} fill sizes="128px" className="object-cover" src={selected.member.user.avatarUrl} /> : null}
+                {selected.member.user.avatarUrl ? (
+                  <Image
+                    alt={selected.member.user.fullName}
+                    fill
+                    sizes="128px"
+                    className="object-cover"
+                    src={selected.member.user.avatarUrl}
+                  />
+                ) : null}
               </div>
               <div className="text-sm leading-7">
                 <strong className="block text-lg">{selected.member.user.fullName}</strong>
-                <span className="block text-muted-foreground">{selected.member.user.phone} · @{selected.member.user.username}</span>
-                <span className="block">الطول: {selected.member.heightCm} سم · الوزن: {selected.member.currentWeightKg} كغ</span>
+                <span className="block text-muted-foreground">
+                  {selected.member.user.phone} · @{selected.member.user.username}
+                </span>
+                <span className="block">
+                  الطول: {selected.member.heightCm} سم · الوزن: {selected.member.currentWeightKg} كغ
+                </span>
                 <span className="block">الهدف: {selected.member.fitnessGoal}</span>
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="space-y-2 text-sm font-bold">
                 <span>المراقب</span>
-                <select className="min-h-11 w-full rounded-lg border border-input bg-card px-3" onChange={(event) => setObserverId(event.target.value)} value={observerId}>
+                <select
+                  className="min-h-11 w-full rounded-lg border border-input bg-card px-3"
+                  onChange={(event) => setObserverId(event.target.value)}
+                  value={observerId}
+                >
                   <option value="">اختر المراقب</option>
-                  {observers.data?.items.map((observer) => <option key={observer.id} value={observer.id}>{observer.fullName}</option>)}
+                  {observers.data?.items.map((observer) => (
+                    <option key={observer.id} value={observer.id}>
+                      {observer.fullName}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className="space-y-2 text-sm font-bold">
                 <span>عدد أيام الاشتراك</span>
-                <Input min={1} onChange={(event) => setDays(Number(event.target.value))} type="number" value={days} />
+                <Input
+                  min={1}
+                  onChange={(event) => setDays(Number(event.target.value))}
+                  type="number"
+                  value={days}
+                />
               </label>
             </div>
-            <Textarea onChange={(event) => setReason(event.target.value)} placeholder="ملاحظة اختيارية، وتظهر للاعب عند الرفض" value={reason} />
+            <Textarea
+              onChange={(event) => setReason(event.target.value)}
+              placeholder="ملاحظة اختيارية، وتظهر للاعب عند الرفض"
+              value={reason}
+            />
             {review.error ? <ErrorState message={review.error.message} /> : null}
             <div className="grid gap-3 sm:grid-cols-2">
-              <Button disabled={review.isPending || !observerId || days < 1} onClick={() => review.mutate(true)}><Check className="h-4 w-4" /> قبول وتفعيل الاشتراك</Button>
-              <Button disabled={review.isPending} onClick={() => review.mutate(false)} variant="danger"><X className="h-4 w-4" /> رفض الطلب</Button>
+              <Button
+                disabled={review.isPending || !observerId || days < 1}
+                onClick={() => review.mutate(true)}
+              >
+                <Check className="h-4 w-4" /> قبول وتفعيل الاشتراك
+              </Button>
+              <Button
+                disabled={review.isPending}
+                onClick={() => review.mutate(false)}
+                variant="danger"
+              >
+                <X className="h-4 w-4" /> رفض الطلب
+              </Button>
             </div>
           </div>
         ) : null}
