@@ -8,9 +8,14 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   async rewrites() {
+    const apiProxyTarget =
+      process.env.API_PROXY_TARGET ??
+      process.env.NEXT_PUBLIC_API_URL ??
+      'http://localhost:4000/api/v1';
+
     return [
       {
-        destination: `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1'}/:path*`,
+        destination: `${apiProxyTarget.replace(/\/$/, '')}/:path*`,
         source: '/api/v1/:path*',
       },
     ];

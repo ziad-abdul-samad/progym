@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: progym-homs-api
+    runtime: node
+    plan: free
+    branch: codex/public-auth-redesign
+    buildCommand: >-
+      corepack pnpm install --frozen-lockfile &&
+      corepack pnpm --filter @progym/shared build &&
+      corepack pnpm --filter @progym/backend db:generate &&
+      corepack pnpm --filter @progym/backend build
+    startCommand: >-
+      corepack pnpm --filter @progym/backend exec prisma migrate deploy &&
+      corepack pnpm --filter @progym/backend db:seed &&
+      corepack pnpm --filter @progym/backend start
+    healthCheckPath: /api/v1/auth/security-questions
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_ORIGINS
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_RESET_SECRET
+        generateValue: true
+      - key: SEED_ADMIN_USERNAME
+        value: admin
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
+      - key: SEED_DEMO_DATA
+        value: "false"
