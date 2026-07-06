@@ -31,6 +31,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
+import type { PublicLocale } from '@progym/shared';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -42,6 +43,7 @@ import { brand } from '@/lib/public/content';
 import { useAuth, type SessionUser } from '@/lib/auth/use-auth';
 import { cn, formatCompactDateTime } from '@/lib/utils';
 import { ReceptionEventCenter } from '@/features/admin/reception-event-center';
+import { MemberLocaleProvider } from '@/features/member/member-locale';
 
 type NavItem = {
   href: string;
@@ -53,6 +55,7 @@ const navItems: Record<SessionUser['role'], NavItem[]> = {
   ADMIN: [
     { href: '/ar/dashboard/admin', icon: Gauge, label: 'لوحة التحكم' },
     { href: '/ar/dashboard/admin/members', icon: Users, label: 'الأعضاء' },
+    { href: '/ar/dashboard/admin/registrations', icon: UserRoundCheck, label: 'طلبات التسجيل' },
     { href: '/ar/dashboard/admin/coaches', icon: UserCog, label: 'المدربون' },
     { href: '/ar/dashboard/admin/memberships', icon: WalletCards, label: 'الاشتراكات' },
     { href: '/ar/dashboard/admin/observers', icon: ClipboardList, label: 'المراقبون' },
@@ -90,10 +93,37 @@ const roleLabel: Record<SessionUser['role'], string> = {
   MEMBER: 'عضو',
 };
 
-function homeForRole(role: SessionUser['role']): string {
+const memberNavEnglish = [
+  'Overview',
+  'Profile',
+  'Progress',
+  'Attendance',
+  'Membership history',
+  'Workouts',
+  'Nutrition',
+  'Requests',
+  'Calculators',
+] as const;
+
+function localizedNavItems(role: SessionUser['role'], locale: PublicLocale): NavItem[] {
+  if (role !== 'MEMBER' || locale === 'ar') return navItems[role];
+
+  return navItems.MEMBER.map((item, index) => ({
+    ...item,
+    href: item.href.replace('/ar/', '/en/'),
+    label: memberNavEnglish[index] ?? item.label,
+  }));
+}
+
+function localizedRoleLabel(role: SessionUser['role'], locale: PublicLocale): string {
+  if (locale === 'en' && role === 'MEMBER') return 'Player';
+  return roleLabel[role];
+}
+
+function homeForRole(role: SessionUser['role'], locale: PublicLocale = 'ar'): string {
   if (role === 'ADMIN') return '/ar/dashboard/admin';
   if (role === 'COACH') return '/ar/dashboard/coach';
-  return '/ar/dashboard/member';
+  return `/${locale}/dashboard/member`;
 }
 
 function Sidebar({
@@ -103,6 +133,7 @@ function Sidebar({
   onLogout,
   pathname,
   user,
+  locale,
 }: {
   collapsed: boolean;
   items: NavItem[];
@@ -110,6 +141,7 @@ function Sidebar({
   onLogout: () => void;
   pathname: string;
   user: SessionUser;
+  locale: PublicLocale;
 }) {
   return (
     <div className="flex h-full flex-col">
@@ -118,8 +150,8 @@ function Sidebar({
           'flex items-center gap-3 rounded-md px-3 py-3 transition hover:bg-muted',
           collapsed && 'justify-center px-2',
         )}
-        href={homeForRole(user.role)}
-        onClick={() => onNavigate?.(homeForRole(user.role))}
+        href={homeForRole(user.role, locale)}
+        onClick={() => onNavigate?.(homeForRole(user.role, locale))}
       >
         <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-border bg-white shadow-sm">
           <Image
@@ -127,7 +159,7 @@ function Sidebar({
             className="object-cover"
             fill
             sizes="44px"
-            src={brand.logoColor}
+            src={brand.logoBw}
           />
         </span>
         {!collapsed ? (
@@ -166,14 +198,14 @@ function Sidebar({
         })}
       </div>
 
-      <div className="mt-auto rounded-md border border-border bg-muted/50 p-3">
+      <div className="sticky bottom-0 z-10 mt-auto rounded-md border border-border bg-background/95 p-3 shadow-[0_-12px_28px_rgba(0,0,0,0.08)] backdrop-blur">
         {user.role === 'MEMBER' && user.assignedCoach ? (
           <div
             className={cn(
               'mb-3 border-b border-border pb-3',
               collapsed && 'flex justify-center',
             )}
-            title={collapsed ? `المدرب: ${user.assignedCoach.fullName}` : undefined}
+            title={collapsed ? `${locale === 'en' ? 'Coach' : 'المدرب'}: ${user.assignedCoach.fullName}` : undefined}
           >
             {collapsed ? (
               <UserRoundCheck className="h-5 w-5 text-green-700 dark:text-brand-accent" />
@@ -181,20 +213,22 @@ function Sidebar({
               <>
                 <p className="flex items-center gap-2 text-xs font-black text-green-700 dark:text-brand-accent">
                   <UserRoundCheck className="h-4 w-4" />
-                  مدربك الخاص
+                  {locale === 'en' ? 'Your private coach' : 'مدربك الخاص'}
                 </p>
                 <p className="mt-1 truncate text-sm font-black text-foreground">
                   {user.assignedCoach.fullName}
                 </p>
                 <p className="text-xs font-semibold text-muted-foreground">
-                  {user.assignedCoach.status === 'ACTIVE' ? 'التدريب نشط' : 'التدريب متوقف مؤقتاً'}
+                  {user.assignedCoach.status === 'ACTIVE'
+                    ? locale === 'en' ? 'Coaching active' : 'التدريب نشط'
+                    : locale === 'en' ? 'Coaching paused' : 'التدريب متوقف مؤقتاً'}
                 </p>
               </>
             )}
           </div>
         ) : null}
         <p className={cn('text-xs font-bold text-muted-foreground', collapsed && 'sr-only')}>
-          الحساب
+          {locale === 'en' ? 'Account' : 'الحساب'}
         </p>
         <p
           className={cn('mt-1 truncate text-sm font-black text-foreground', collapsed && 'sr-only')}
@@ -202,7 +236,7 @@ function Sidebar({
           {user.fullName}
         </p>
         <p className={cn('text-xs font-semibold text-muted-foreground', collapsed && 'sr-only')}>
-          {roleLabel[user.role]}
+          {localizedRoleLabel(user.role, locale)}
         </p>
         {collapsed ? <UserCog className="mx-auto h-5 w-5 text-muted-foreground" /> : null}
         <button
@@ -211,11 +245,11 @@ function Sidebar({
             collapsed && 'px-2',
           )}
           onClick={onLogout}
-          title="تسجيل الخروج"
+          title={locale === 'en' ? 'Log out' : 'تسجيل الخروج'}
           type="button"
         >
           <LogOut className="h-4 w-4" />
-          {!collapsed ? <span>تسجيل الخروج</span> : null}
+          {!collapsed ? <span>{locale === 'en' ? 'Log out' : 'تسجيل الخروج'}</span> : null}
         </button>
       </div>
     </div>
@@ -232,7 +266,7 @@ type DashboardNotification = {
   type: string;
 };
 
-function NotificationCenter() {
+function NotificationCenter({ locale }: { locale: PublicLocale }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -261,7 +295,7 @@ function NotificationCenter() {
   return (
     <div className="relative" ref={rootRef}>
       <button
-        aria-label="الإشعارات"
+        aria-label={locale === 'en' ? 'Notifications' : 'الإشعارات'}
         className="relative inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-white/58 text-foreground shadow-sm transition hover:border-brand-accent hover:bg-muted dark:bg-white/5"
         onClick={() => setOpen((value) => !value)}
         type="button"
@@ -277,28 +311,28 @@ function NotificationCenter() {
         {open ? (
           <motion.div
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            className="absolute end-0 top-12 z-50 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-2xl"
+            className="fixed inset-x-3 top-[5.25rem] z-50 flex max-h-[calc(100dvh-6rem)] flex-col overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-2xl sm:absolute sm:inset-x-auto sm:end-0 sm:top-12 sm:max-h-none sm:w-[min(24rem,calc(100vw-2rem))]"
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             initial={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.18 }}
           >
-            <div className="flex items-center justify-between gap-3 border-b border-border p-4">
-              <div>
-                <p className="font-black text-foreground">الإشعارات</p>
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border p-3 sm:items-center sm:p-4">
+              <div className="min-w-0">
+                <p className="font-black text-foreground">{locale === 'en' ? 'Notifications' : 'الإشعارات'}</p>
                 <p className="text-xs font-semibold text-muted-foreground">
-                  تنبيهات الاشتراك، الخطط، وطلبات المدرب
+                  {locale === 'en' ? 'Membership, plan, and coach request alerts' : 'تنبيهات الاشتراك، الخطط، وطلبات المدرب'}
                 </p>
               </div>
               <button
-                className="text-xs font-black text-green-700 transition hover:text-foreground dark:text-brand-accent"
+                className="shrink-0 text-xs font-black text-green-700 transition hover:text-foreground dark:text-brand-accent"
                 disabled={!unread || markAll.isPending}
                 onClick={() => markAll.mutate()}
                 type="button"
               >
-                قراءة الكل
+                {locale === 'en' ? 'Mark all read' : 'قراءة الكل'}
               </button>
             </div>
-            <div className="max-h-96 overflow-y-auto p-2">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5 sm:max-h-96 sm:flex-none sm:p-2">
               {query.data?.items.length ? (
                 query.data.items.slice(0, 12).map((item) => (
                   <Link
@@ -306,7 +340,11 @@ function NotificationCenter() {
                       'block rounded-lg p-3 transition hover:bg-muted',
                       !item.readAt && 'bg-brand-accent/10',
                     )}
-                    href={item.actionUrl ?? '#'}
+                    href={
+                      locale === 'en'
+                        ? (item.actionUrl?.replace('/ar/dashboard/member', '/en/dashboard/member') ?? '#')
+                        : (item.actionUrl ?? '#')
+                    }
                     key={item.id}
                     onClick={() => setOpen(false)}
                   >
@@ -328,7 +366,7 @@ function NotificationCenter() {
                 ))
               ) : (
                 <div className="p-6 text-center text-sm font-bold text-muted-foreground">
-                  لا توجد إشعارات حالياً
+                  {locale === 'en' ? 'No notifications currently' : 'لا توجد إشعارات حالياً'}
                 </div>
               )}
             </div>
@@ -339,7 +377,7 @@ function NotificationCenter() {
   );
 }
 
-export function DashboardShell({ children, locale }: { children: ReactNode; locale: string }) {
+export function DashboardShell({ children, locale }: { children: ReactNode; locale: PublicLocale }) {
   const pathname = usePathname();
   const router = useRouter();
   const auth = useAuth();
@@ -353,7 +391,7 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
     onSuccess: () => {
       queryClient.clear();
       setLogoutOpen(false);
-      router.replace('/ar/login');
+      router.replace(`/${locale}/login`);
       router.refresh();
     },
   });
@@ -368,23 +406,23 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
   }, [collapsed]);
 
   useEffect(() => {
-    if (locale !== 'ar') router.replace('/ar/dashboard');
-  }, [locale, router]);
-
-  useEffect(() => {
-    if (auth.isError) router.replace('/ar/login');
-  }, [auth.isError, router]);
+    if (auth.isError) router.replace(`/${locale}/login`);
+  }, [auth.isError, locale, router]);
 
   useEffect(() => {
     if (auth.data) {
-      const expected = homeForRole(auth.data.role);
+      if (locale === 'en' && auth.data.role !== 'MEMBER') {
+        router.replace(homeForRole(auth.data.role));
+        return;
+      }
+      const expected = homeForRole(auth.data.role, locale);
       const roleSegment = expected.split('/').at(-1);
-      if (!pathname.includes(`/dashboard/${roleSegment}`) && pathname !== '/ar/dashboard') {
+      if (!pathname.includes(`/dashboard/${roleSegment}`) && pathname !== `/${locale}/dashboard`) {
         router.replace(expected);
       }
-      if (pathname === '/ar/dashboard') router.replace(expected);
+      if (pathname === `/${locale}/dashboard`) router.replace(expected);
     }
-  }, [auth.data, pathname, router]);
+  }, [auth.data, locale, pathname, router]);
 
   useEffect(() => setMobileOpen(false), [pathname]);
 
@@ -398,17 +436,17 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
   if (auth.isLoading) {
     return (
       <main className="min-h-screen bg-background p-4">
-        <DashboardLoader label="جاري فتح لوحة التحكم" />
+        <DashboardLoader label={locale === 'en' ? 'Opening dashboard' : 'جاري فتح لوحة التحكم'} />
       </main>
     );
   }
 
   if (auth.isError || !auth.data) {
-    return <ErrorState message="يجب تسجيل الدخول للوصول إلى لوحة التحكم" />;
+    return <ErrorState message={locale === 'en' ? 'You must log in to access the dashboard' : 'يجب تسجيل الدخول للوصول إلى لوحة التحكم'} />;
   }
 
   const user = auth.data;
-  const items = navItems[user.role];
+  const items = localizedNavItems(user.role, locale);
   const isExpiredMember = user.role === 'MEMBER' && user.membership?.isExpired;
   const isExpiredContentLocked =
     isExpiredMember &&
@@ -421,7 +459,9 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
     Boolean(pendingPhotoRequest) &&
     pathname.includes('/dashboard/member/nutrition');
   const sidebarWidth = collapsed ? 'lg:grid-cols-[5.25rem_1fr]' : 'lg:grid-cols-[17rem_1fr]';
-  const pageTitle = items.find((item) => item.href === pathname)?.label ?? 'لوحة التحكم';
+  const pageTitle =
+    items.find((item) => item.href === pathname)?.label ??
+    (locale === 'en' && user.role === 'MEMBER' ? 'Player dashboard' : 'لوحة التحكم');
 
   return (
     <div className={cn('min-h-screen bg-background text-foreground lg:grid', sidebarWidth)}>
@@ -431,6 +471,7 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
           <Sidebar
             collapsed={collapsed}
             items={items}
+            locale={locale}
             onNavigate={handleNavigate}
             onLogout={() => setLogoutOpen(true)}
             pathname={pathname}
@@ -470,7 +511,7 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
                 initial={{ opacity: 0, scale: 0.96, y: -8 }}
               >
                 <Dumbbell className="h-4 w-4 animate-[loader-lift_0.9s_ease-in-out_infinite] text-green-700 dark:text-brand-accent" />
-                جاري فتح الصفحة
+                {locale === 'en' ? 'Opening page' : 'جاري فتح الصفحة'}
               </motion.div>
             </>
           ) : null}
@@ -479,7 +520,7 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
           <div className="glass-panel mx-auto flex max-w-[96rem] items-center justify-between gap-3 rounded-lg px-4 py-3">
             <div className="flex items-center gap-2">
               <button
-                aria-label="فتح القائمة"
+                aria-label={locale === 'en' ? 'Open menu' : 'فتح القائمة'}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-white/58 text-foreground shadow-sm dark:bg-white/5 lg:hidden"
                 onClick={() => setMobileOpen(true)}
                 type="button"
@@ -492,12 +533,31 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <NotificationCenter />
+              <Link
+                aria-label={locale === 'en' ? 'Back to public site' : 'العودة للموقع العام'}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border bg-white/58 px-2.5 text-xs font-black text-foreground shadow-sm transition hover:border-brand-accent hover:text-green-700 dark:bg-white/5 dark:hover:text-brand-accent sm:px-3"
+                href={`/${locale}`}
+              >
+                <Home className="h-4 w-4" />
+                <span className="hidden xl:inline">
+                  {locale === 'en' ? 'Public site' : 'الموقع العام'}
+                </span>
+              </Link>
+              <NotificationCenter locale={locale} />
               <ThemeToggle className="rounded-md" />
+              {user.role === 'MEMBER' ? (
+                <Link
+                  aria-label={locale === 'ar' ? 'English' : 'العربية'}
+                  className="inline-flex h-10 min-w-10 items-center justify-center rounded-md border border-border bg-white/58 px-2 text-xs font-black uppercase text-foreground shadow-sm transition hover:border-brand-accent dark:bg-white/5"
+                  href={pathname.replace(`/${locale}/`, `/${locale === 'ar' ? 'en' : 'ar'}/`)}
+                >
+                  {locale === 'ar' ? 'EN' : 'AR'}
+                </Link>
+              ) : null}
               <div className="hidden rounded-md border border-border bg-white/58 px-4 py-2 text-sm shadow-sm dark:bg-white/5 sm:block">
                 <p className="font-black leading-4">{user.fullName}</p>
                 <p className="text-xs font-semibold text-muted-foreground">
-                  {roleLabel[user.role]}
+                  {localizedRoleLabel(user.role, locale)}
                 </p>
               </div>
             </div>
@@ -511,8 +571,12 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
                 <Sidebar
                   collapsed={collapsed}
                   items={items}
+                  locale={locale}
                   onNavigate={handleNavigate}
-                  onLogout={() => setLogoutOpen(true)}
+                  onLogout={() => {
+                    setMobileOpen(false);
+                    setLogoutOpen(true);
+                  }}
                   pathname={pathname}
                   user={user}
                 />
@@ -535,16 +599,16 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
           <main className="min-w-0">
             {isExpiredContentLocked ? (
               <Card className="flex min-h-[60vh] flex-col items-center justify-center text-center shadow-sm">
-                <h1 className="text-3xl font-black">انتهى اشتراكك</h1>
+                <h1 className="text-3xl font-black">{locale === 'en' ? 'Your membership has expired' : 'انتهى اشتراكك'}</h1>
                 <p className="mt-3 max-w-md text-muted-foreground">
                   Your subscription has expired. Please contact Pro Gym administration.
                 </p>
                 <Button
                   className="mt-6"
-                  onClick={() => router.push('/ar/membership')}
+                  onClick={() => router.push(`/${locale}/contact`)}
                   variant="secondary"
                 >
-                  عرض طرق التجديد
+                  {locale === 'en' ? 'View renewal options' : 'عرض طرق التجديد'}
                 </Button>
               </Card>
             ) : isPhotoLocked ? (
@@ -552,10 +616,11 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
                 <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-foreground text-background dark:bg-brand-accent dark:text-black">
                   <LockKeyhole className="h-8 w-8" />
                 </div>
-                <h1 className="mt-5 text-3xl font-black">مطلوب رفع صور تقدم جديدة</h1>
+                <h1 className="mt-5 text-3xl font-black">{locale === 'en' ? 'New progress photos required' : 'مطلوب رفع صور تقدم جديدة'}</h1>
                 <p className="mt-3 max-w-xl text-sm leading-7 text-muted-foreground">
-                  المدرب {pendingPhotoRequest?.coach?.user?.fullName ?? ''} طلب صور تقدم جديدة. سيتم
-                  فتح بقية اللوحة بعد رفع الصورة المطلوبة من صفحة التقدم.
+                  {locale === 'en'
+                    ? `Coach ${pendingPhotoRequest?.coach?.user?.fullName ?? ''} requested new progress photos. The rest of the dashboard will unlock after you upload the required photos from Progress.`
+                    : `المدرب ${pendingPhotoRequest?.coach?.user?.fullName ?? ''} طلب صور تقدم جديدة. سيتم فتح بقية اللوحة بعد رفع الصورة المطلوبة من صفحة التقدم.`}
                 </p>
                 {pendingPhotoRequest?.message ? (
                   <p className="mt-4 max-w-xl rounded-lg border border-border bg-muted/45 p-4 text-sm font-bold leading-7 text-foreground">
@@ -564,9 +629,9 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
                 ) : null}
                 <Button
                   className="mt-6"
-                  onClick={() => router.push('/ar/dashboard/member/progress')}
+                  onClick={() => router.push(`/${locale}/dashboard/member/progress`)}
                 >
-                  رفع صور التقدم
+                  {locale === 'en' ? 'Upload progress photos' : 'رفع صور التقدم'}
                 </Button>
               </Card>
             ) : (
@@ -578,7 +643,7 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
                   key={pathname}
                   transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                 >
-                  {children}
+                  <MemberLocaleProvider locale={locale}>{children}</MemberLocaleProvider>
                 </motion.div>
               </AnimatePresence>
             )}
@@ -590,7 +655,7 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
         {mobileOpen ? (
           <>
             <motion.button
-              aria-label="إغلاق القائمة"
+              aria-label={locale === 'en' ? 'Close menu' : 'إغلاق القائمة'}
               animate={{ opacity: 1 }}
               className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
               exit={{ opacity: 0 }}
@@ -600,14 +665,19 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
             />
             <motion.aside
               animate={{ x: 0 }}
-              className="fixed inset-y-0 end-0 z-50 w-[20rem] max-w-[86vw] border-s border-border bg-background p-3 shadow-2xl lg:hidden"
-              exit={{ x: '100%' }}
-              initial={{ x: '100%' }}
+              className={cn(
+                'fixed inset-y-0 z-50 flex w-[20rem] max-w-[86vw] flex-col overflow-hidden bg-background p-3 shadow-2xl lg:hidden',
+                locale === 'ar'
+                  ? 'right-0 border-l border-border'
+                  : 'left-0 border-r border-border',
+              )}
+              exit={{ x: locale === 'ar' ? '100%' : '-100%' }}
+              initial={{ x: locale === 'ar' ? '100%' : '-100%' }}
               transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
             >
-              <div className="mb-3 flex justify-end">
+              <div className="mb-3 flex shrink-0 justify-end">
                 <button
-                  aria-label="إغلاق القائمة"
+                  aria-label={locale === 'en' ? 'Close menu' : 'إغلاق القائمة'}
                   className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-card"
                   onClick={() => setMobileOpen(false)}
                   type="button"
@@ -615,39 +685,45 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <Sidebar
-                collapsed={false}
-                items={items}
-                onNavigate={handleNavigate}
-                onLogout={() => setLogoutOpen(true)}
-                pathname={pathname}
-                user={user}
-              />
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                <Sidebar
+                  collapsed={false}
+                  items={items}
+                  locale={locale}
+                  onNavigate={handleNavigate}
+                  onLogout={() => {
+                    setMobileOpen(false);
+                    setLogoutOpen(true);
+                  }}
+                  pathname={pathname}
+                  user={user}
+                />
+              </div>
             </motion.aside>
           </>
         ) : null}
       </AnimatePresence>
       <Dialog
-        description="سيتم إنهاء الجلسة الحالية والعودة إلى صفحة تسجيل الدخول."
+        description={locale === 'en' ? 'Your current session will end and you will return to the login page.' : 'سيتم إنهاء الجلسة الحالية والعودة إلى صفحة تسجيل الدخول.'}
         onClose={() => setLogoutOpen(false)}
         open={logoutOpen}
-        title="تأكيد تسجيل الخروج"
+        title={locale === 'en' ? 'Confirm logout' : 'تأكيد تسجيل الخروج'}
       >
         <div className="space-y-4">
           <p className="rounded-lg border border-border bg-muted/35 p-4 text-sm font-bold">
-            هل تريد تسجيل الخروج من حساب {user.fullName}؟
+            {locale === 'en' ? `Do you want to log out of ${user.fullName}'s account?` : `هل تريد تسجيل الخروج من حساب ${user.fullName}؟`}
           </p>
           <div className="flex justify-end gap-2">
-            <DialogCancelButton onClick={() => setLogoutOpen(false)} />
+            <DialogCancelButton label={locale === 'en' ? 'Cancel' : 'إلغاء'} onClick={() => setLogoutOpen(false)} />
             <Button
               className="gap-2"
               isLoading={logout.isPending}
-              loadingText="جاري تسجيل الخروج"
+              loadingText={locale === 'en' ? 'Logging out' : 'جاري تسجيل الخروج'}
               onClick={() => logout.mutate()}
               variant="danger"
             >
               <LogOut className="h-4 w-4" />
-              تسجيل الخروج
+              {locale === 'en' ? 'Log out' : 'تسجيل الخروج'}
             </Button>
           </div>
         </div>

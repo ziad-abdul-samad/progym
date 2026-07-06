@@ -16,6 +16,7 @@ import {
   DemoteCoachDto,
   ResetPasswordByAdminDto,
   ReviewCoachProfileChangeDto,
+  ReviewRegistrationRequestDto,
   UpdateObserverDto,
 } from './dto/admin.dto';
 
@@ -160,6 +161,20 @@ export class AdminController {
   @Get('reception-feed')
   async receptionFeed() {
     return { data: await this.adminService.receptionFeed() };
+  }
+
+  @Get('registration-requests')
+  async registrationRequests(@Query() query: PaginationDto) {
+    return { data: await this.adminService.registrationRequests(query) };
+  }
+
+  @Post('registration-requests/:id/review')
+  async reviewRegistrationRequest(
+    @Param('id') id: string,
+    @Body() dto: ReviewRegistrationRequestDto,
+    @CurrentUser() admin: AuthenticatedUser,
+  ) {
+    return { data: await this.adminService.reviewRegistrationRequest(id, dto, admin) };
   }
 
   @Post('observers')

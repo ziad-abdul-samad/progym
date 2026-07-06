@@ -1,9 +1,11 @@
 import { Activity, ArrowLeft, ArrowRight, ShieldCheck } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { Suspense } from 'react';
 import type { PublicLocale } from '@progym/shared';
 
 import { LoginForm } from '@/features/auth/auth-forms';
+import { Skeleton } from '@/components/ui/state';
 
 const pageCopy = {
   ar: {
@@ -87,7 +89,7 @@ export default async function LoginPage({ params }: { params: Promise<{ locale: 
             <h1
               className={`max-w-4xl font-black ${
                 locale === 'ar'
-                  ? 'font-ar-display text-[clamp(3.2rem,5.5vw,6.6rem)] leading-[1.14] tracking-[-0.04em]'
+                  ? 'font-ar-display text-[clamp(3.2rem,5.5vw,6.6rem)] leading-[1.28]'
                   : 'text-[clamp(3.6rem,6.2vw,7.4rem)] uppercase leading-[0.93] tracking-[-0.07em]'
               }`}
             >
@@ -114,7 +116,7 @@ export default async function LoginPage({ params }: { params: Promise<{ locale: 
               <h1
                 className={`mt-5 max-w-2xl font-black leading-[0.96] ${
                   locale === 'ar'
-                    ? 'font-ar-display text-[clamp(2.35rem,7vw,4.2rem)] leading-[1.16]'
+                    ? 'font-ar-display text-[clamp(2.35rem,7vw,4.2rem)] leading-[1.28]'
                     : 'text-[clamp(2.5rem,7vw,4rem)] uppercase leading-[0.96] tracking-[-0.055em]'
                 }`}
               >
@@ -131,7 +133,9 @@ export default async function LoginPage({ params }: { params: Promise<{ locale: 
                 <Activity className="h-5 w-5 text-[#39ff14]" />
               </div>
             </div>
-            <LoginForm locale={locale} />
+            <Suspense fallback={<Skeleton className="h-96 w-full rounded-none bg-white/[0.035]" />}>
+              <LoginForm locale={locale} />
+            </Suspense>
           </div>
         </section>
       </div>

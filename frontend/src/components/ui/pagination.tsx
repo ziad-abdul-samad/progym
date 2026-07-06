@@ -10,6 +10,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { getPaginationItems } from '@/components/ui/pagination-utils';
+import { useMemberLocale } from '@/features/member/member-locale';
 
 export type PageMeta = {
   page: number;
@@ -30,9 +31,10 @@ export function Pagination({
   meta: PageMeta;
   onPageChange: (page: number) => void;
 }) {
+  const { isEnglish, text } = useMemberLocale();
   if (meta.totalPages <= 1) {
     return (
-      <p className="text-center text-xs font-bold text-muted-foreground">عرض {meta.total} نتيجة</p>
+      <p className="text-center text-xs font-bold text-muted-foreground">{text('عرض', 'Showing')} {meta.total} {text('نتيجة', 'results')}</p>
     );
   }
 
@@ -42,28 +44,28 @@ export function Pagination({
 
   return (
     <nav
-      aria-label="التنقل بين الصفحات"
+      aria-label={text('التنقل بين الصفحات', 'Pagination')}
       className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border bg-card/80 p-3 text-center"
     >
       <div className="flex max-w-full flex-wrap items-center justify-center gap-1.5">
         <Button
-          aria-label="الصفحة الأولى"
+          aria-label={text('الصفحة الأولى', 'First page')}
           className="h-10 min-h-10 w-10 p-0"
           disabled={meta.page <= 1}
           onClick={() => onPageChange(1)}
-          title="الصفحة الأولى"
+          title={text('الصفحة الأولى', 'First page')}
           variant="secondary"
         >
-          <ChevronsRight className="h-4 w-4" />
+          {isEnglish ? <ChevronsLeft className="h-4 w-4" /> : <ChevronsRight className="h-4 w-4" />}
         </Button>
         <Button
-          aria-label="الصفحة السابقة"
+          aria-label={text('الصفحة السابقة', 'Previous page')}
           className="h-10 min-h-10 w-10 p-0"
           disabled={meta.page <= 1}
           onClick={() => onPageChange(meta.page - 1)}
           variant="secondary"
         >
-          <ChevronRight className="h-4 w-4" />
+          {isEnglish ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </Button>
         {pages.map((page, index) =>
           page === 'ellipsis' ? (
@@ -77,7 +79,7 @@ export function Pagination({
           ) : (
             <Button
               aria-current={page === meta.page ? 'page' : undefined}
-              aria-label={`الصفحة ${page}`}
+              aria-label={`${text('الصفحة', 'Page')} ${page}`}
               className={
                 page === meta.page
                   ? 'h-10 min-h-10 min-w-10 bg-black px-3 text-white hover:bg-black hover:text-white'
@@ -92,27 +94,27 @@ export function Pagination({
           ),
         )}
         <Button
-          aria-label="الصفحة التالية"
+          aria-label={text('الصفحة التالية', 'Next page')}
           className="h-10 min-h-10 w-10 p-0"
           disabled={meta.page >= meta.totalPages}
           onClick={() => onPageChange(meta.page + 1)}
           variant="secondary"
         >
-          <ChevronLeft className="h-4 w-4" />
+          {isEnglish ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
         <Button
-          aria-label="الصفحة الأخيرة"
+          aria-label={text('الصفحة الأخيرة', 'Last page')}
           className="h-10 min-h-10 w-10 p-0"
           disabled={meta.page >= meta.totalPages}
           onClick={() => onPageChange(meta.totalPages)}
-          title="الصفحة الأخيرة"
+          title={text('الصفحة الأخيرة', 'Last page')}
           variant="secondary"
         >
-          <ChevronsLeft className="h-4 w-4" />
+          {isEnglish ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
         </Button>
       </div>
       <p className="text-xs font-bold text-muted-foreground">
-        الصفحة {meta.page} من {meta.totalPages} · عرض {start}-{end} من أصل {meta.total}
+        {text('الصفحة', 'Page')} {meta.page} {text('من', 'of')} {meta.totalPages} · {text('عرض', 'showing')} {start}-{end} {text('من أصل', 'of')} {meta.total}
       </p>
     </nav>
   );

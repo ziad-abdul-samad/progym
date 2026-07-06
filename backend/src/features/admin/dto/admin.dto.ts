@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsIn,
@@ -138,6 +139,27 @@ export class CreateRegistrationQrDto {
   @Min(1)
   @Max(365)
   expiresInDays = 30;
+}
+
+export class ReviewRegistrationRequestDto {
+  @Type(() => Boolean)
+  @IsBoolean()
+  approve!: boolean;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(2000)
+  days?: number;
+
+  @IsOptional()
+  @IsString()
+  observerId?: string;
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }
 
 export class AdminNotificationDto {

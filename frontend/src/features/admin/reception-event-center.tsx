@@ -43,6 +43,7 @@ type ReceptionEvent = {
   } | null;
   occurredAt: string;
   previousCheckIn: string | null;
+  requestId?: string | null;
 };
 
 const SEEN_EVENTS_KEY = 'progym-reception-seen-events';
@@ -71,9 +72,9 @@ export function ReceptionEventCenter() {
       ),
     queryKey: ['shift-observers', 'reception-select'],
   });
-  const activate = useMutation({
-    mutationFn: (payload: { days: number; memberId: string; observerId: string; reason: string }) =>
-      apiRequest('/memberships/subscriptions', {
+  const review = useMutation({
+    mutationFn: (payload: { approve: boolean; days?: number; observerId?: string; reason: string }) =>
+      apiRequest(`/admin/registration-requests/${activeEvent?.requestId}/review`, {
         body: jsonBody(payload),
         method: 'POST',
       }),
@@ -84,7 +85,7 @@ export function ReceptionEventCenter() {
         queryClient.invalidateQueries({ queryKey: ['reception-feed'] }),
       ]);
       markSeenAndClose();
-      push({ title: 'تم تفعيل مدة اشتراك اللاعب', tone: 'success' });
+      push({ title: 'تمت مراجعة طلب اللاعب', tone: 'success' });
     },
   });
 
@@ -182,7 +183,16 @@ export function ReceptionEventCenter() {
               actions={
                 <>
                   <DialogCancelButton onClick={markSeenAndClose} />
-                  <Button isLoading={activate.isPending} loadingText="جاري تفعيل الاشتراك">
+                  <Button
+                    isLoading={review.isPending}
+                    loadingText="جاري رفض الطلب"
+                    onClick={() => review.mutate({ approve: false, reason: 'رفض الطلب من نافذة الاستقبال' })}
+                    type="button"
+                    variant="danger"
+                  >
+                    رفض
+                  </Button>
+                  <Button isLoading={review.isPending} loadingText="جاري تفعيل الاشتراك">
                     تفعيل مدة اللاعب
                   </Button>
                 </>
@@ -190,15 +200,15 @@ export function ReceptionEventCenter() {
               onSubmit={(event) => {
                 event.preventDefault();
                 const form = new FormData(event.currentTarget);
-                activate.mutate({
+                review.mutate({
+                  approve: true,
                   days: Number(form.get('days')),
-                  memberId: activeEvent.member.id,
                   observerId: String(form.get('observerId')),
                   reason: String(form.get('reason')),
                 });
               }}
             >
-              <Input min={1} name="days" placeholder="عدد أيام الاشتراك" required type="number" />
+              <Input defaultValue={30} min={1} name="days" placeholder="عدد أيام الاشتراك" required type="number" />
               <select
                 className="min-h-11 w-full rounded-lg border border-input bg-background px-3 text-sm font-bold"
                 name="observerId"

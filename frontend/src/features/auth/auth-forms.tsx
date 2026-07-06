@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowUpRight, Camera, Dumbbell, Eye, EyeOff, LockKeyhole, ShieldQuestion, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import type { PublicLocale } from '@progym/shared';
 
 import { Button } from '@/components/ui/button';
@@ -16,11 +16,17 @@ import { apiRequest, jsonBody } from '@/lib/api/client';
 import type { SessionUser } from '@/lib/auth/use-auth';
 
 type SecurityQuestion = { key: string; textAr: string };
+type RegistrationStart = { claimToken: string; requestId: string; status: 'PENDING' };
+type RegistrationStatus = {
+  reason?: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  user?: SessionUser;
+};
 
-function dashboardPath(user: SessionUser): string {
+function dashboardPath(user: SessionUser, locale: PublicLocale = 'ar'): string {
   if (user.role === 'ADMIN') return '/ar/dashboard/admin';
   if (user.role === 'COACH') return '/ar/dashboard/coach';
-  return '/ar/dashboard/member';
+  return `/${locale}/dashboard/member`;
 }
 
 export function LegacyLoginForm() {
@@ -83,9 +89,11 @@ export function LegacyLoginForm() {
 const loginCopy = {
   ar: {
     button: 'دخول إلى حسابي',
+    create: 'إنشاء حساب جديد',
     error: 'تعذر تسجيل الدخول',
     forgot: 'نسيت كلمة المرور؟',
     loading: 'جار تسجيل الدخول...',
+    noAccount: 'ليس لديك حساب؟',
     password: 'كلمة المرور',
     passwordPlaceholder: 'أدخل كلمة المرور',
     proof: 'اتصال آمن ومشفّر',
@@ -95,9 +103,11 @@ const loginCopy = {
   },
   en: {
     button: 'Enter my account',
+    create: 'Create an account',
     error: 'Unable to sign in',
     forgot: 'Forgot password?',
     loading: 'Signing in...',
+    noAccount: 'New to Pro Gym?',
     password: 'Password',
     passwordPlaceholder: 'Enter your password',
     proof: 'Secure encrypted connection',
@@ -109,6 +119,7 @@ const loginCopy = {
 
 export function LoginForm({ locale = 'ar' }: { locale?: PublicLocale }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { push } = useToast();
   const [username, setUsername] = useState('');
@@ -125,7 +136,9 @@ export function LoginForm({ locale = 'ar' }: { locale?: PublicLocale }) {
     onSuccess: async (user) => {
       await queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
       push({ title: locale === 'ar' ? 'تم تسجيل الدخول' : 'Signed in successfully', tone: 'success' });
-      router.push(dashboardPath(user));
+      const next = searchParams.get('next');
+      const safeNext = next?.startsWith(`/${locale}/`) && !next.startsWith('//') ? next : null;
+      router.push(user.role === 'MEMBER' && safeNext ? safeNext : dashboardPath(user, locale));
     },
   });
 
@@ -216,6 +229,19 @@ export function LoginForm({ locale = 'ar' }: { locale?: PublicLocale }) {
         <span>{copy.button}</span>
         <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-1 group-hover:translate-x-1 rtl:group-hover:-translate-x-1" />
       </Button>
+
+      <div className="flex items-center gap-4 py-1">
+        <span className="h-px flex-1 bg-white/10" />
+        <span className="text-[0.54rem] font-black uppercase tracking-[0.14em] text-white/24">{copy.noAccount}</span>
+        <span className="h-px flex-1 bg-white/10" />
+      </div>
+      <Link
+        className="group flex h-14 w-full items-center justify-between border border-white/14 bg-white/[0.025] px-5 text-xs font-black uppercase tracking-[0.12em] text-white/65 transition hover:border-[#39ff14] hover:text-[#39ff14]"
+        href={`/${locale}/register`}
+      >
+        <span>{copy.create}</span>
+        <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-1 group-hover:translate-x-1 rtl:group-hover:-translate-x-1" />
+      </Link>
 
       <div className="flex items-center justify-between border-t border-white/10 pt-5 text-[0.55rem] font-black uppercase tracking-[0.14em] text-white/25">
         <span>{copy.proof}</span>
@@ -309,6 +335,7 @@ export function ImmersiveRegisterForm({ locale = 'ar' }: { locale?: PublicLocale
   const queryClient = useQueryClient();
   const { push } = useToast();
   const [photo, setPhoto] = useState<File | null>(null);
+  const [claimToken, setClaimToken] = useState(() => searchParams.get('claim'));
   const copy = registerCopy[locale];
 
   const { data: questions = [] } = useQuery({
@@ -316,21 +343,37 @@ export function ImmersiveRegisterForm({ locale = 'ar' }: { locale?: PublicLocale
     queryKey: ['security-questions'],
   });
   const selectedQuestions = useMemo(() => questions.slice(0, 3), [questions]);
+  const approval = useQuery({
+    enabled: Boolean(claimToken),
+    queryFn: () =>
+      apiRequest<RegistrationStatus>('/auth/registration-status', {
+        body: jsonBody({ claimToken }),
+        method: 'POST',
+      }),
+    queryKey: ['registration-status', claimToken],
+    refetchInterval: (query) => (query.state.data?.status === 'PENDING' ? 3000 : false),
+    retry: true,
+  });
+
+  useEffect(() => {
+    if (approval.data?.status !== 'APPROVED' || !approval.data.user) return;
+    void queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+    router.replace(dashboardPath(approval.data.user, locale));
+  }, [approval.data, locale, queryClient, router]);
 
   const register = useMutation({
     mutationFn: (formData: FormData) =>
-      apiRequest<SessionUser>('/auth/register', {
+      apiRequest<RegistrationStart>('/auth/register', {
         body: formData,
         method: 'POST',
       }),
-    onSuccess: async (user) => {
-      await queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+    onSuccess: (result) => {
       push({
-        body: locale === 'ar' ? 'أهلاً بك في Pro Gym' : 'Welcome to Pro Gym',
-        title: locale === 'ar' ? 'تم إنشاء الحساب' : 'Account created',
+        body: locale === 'ar' ? 'سيظهر حسابك مباشرة بعد اعتماد المراقب' : 'Your account will open after staff approval',
+        title: locale === 'ar' ? 'تم إرسال طلبك' : 'Request submitted',
         tone: 'success',
       });
-      router.push(dashboardPath(user));
+      setClaimToken(result.claimToken);
     },
   });
 
@@ -341,6 +384,33 @@ export function ImmersiveRegisterForm({ locale = 'ar' }: { locale?: PublicLocale
     if (token) form.set('registrationToken', token);
     if (photo) form.set('photo', photo);
     register.mutate(form);
+  }
+
+  if (claimToken) {
+    const rejected = approval.data?.status === 'REJECTED';
+    return (
+      <div className="border border-white/10 bg-[#080a08]/95 p-7 text-center md:p-12">
+        <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full border ${rejected ? 'border-red-400/40 text-red-300' : 'border-[#39ff14]/40 text-[#39ff14]'}`}>
+          <ShieldQuestion className="h-7 w-7" />
+        </div>
+        <p className="mt-6 text-[0.6rem] font-black uppercase tracking-[0.2em] text-[#39ff14]">
+          Pro Gym / Registration
+        </p>
+        <h2 className="mt-4 font-ar-display text-3xl font-black leading-[1.45] text-white">
+          {rejected
+            ? locale === 'ar' ? 'تعذّر اعتماد الطلب' : 'Request not approved'
+            : locale === 'ar' ? 'طلبك بانتظار اعتماد المراقب' : 'Waiting for staff approval'}
+        </h2>
+        <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-white/50">
+          {rejected
+            ? approval.data?.reason || (locale === 'ar' ? 'راجع موظف الاستقبال لمعرفة السبب.' : 'Please ask reception for details.')
+            : locale === 'ar'
+              ? 'ابقَ في هذه الصفحة. سيتم تسجيل دخولك تلقائياً بعد مراجعة بياناتك وصورتك وتحديد مدة الاشتراك.'
+              : 'Keep this page open. You will be signed in automatically after your details, photo, and membership duration are approved.'}
+        </p>
+        {!rejected ? <span className="mx-auto mt-7 block h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-[#39ff14]" /> : null}
+      </div>
+    );
   }
 
   return (
@@ -489,7 +559,6 @@ export function ImmersiveRegisterForm({ locale = 'ar' }: { locale?: PublicLocale
 export function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
   const { push } = useToast();
   const [photo, setPhoto] = useState<File | null>(null);
 
@@ -501,14 +570,13 @@ export function RegisterForm() {
 
   const register = useMutation({
     mutationFn: (formData: FormData) =>
-      apiRequest<SessionUser>('/auth/register', {
+      apiRequest<RegistrationStart>('/auth/register', {
         body: formData,
         method: 'POST',
       }),
-    onSuccess: async (user) => {
-      await queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+    onSuccess: (result) => {
       push({ title: 'تم إنشاء الحساب', body: 'أهلا بك في Pro Gym', tone: 'success' });
-      router.push(dashboardPath(user));
+      router.push(`/ar/register?claim=${encodeURIComponent(result.claimToken)}`);
     },
   });
 

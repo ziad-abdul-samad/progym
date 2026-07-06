@@ -488,8 +488,8 @@ export function FinalCta({ locale }: { locale: PublicLocale }) {
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <PublicButton href={`/${locale}/contact`}>{home.cta.primary}</PublicButton>
-          <PublicButton href={`/${locale}/membership`} variant="ghost">
-            {publicCopy[locale].nav.membership}
+          <PublicButton href={`/${locale}/entry`} variant="ghost">
+            {locale === 'ar' ? 'دخول اللاعبين' : 'Member entry'}
           </PublicButton>
         </div>
       </div>
@@ -674,7 +674,7 @@ export function ContactPage({ locale }: { locale: PublicLocale }) {
           <div className="grid gap-4" data-reveal>
             {([
               [copy.contact.phone, brand.phone, Zap],
-              [copy.contact.email, brand.email, Sparkles],
+              ['Instagram', '@progym.homs', Sparkles],
               [copy.contact.address, brand.address[safeLocale], MapPin],
             ] satisfies Array<[string, string, LucideIcon]>).map(([label, value, Icon]) => (
               <div className="glass-panel rounded-lg p-5" key={String(label)}>

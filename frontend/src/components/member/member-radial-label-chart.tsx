@@ -4,6 +4,7 @@ import { Activity, BellRing, TimerReset, TrendingUp } from 'lucide-react';
 import { LabelList, RadialBar, RadialBarChart, ResponsiveContainer, Tooltip } from 'recharts';
 
 import { Card, CardTitle } from '@/components/ui/card';
+import { useMemberLocale } from '@/features/member/member-locale';
 
 type ChartDatum = {
   fill: string;
@@ -22,42 +23,43 @@ export function MemberRadialLabelChart({
   remainingDays: number;
   requests: number;
 }) {
+  const { text } = useMemberLocale();
   const chartData: ChartDatum[] = [
     {
       fill: '#22ff00',
-      label: 'الحضور',
+      label: text('الحضور', 'Attendance'),
       score: Math.max(10, Math.min(100, (attendance / 24) * 100)),
-      unit: 'زيارة',
+      unit: text('زيارة', 'visits'),
       value: attendance,
     },
     {
       fill: '#22c55e',
-      label: 'الأيام',
+      label: text('الأيام', 'Days'),
       score: Math.max(10, Math.min(100, (remainingDays / 30) * 100)),
-      unit: 'يوم',
+      unit: text('يوم', 'days'),
       value: remainingDays,
     },
     {
       fill: '#166534',
-      label: 'الطلبات',
+      label: text('الطلبات', 'Requests'),
       score: Math.max(10, Math.min(100, (requests / 4) * 100)),
-      unit: 'طلب',
+      unit: text('طلب', 'requests'),
       value: requests,
     },
   ];
 
   const summaries = [
-    { icon: Activity, label: 'الحضور', unit: 'زيارة', value: attendance },
-    { icon: TimerReset, label: 'المتبقي', unit: 'يوم', value: remainingDays },
-    { icon: BellRing, label: 'المتابعة', unit: 'طلب', value: requests },
+    { icon: Activity, label: text('الحضور', 'Attendance'), unit: text('زيارة', 'visits'), value: attendance },
+    { icon: TimerReset, label: text('المتبقي', 'Remaining'), unit: text('يوم', 'days'), value: remainingDays },
+    { icon: BellRing, label: text('المتابعة', 'Follow-up'), unit: text('طلب', 'requests'), value: requests },
   ];
 
   return (
     <Card className="flex flex-col overflow-hidden p-0">
       <div className="border-b border-border px-5 pb-4 pt-5 text-center">
-        <CardTitle>مؤشرات العضو</CardTitle>
+        <CardTitle>{text('مؤشرات العضو', 'Player indicators')}</CardTitle>
         <p className="mt-1 text-sm font-semibold text-muted-foreground">
-          الحضور والاشتراك وطلبات المتابعة
+          {text('الحضور والاشتراك وطلبات المتابعة', 'Attendance, membership, and follow-up requests')}
         </p>
       </div>
 
@@ -130,10 +132,10 @@ export function MemberRadialLabelChart({
 
       <div className="flex flex-col items-center gap-2 border-t border-border px-4 py-4 text-sm">
         <div className="flex items-center gap-2 font-black">
-          بيانات حسابك محدثة مباشرة
+          {text('بيانات حسابك محدثة مباشرة', 'Your account data is updated live')}
           <TrendingUp className="h-4 w-4 text-brand-accent-foreground" />
         </div>
-        <p className="text-xs font-semibold text-muted-foreground">مرر فوق أي دائرة لعرض القيمة</p>
+        <p className="text-xs font-semibold text-muted-foreground">{text('مرر فوق أي دائرة لعرض القيمة', 'Hover over a ring to view its value')}</p>
       </div>
     </Card>
   );

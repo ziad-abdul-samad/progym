@@ -37,14 +37,28 @@ export async function apiRequest<TData>(path: string, init: RequestInit = {}): P
     typeof window === 'undefined'
       ? (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1')
       : '/api/v1';
-  const response = await fetch(
-    `${apiBaseUrl}${path}`,
-    {
+  const request = () =>
+    fetch(`${apiBaseUrl}${path}`, {
       ...init,
       credentials: 'include',
       headers,
-    },
-  );
+    });
+  let response = await request();
+
+  const canRefresh =
+    response.status === 401 &&
+    !['/auth/login', '/auth/logout', '/auth/refresh', '/auth/register', '/auth/registration-status'].includes(path);
+  if (canRefresh) {
+    const csrfToken = getCookie('csrf_token');
+    const refreshHeaders = new Headers({ 'Content-Type': 'application/json' });
+    if (csrfToken) refreshHeaders.set('x-csrf-token', decodeURIComponent(csrfToken));
+    const refreshed = await fetch(`${apiBaseUrl}/auth/refresh`, {
+      credentials: 'include',
+      headers: refreshHeaders,
+      method: 'POST',
+    });
+    if (refreshed.ok) response = await request();
+  }
   const payload = (await response.json().catch(() => null)) as {
     data?: TData;
     error?: { message?: string; details?: unknown };

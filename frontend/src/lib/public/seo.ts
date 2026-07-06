@@ -48,7 +48,7 @@ export function createPublicMetadata(locale: PublicLocale, page: PublicPageKey):
         {
           alt: brand.name,
           height: 900,
-          url: brand.logoColor,
+          url: brand.logoBw,
           width: 1200,
         },
       ],
@@ -62,7 +62,7 @@ export function createPublicMetadata(locale: PublicLocale, page: PublicPageKey):
     twitter: {
       card: 'summary_large_image',
       description: seo.description,
-      images: [brand.logoColor],
+      images: [brand.logoBw],
       title: seo.title,
     },
   };
@@ -77,8 +77,7 @@ export function organizationJsonLd(locale: PublicLocale) {
       '@type': 'PostalAddress',
       addressLocality: brand.address[safeLocale],
     },
-    email: brand.email,
-    image: absoluteUrl(brand.logoColor),
+    image: absoluteUrl(brand.logoBw),
     name: brand.name,
     telephone: brand.phone,
     url: absoluteUrl(`/${safeLocale}`),

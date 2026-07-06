@@ -15,7 +15,7 @@ export function PublicFooter({ locale }: { locale: PublicLocale }) {
         <div>
           <Link className="inline-flex items-center gap-3" href={localizedPath(locale)}>
             <span className="relative h-14 w-12 overflow-hidden bg-black">
-              <Image alt="Pro Gym logo" className="object-cover" fill sizes="56px" src={brand.logoColor} />
+              <Image alt="Pro Gym logo" className="object-cover" fill sizes="56px" src={brand.logoBw} />
             </span>
             <span className="text-xl font-black uppercase tracking-[0.2em] text-white">Pro Gym</span>
           </Link>
@@ -46,9 +46,6 @@ export function PublicFooter({ locale }: { locale: PublicLocale }) {
           <div className="mt-5 grid gap-3 text-sm text-white/42">
             <a className="transition hover:text-foreground" href={`tel:${brand.phone}`}>
               {brand.phone}
-            </a>
-            <a className="transition hover:text-foreground" href={`mailto:${brand.email}`}>
-              {brand.email}
             </a>
             <p>{brand.address[locale]}</p>
           </div>

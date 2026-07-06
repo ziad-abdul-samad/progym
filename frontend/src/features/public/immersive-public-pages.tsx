@@ -3,7 +3,6 @@ import {
   ArrowUpRight,
   Check,
   Dumbbell,
-  Mail,
   MapPin,
   Phone,
   Sparkles,
@@ -19,6 +18,7 @@ import type { PublicLocale } from '@progym/shared';
 import { ContactForm } from '@/components/public/contact-form';
 import { JsonLd } from '@/components/public/json-ld';
 import { brand, coaches, publicCopy } from '@/lib/public/content';
+import { ExpandedMap } from '@/components/ui/expanded-map';
 import { breadcrumbJsonLd, coachesJsonLd, membershipJsonLd } from '@/lib/public/seo';
 import { cn } from '@/lib/utils';
 
@@ -45,7 +45,7 @@ const labels = {
     coachCta: 'اختر المدرب الذي يفهم الهدف، ثم ابدأ بخطة يمكن قياسها.',
     coachIndex: 'فريق التدريب',
     contactHours: 'ساعات العمل',
-    contactHoursValue: 'يومياً / 06:00 — 00:00',
+    contactHoursValue: 'يومياً 07:00 صباحاً — 12:00 ظهراً / الجمعة 02:00 ظهراً — 07:00 مساءً',
     contactFormTitle: 'أخبرنا ما الذي تريد تغييره.',
     contactIntro: 'زيارة واحدة تكفي لتشاهد المكان، تفهم النظام، وتحدد خطوتك التالية.',
     contactKicker: 'ابدأ المحادثة',
@@ -66,7 +66,7 @@ const labels = {
     coachCta: 'Choose the coach who understands the target, then start with a plan you can measure.',
     coachIndex: 'Training team',
     contactHours: 'Opening hours',
-    contactHoursValue: 'Daily / 06:00 — 00:00',
+    contactHoursValue: 'Daily 7:00 AM — 12:00 PM / Friday 2:00 PM — 7:00 PM',
     contactFormTitle: 'Tell us what you want to change.',
     contactIntro: 'One visit is enough to see the space, understand the system, and define your next move.',
     contactKicker: 'Start the conversation',
@@ -110,12 +110,16 @@ function Photo({
   index,
   number,
   priority = false,
+  sizes = '(min-width: 1024px) 50vw, 100vw',
+  src,
 }: {
   alt: string;
   className?: string;
   index: number;
   number?: string;
   priority?: boolean;
+  sizes?: string;
+  src?: string;
 }) {
   return (
     <div className={cn('group relative overflow-hidden bg-[#0c0f0c]', className)} data-reveal>
@@ -124,8 +128,9 @@ function Photo({
         className="object-cover grayscale transition duration-700 group-hover:scale-[1.035] group-hover:grayscale-0"
         fill
         priority={priority}
-        sizes="(min-width: 1024px) 50vw, 100vw"
-        src={gymImages[index % gymImages.length] ?? gymImages[0]}
+        quality={90}
+        sizes={sizes}
+        src={src ?? gymImages[index % gymImages.length] ?? gymImages[0]}
       />
       <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_45%,rgba(0,0,0,0.72))]" />
       {number ? (
@@ -165,9 +170,11 @@ function PageHero({
             className={cn(
               'mt-8 max-w-5xl font-black leading-[0.91] text-white',
               isArabic
-                ? 'font-ar-display text-[clamp(3rem,7vw,7.8rem)] tracking-[-0.04em]'
+                ? compactTitle
+                  ? 'font-ar-display text-[clamp(2.65rem,5vw,5.7rem)] leading-[1.15] tracking-[-0.035em]'
+                  : 'font-ar-display text-[clamp(3rem,7vw,7.8rem)] tracking-[-0.04em]'
                 : compactTitle
-                  ? 'text-[clamp(3rem,5.8vw,6.5rem)] uppercase tracking-[-0.06em]'
+                  ? 'text-[clamp(2.75rem,4.7vw,5.4rem)] uppercase leading-[0.98] tracking-[-0.055em]'
                   : 'text-[clamp(4rem,9.6vw,10.5rem)] uppercase tracking-[-0.075em]',
             )}
           >
@@ -205,7 +212,7 @@ function ContactHero({ body, locale, title }: { body: string; locale: PublicLoca
                 'mt-8 max-w-4xl font-black leading-[0.94] text-white',
                 locale === 'ar'
                   ? 'font-ar-display text-[clamp(2.8rem,5.7vw,6.4rem)] tracking-[-0.035em]'
-                  : 'text-[clamp(3rem,6.3vw,7rem)] uppercase tracking-[-0.065em]',
+                  : 'text-[clamp(2.65rem,4.35vw,5rem)] uppercase leading-[0.98] tracking-[-0.055em]',
               )}
             >
               {title}
@@ -225,7 +232,15 @@ function ContactHero({ body, locale, title }: { body: string; locale: PublicLoca
         </div>
 
         <div className="relative min-h-[28rem] overflow-hidden lg:min-h-0" data-reveal>
-          <Photo alt={title} className="absolute inset-0" index={9} number="10" priority />
+          <Photo
+            alt={title}
+            className="absolute inset-0"
+            index={9}
+            number="10"
+            priority
+            sizes="(min-width: 1024px) 90vw, 100vw"
+            src="/images/gym/WhatsApp Image 2026-07-01 at 2.31.30 PM.jpeg"
+          />
           <div className="absolute start-0 top-8 bg-[#39ff14] px-5 py-4 text-[0.58rem] font-black uppercase tracking-[0.16em] text-black">
             {locale === 'ar' ? 'احجز زيارتك' : 'Book your visit'}
           </div>
@@ -308,7 +323,7 @@ export function AboutPage({ locale }: { locale: PublicLocale }) {
       />
       <PageHero
         body={local.aboutBody}
-        compactTitle={locale === 'en'}
+        compactTitle
         eyebrow={copy.about.eyebrow}
         image={2}
         locale={locale}
@@ -518,8 +533,7 @@ export function ContactPage({ locale }: { locale: PublicLocale }) {
   const local = labels[locale];
   const contactItems: Array<[string, string, LucideIcon, string]> = [
     [copy.contact.phone, brand.phone, Phone, `tel:${brand.phone}`],
-    [copy.contact.email, brand.email, Mail, `mailto:${brand.email}`],
-    [copy.contact.address, brand.address[locale], MapPin, '#location'],
+    [copy.contact.address, brand.address[locale], MapPin, brand.mapsUrl],
     [local.contactHours, local.contactHoursValue, Dumbbell, '#contact-form'],
   ];
 
@@ -562,7 +576,9 @@ export function ContactPage({ locale }: { locale: PublicLocale }) {
           </div>
 
           <div className="mt-16 grid gap-3 md:grid-cols-12" id="location">
-            <Photo alt={copy.contact.map} className="min-h-[34rem] md:col-span-8" index={5} number="06" />
+            <div className="md:col-span-8">
+              <ExpandedMap label={brand.address[locale]} latitude={34.7179977} longitude={36.6970795} mapUrl={brand.mapsUrl} />
+            </div>
             <div className="relative flex min-h-72 flex-col justify-between overflow-hidden bg-[#39ff14] p-7 text-black md:col-span-4">
               <div className="premium-grid absolute inset-0 opacity-25" />
               <div className="relative">

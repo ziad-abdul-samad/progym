@@ -29,6 +29,12 @@ export class AttendanceController {
     return { data: await this.attendance.scan(user, dto.token) };
   }
 
+  @Post('entry')
+  @Protected(UserRole.MEMBER)
+  async entry(@CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.attendance.entry(user) };
+  }
+
   @Post('manual')
   @Protected(UserRole.ADMIN)
   async manual(

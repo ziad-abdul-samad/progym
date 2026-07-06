@@ -18,6 +18,7 @@ import { AuthService } from './auth.service';
 import {
   LoginDto,
   RegisterDto,
+  RegistrationStatusDto,
   ResetPasswordDto,
   VerifySecurityQuestionsDto,
 } from './dto/auth.dto';
@@ -44,13 +45,13 @@ function setAuthCookies(
   });
   response.cookie('refresh_token', tokens.refreshToken, {
     httpOnly: true,
-    maxAge: 30 * 86_400_000,
+    maxAge: 365 * 86_400_000,
     sameSite: 'lax',
     secure: isProduction,
   });
   response.cookie('csrf_token', tokens.csrfToken, {
     httpOnly: false,
-    maxAge: 30 * 86_400_000,
+    maxAge: 365 * 86_400_000,
     sameSite: 'lax',
     secure: isProduction,
   });
@@ -76,11 +77,22 @@ export class AuthController {
   async register(
     @Body() dto: RegisterDto,
     @UploadedFile() photo: Express.Multer.File | undefined,
-    @Res({ passthrough: true }) response: Response,
   ) {
     const result = await this.authService.register(dto, photo);
-    setAuthCookies(response, result.tokens);
-    return { data: result.user };
+    return { data: result };
+  }
+
+  @Post('registration-status')
+  async registrationStatus(
+    @Body() dto: RegistrationStatusDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authService.registrationStatus(dto.claimToken);
+    if ('tokens' in result && result.tokens) {
+      setAuthCookies(response, result.tokens);
+      return { data: { status: result.status, user: result.user } };
+    }
+    return { data: result };
   }
 
   @Post('login')

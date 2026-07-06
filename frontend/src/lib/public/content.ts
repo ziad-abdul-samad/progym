@@ -12,8 +12,6 @@ export const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000
 export const publicRoutes: Array<{ key: PublicPageKey; path: string }> = [
   { key: 'home', path: '' },
   { key: 'about', path: '/about' },
-  { key: 'coaches', path: '/coaches' },
-  { key: 'membership', path: '/membership' },
   { key: 'contact', path: '/contact' },
 ];
 
@@ -33,18 +31,15 @@ function localizedRecord<T extends Record<PublicLocale, string>>(record: T): T {
 export const brand = {
   accent: '#22ff00',
   address: localizedRecord({
-    ar: 'حمص، سوريا',
-    en: 'Homs, Syria',
+    ar: 'الإنشاءات مقابل الفرن الآلي',
+    en: 'Al-Inshaat, opposite the automatic bakery',
   }),
-  email: 'hello@progym.local',
-  logoBw: '/images/pro-gym-logo-bw.jpeg',
-  logoColor: '/images/pro-gym-logo-color.jpeg',
+  logoBw: '/images/gym/log_bw.jpeg',
+  mapsUrl: 'https://www.google.com/maps/place/Progym/@34.7180298,36.6969446,20.7z/data=!4m6!3m5!1s0x15230fd5758aedab:0x7e5d4a17c189b619!8m2!3d34.7179977!4d36.6970795!16s%2Fg%2F11t_py2s53?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D',
   name: 'Pro Gym',
-  phone: '+963 000 000 000',
+  phone: '2213324',
   social: [
-    { href: 'https://www.instagram.com/', label: 'Instagram' },
-    { href: 'https://www.facebook.com/', label: 'Facebook' },
-    { href: 'https://www.youtube.com/', label: 'YouTube' },
+    { href: 'https://www.instagram.com/progym.homs/', label: 'Instagram' },
   ],
 };
 
