@@ -11,6 +11,7 @@ import {
   QrInvitePurpose,
   QrInviteStatus,
   UserRole,
+  UserStatus,
 } from '@prisma/client';
 
 import {
@@ -79,7 +80,9 @@ export class AuthService {
       throw new BadRequestException('Invalid security question selected');
     }
 
-    const registrationInvite = await this.assertValidRegistrationToken(dto.registrationToken);
+    const registrationInvite = dto.registrationToken
+      ? await this.assertValidRegistrationToken(dto.registrationToken)
+      : null;
 
     const existing = await this.prisma.user.findFirst({
       where: {
@@ -98,25 +101,28 @@ export class AuthService {
       hashSecurityAnswer(dto.question3Answer),
     ]);
     const memberCode = `PG-${randomToken(5).toUpperCase()}`;
+    const claimToken = randomToken(40);
     const avatar = await this.storage.saveImage(photo, null);
 
-    let user;
+    let request;
     try {
-      user = await this.prisma.$transaction(async (transaction) => {
-        const claimed = await transaction.qrInvite.updateMany({
-          data: {
-            status: QrInviteStatus.USED,
-            usedAt: new Date(),
-          },
-          where: {
-            expiresAt: { gt: new Date() },
-            id: registrationInvite.id,
-            status: QrInviteStatus.ACTIVE,
-          },
-        });
+      request = await this.prisma.$transaction(async (transaction) => {
+        if (registrationInvite) {
+          const claimed = await transaction.qrInvite.updateMany({
+            data: {
+              status: QrInviteStatus.USED,
+              usedAt: new Date(),
+            },
+            where: {
+              expiresAt: { gt: new Date() },
+              id: registrationInvite.id,
+              status: QrInviteStatus.ACTIVE,
+            },
+          });
 
-        if (claimed.count !== 1) {
-          throw new BadRequestException('Registration QR was already used');
+          if (claimed.count !== 1) {
+            throw new BadRequestException('Registration QR was already used');
+          }
         }
 
         const createdUser = await transaction.user.create({
@@ -126,6 +132,7 @@ export class AuthService {
             passwordHash,
             phone: dto.phone,
             role: UserRole.MEMBER,
+            status: UserStatus.INACTIVE,
             username,
             memberProfile: {
               create: {
@@ -160,27 +167,67 @@ export class AuthService {
           },
         });
 
-        await transaction.qrInvite.update({
-          data: { consumedByUserId: createdUser.id },
-          where: { id: registrationInvite.id },
-        });
+        if (registrationInvite) {
+          await transaction.qrInvite.update({
+            data: { consumedByUserId: createdUser.id },
+            where: { id: registrationInvite.id },
+          });
+        }
         await transaction.fileAsset.update({
           data: { ownerUserId: createdUser.id },
           where: { id: avatar.id },
         });
 
-        return createdUser;
+        return transaction.registrationRequest.create({
+          data: {
+            claimTokenHash: hashToken(claimToken),
+            memberId: createdUser.memberProfile!.id,
+            requestedDays: 30,
+          },
+        });
       });
     } catch (error) {
       await this.storage.deleteAsset(avatar.id);
       throw error;
     }
 
-    const tokens = await this.createTokenSet(user.id);
+    return {
+      claimToken,
+      requestId: request.id,
+      status: request.status,
+    };
+  }
+
+  async registrationStatus(claimToken: string) {
+    const request = await this.prisma.registrationRequest.findUnique({
+      include: { member: true },
+      where: { claimTokenHash: hashToken(claimToken) },
+    });
+
+    if (!request) {
+      throw new BadRequestException('Registration request was not found');
+    }
+
+    if (request.status !== 'APPROVED') {
+      return {
+        reason: request.reviewReason,
+        status: request.status,
+      };
+    }
+
+    if (request.claimedAt) {
+      throw new UnauthorizedException('Registration approval was already claimed');
+    }
+
+    await this.prisma.registrationRequest.update({
+      data: { claimedAt: new Date() },
+      where: { id: request.id },
+    });
 
     return {
-      tokens,
-      user: await this.getSessionUser(user.id),
+      status: request.status,
+      tokens: await this.createTokenSet(request.member.userId),
+      user: await this.getSessionUser(request.member.userId),
     };
   }
 
@@ -409,7 +456,7 @@ export class AuthService {
 
     await this.prisma.refreshSession.create({
       data: {
-        expiresAt: new Date(Date.now() + 30 * 86_400_000),
+        expiresAt: new Date(Date.now() + 365 * 86_400_000),
         tokenHash: hashToken(refreshToken),
         userId,
       },

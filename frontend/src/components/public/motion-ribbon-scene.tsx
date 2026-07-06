@@ -1,7 +1,8 @@
 'use client';
 
 import { Canvas, useFrame, useLoader } from '@react-three/fiber';
-import { Suspense, useEffect, useMemo, useRef } from 'react';
+import Image from 'next/image';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 
 import { useSceneVisibility } from '@/components/public/use-scene-visibility';
@@ -207,7 +208,7 @@ function CurveGuide() {
   );
 }
 
-function Scene({ progress }: { progress: ScrollProgress }) {
+function Scene({ onReady, progress }: { onReady: () => void; progress: ScrollProgress }) {
   const textures = useLoader(THREE.TextureLoader, texturePaths);
   const rigRef = useRef<THREE.Group>(null);
 
@@ -217,7 +218,8 @@ function Scene({ progress }: { progress: ScrollProgress }) {
       texture.anisotropy = 4;
       texture.needsUpdate = true;
     });
-  }, [textures]);
+    onReady();
+  }, [onReady, textures]);
 
   useFrame(({ camera, pointer }) => {
     const value = progress.current;
@@ -250,19 +252,40 @@ function Scene({ progress }: { progress: ScrollProgress }) {
 
 export function MotionRibbonScene({ progress }: { progress: ScrollProgress }) {
   const { containerRef, visible } = useSceneVisibility('30% 0px');
+  const [ready, setReady] = useState(false);
+  const handleReady = useCallback(() => setReady(true), []);
 
   return (
-    <div className="h-full w-full" ref={containerRef}>
+    <div className="relative h-full w-full" ref={containerRef}>
+      <div
+        aria-hidden="true"
+        className={`absolute inset-0 grid grid-cols-3 gap-3 p-[7%] transition-opacity duration-700 ${
+          ready ? 'opacity-0' : 'opacity-100'
+        }`}
+      >
+        {texturePaths.map((src, index) => (
+          <div
+            className={`relative overflow-hidden border border-black/10 bg-[#ecece8] shadow-xl ${
+              index % 2 === 0 ? '-rotate-2' : 'rotate-2'
+            }`}
+            key={src}
+          >
+            <Image alt="" className="object-cover grayscale" fill sizes="33vw" src={src} />
+          </div>
+        ))}
+      </div>
       {visible ? (
-        <Canvas
-          camera={{ fov: 43, position: [0, 0.2, 10.6] }}
-          dpr={[1, 1.25]}
-          gl={{ alpha: true, antialias: true, powerPreference: 'high-performance', stencil: false }}
-        >
-          <Suspense fallback={null}>
-            <Scene progress={progress} />
-          </Suspense>
-        </Canvas>
+        <div className="absolute inset-0 z-10">
+          <Canvas
+            camera={{ fov: 43, position: [0, 0.2, 10.6] }}
+            dpr={[1, 1.25]}
+            gl={{ alpha: true, antialias: true, powerPreference: 'high-performance', stencil: false }}
+          >
+            <Suspense fallback={null}>
+              <Scene onReady={handleReady} progress={progress} />
+            </Suspense>
+          </Canvas>
+        </div>
       ) : null}
     </div>
   );

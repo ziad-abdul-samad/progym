@@ -260,7 +260,7 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
       });
 
       const media = gsap.matchMedia();
-      media.add('(min-width: 1024px)', () => {
+      media.add('(min-width: 1px)', () => {
         const section = root.querySelector<HTMLElement>('[data-horizontal-section]');
         const track = root.querySelector<HTMLElement>('[data-horizontal-track]');
         if (!section || !track) return;
@@ -401,6 +401,7 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
         className="relative min-h-screen overflow-hidden bg-[#d8d5cc] text-[#080a08] [direction:ltr]"
         data-horizontal-section
         dir="ltr"
+        id="gallery"
       >
         <div
           className="flex min-h-screen w-max items-center gap-5 px-5 py-20 [direction:ltr] md:gap-8 md:px-10 lg:gap-10 lg:px-14"

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import type { PublicLocale } from '@progym/shared';
 
-import { AboutPage } from '@/features/public/public-pages';
+import { AboutPage } from '@/features/public/immersive-public-pages';
 import { createPublicMetadata } from '@/lib/public/seo';
 
 export async function generateMetadata({

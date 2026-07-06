@@ -18,6 +18,12 @@ enum UserStatus {
   SUSPENDED
 }
 
+enum RegistrationRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum ObserverStatus {
   ACTIVE
   INACTIVE
@@ -207,6 +213,7 @@ model User {
   profileHistory          ProfileUpdateHistory[]       @relation("ProfileHistoryUser")
   reviewedCoachChanges    CoachProfileChangeRequest[]  @relation("CoachProfileChangeReviewer")
   reviewedMemberChanges   MemberProfileChangeRequest[] @relation("MemberProfileChangeReviewer")
+  reviewedRegistrations   RegistrationRequest[]         @relation("RegistrationRequestReviewer")
   voidedAttendanceRecords AttendanceRecord[]           @relation("AttendanceVoidActor")
   refreshSessions         RefreshSession[]
   securityAnswers         SecurityAnswer[]
@@ -272,6 +279,7 @@ model MemberProfile {
   workoutPlans            WorkoutPlan[]
   workoutLogs             WorkoutLog[]
   changeRequests          MemberProfileChangeRequest[]
+  registrationRequest     RegistrationRequest?
 
   @@index([memberCode])
   @@index([joinedAt])
@@ -426,9 +434,33 @@ model ShiftObserver {
   updatedAt DateTime       @updatedAt
 
   membershipAuditLogs MembershipAuditLog[]
+  registrationRequests RegistrationRequest[]
 
   @@index([status, fullName])
   @@index([createdAt])
+}
+
+model RegistrationRequest {
+  id               String                    @id @default(cuid())
+  memberId         String                    @unique
+  status           RegistrationRequestStatus @default(PENDING)
+  reviewerId       String?
+  observerId       String?
+  requestedDays    Int                       @default(30)
+  approvedDays     Int?
+  reviewReason     String?
+  claimTokenHash   String                    @unique
+  claimedAt        DateTime?
+  reviewedAt       DateTime?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  member   MemberProfile  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  reviewer User?          @relation("RegistrationRequestReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  observer ShiftObserver? @relation(fields: [observerId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([reviewerId, reviewedAt])
 }
 
 model Payment {

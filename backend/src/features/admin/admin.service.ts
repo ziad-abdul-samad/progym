@@ -12,6 +12,7 @@ import {
   ObserverStatus,
   Prisma,
   QrInvitePurpose,
+  RegistrationRequestStatus,
   SubscriptionStatus,
   UserRole,
   UserStatus,
@@ -30,6 +31,7 @@ import { paginated, paginationArgs } from '../../common/utils/pagination.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StorageService } from '../../storage/storage.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { MembershipsService } from '../memberships/memberships.service';
 import type {
   AdminCreateCoachDto,
   AdminCreateMemberDto,
@@ -41,11 +43,13 @@ import type {
   DemoteCoachDto,
   ResetPasswordByAdminDto,
   UpdateObserverDto,
+  ReviewRegistrationRequestDto,
 } from './dto/admin.dto';
 
 @Injectable()
 export class AdminService {
   constructor(
+    private readonly memberships: MembershipsService,
     private readonly notifications: NotificationsService,
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
@@ -686,13 +690,14 @@ export class AdminService {
     const [registrations, attendances] = await Promise.all([
       this.prisma.memberProfile.findMany({
         include: {
+          registrationRequest: true,
           subscriptions: { include: { plan: true }, orderBy: { endsAt: 'desc' }, take: 1 },
           user: true,
         },
         orderBy: { createdAt: 'desc' },
         take: 10,
         where: {
-          subscriptions: { none: {} },
+          registrationRequest: { status: RegistrationRequestStatus.PENDING },
           user: { role: UserRole.MEMBER },
         },
       }),
@@ -715,6 +720,7 @@ export class AdminService {
     const registrationEvents = registrations.map((member) => ({
       id: `registration:${member.id}`,
       kind: 'REGISTRATION' as const,
+      requestId: member.registrationRequest?.id ?? null,
       member: {
         age: ageFromDateOfBirth(member.dateOfBirth),
         avatarUrl: member.user.avatarUrl,
@@ -768,6 +774,125 @@ export class AdminService {
     return [...registrationEvents, ...attendanceEvents]
       .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())
       .slice(0, 20);
+  }
+
+  async registrationRequests(query: PaginationDto) {
+    const where: Prisma.RegistrationRequestWhereInput = {
+      ...(query.status
+        ? { status: query.status as RegistrationRequestStatus }
+        : {}),
+      ...(query.q
+        ? {
+            member: {
+              user: {
+                OR: [
+                  { fullName: { contains: query.q, mode: 'insensitive' } },
+                  { username: { contains: query.q, mode: 'insensitive' } },
+                  { phone: { contains: query.q, mode: 'insensitive' } },
+                ],
+              },
+            },
+          }
+        : {}),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.registrationRequest.findMany({
+        include: {
+          member: { include: { user: true } },
+          observer: true,
+          reviewer: { select: { fullName: true, id: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        where,
+        ...paginationArgs(query),
+      }),
+      this.prisma.registrationRequest.count({ where }),
+    ]);
+
+    return paginated(items, total, query);
+  }
+
+  async reviewRegistrationRequest(
+    id: string,
+    dto: ReviewRegistrationRequestDto,
+    admin: AuthenticatedUser,
+  ) {
+    const request = await this.prisma.registrationRequest.findUnique({
+      include: { member: { include: { user: true } } },
+      where: { id },
+    });
+    if (!request) throw new NotFoundException('Registration request not found');
+    if (request.status !== RegistrationRequestStatus.PENDING) {
+      throw new ConflictException('Registration request was already reviewed');
+    }
+
+    if (!dto.approve) {
+      return this.prisma.$transaction(async (transaction) => {
+        const updated = await transaction.registrationRequest.update({
+          data: {
+            reviewReason: dto.reason?.trim() || null,
+            reviewedAt: new Date(),
+            reviewerId: admin.id,
+            status: RegistrationRequestStatus.REJECTED,
+          },
+          where: { id },
+        });
+        await transaction.auditLog.create({
+          data: {
+            action: AuditAction.UPDATE,
+            actorId: admin.id,
+            entityId: id,
+            entityType: 'RegistrationRequest',
+            metadata: { action: 'REJECT', reason: dto.reason ?? null },
+          },
+        });
+        return updated;
+      });
+    }
+
+    if (!dto.observerId) {
+      throw new BadRequestException('Observer is required to approve a registration');
+    }
+    const days = dto.days ?? 30;
+    const subscription = await this.memberships.createSubscription(
+      {
+        days,
+        memberId: request.memberId,
+        observerId: dto.observerId,
+        reason: dto.reason?.trim() || 'اعتماد طلب تسجيل لاعب جديد',
+      },
+      admin,
+    );
+
+    const updated = await this.prisma.$transaction(async (transaction) => {
+      const reviewed = await transaction.registrationRequest.update({
+        data: {
+          approvedDays: days,
+          observerId: dto.observerId,
+          reviewReason: dto.reason?.trim() || null,
+          reviewedAt: new Date(),
+          reviewerId: admin.id,
+          status: RegistrationRequestStatus.APPROVED,
+        },
+        where: { id },
+      });
+      await transaction.user.update({
+        data: { status: UserStatus.ACTIVE },
+        where: { id: request.member.userId },
+      });
+      await transaction.auditLog.create({
+        data: {
+          action: AuditAction.UPDATE,
+          actorId: admin.id,
+          entityId: id,
+          entityType: 'RegistrationRequest',
+          metadata: { action: 'APPROVE', days, subscriptionId: subscription.id },
+        },
+      });
+      return reviewed;
+    });
+
+    return { ...updated, subscription };
   }
 
   async createObserver(dto: CreateObserverDto, admin: AuthenticatedUser) {

@@ -19,31 +19,31 @@ export function ContactForm({ locale }: { locale: PublicLocale }) {
   }
 
   return (
-    <form className="glass-panel rounded-lg p-4 md:p-6" onSubmit={submit}>
-      <div className="mb-6">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-green-700 dark:text-brand-accent">
+    <form className="border border-white/12 bg-white/[0.035] p-5 backdrop-blur-md md:p-9" onSubmit={submit}>
+      <div className="mb-8 border-b border-white/10 pb-6">
+        <p className="text-[0.58rem] font-black uppercase tracking-[0.2em] text-[#39ff14]">
           Pro Gym
         </p>
-        <h2 className="mt-2 text-2xl font-black text-foreground">{copy.submit}</h2>
+        <h2 className="mt-3 text-3xl font-black uppercase tracking-[-0.04em] text-white">{copy.submit}</h2>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <Input name="name" placeholder={copy.name} required />
-        <Input name="phone" placeholder={copy.phone} required />
-        <Input className="md:col-span-2" name="goal" placeholder={copy.goal} required />
+        <Input className="h-14 rounded-none border-white/12 bg-white/[0.045] text-white placeholder:text-white/32 focus-visible:border-[#39ff14]" name="name" placeholder={copy.name} required />
+        <Input className="h-14 rounded-none border-white/12 bg-white/[0.045] text-white placeholder:text-white/32 focus-visible:border-[#39ff14]" name="phone" placeholder={copy.phone} required />
+        <Input className="h-14 rounded-none border-white/12 bg-white/[0.045] text-white placeholder:text-white/32 focus-visible:border-[#39ff14] md:col-span-2" name="goal" placeholder={copy.goal} required />
         <textarea
-          className="min-h-32 rounded-lg border border-input bg-white/58 px-4 py-3 text-sm text-foreground shadow-inner outline-none transition placeholder:text-muted-foreground focus:border-brand-accent focus:ring-2 focus:ring-ring dark:bg-white/5 md:col-span-2"
+          className="min-h-40 border border-white/12 bg-white/[0.045] px-4 py-4 text-sm text-white outline-none transition placeholder:text-white/32 focus:border-[#39ff14] focus:ring-1 focus:ring-[#39ff14] md:col-span-2"
           name="message"
           placeholder={copy.message}
           required
         />
       </div>
       {success ? (
-        <div className="mt-4 flex items-center gap-2 rounded-lg border border-brand-accent/40 bg-brand-accent/10 p-3 text-sm font-semibold text-green-700 dark:text-brand-accent">
+        <div className="mt-4 flex items-center gap-2 border border-[#39ff14]/40 bg-[#39ff14]/10 p-3 text-sm font-semibold text-[#39ff14]">
           <CheckCircle2 className="h-5 w-5" />
           {copy.success}
         </div>
       ) : null}
-      <Button className="mt-5 w-full rounded-full" type="submit">
+      <Button className="mt-5 h-14 w-full rounded-none bg-[#39ff14] text-xs font-black uppercase tracking-[0.12em] text-black hover:bg-white" type="submit">
         {copy.submit}
       </Button>
     </form>

@@ -58,6 +58,13 @@ export class AttendanceService {
     return this.recordAttendance(user.memberProfileId, AttendanceSource.QR, session.id);
   }
 
+  async entry(user: AuthenticatedUser) {
+    if (!user.memberProfileId) {
+      throw new BadRequestException('Only members can record entry');
+    }
+    return this.recordAttendance(user.memberProfileId, AttendanceSource.QR, null);
+  }
+
   async manualRecord(admin: AuthenticatedUser, memberId: string, notes?: string) {
     const result = await this.recordAttendance(memberId, AttendanceSource.ADMIN, null, notes);
     await this.prisma.auditLog.create({

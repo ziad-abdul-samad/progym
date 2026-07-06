@@ -3,6 +3,7 @@ import {
   IsEnum,
   IsDateString,
   IsNotEmpty,
+  IsOptional,
   IsString,
   Length,
   Max,
@@ -75,9 +76,15 @@ export class RegisterDto {
   @IsNotEmpty()
   question3Answer!: string;
 
+  @IsOptional()
+  @IsString()
+  registrationToken?: string;
+}
+
+export class RegistrationStatusDto {
   @IsString()
   @IsNotEmpty()
-  registrationToken!: string;
+  claimToken!: string;
 }
 
 export class LoginDto {

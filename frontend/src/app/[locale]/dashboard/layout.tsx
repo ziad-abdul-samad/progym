@@ -1,11 +1,11 @@
-import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import type { PublicLocale } from '@progym/shared';
 
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 
-export function generateStaticParams(): Array<{ locale: 'ar' }> {
-  return [{ locale: 'ar' }];
+export function generateStaticParams(): Array<{ locale: PublicLocale }> {
+  return [{ locale: 'ar' }, { locale: 'en' }];
 }
 
 export const metadata: Metadata = {
@@ -24,9 +24,5 @@ export default async function DashboardLayout({
 }) {
   const { locale } = await params;
 
-  if (locale !== 'ar') {
-    notFound();
-  }
-
-  return <DashboardShell locale={locale}>{children}</DashboardShell>;
+  return <DashboardShell locale={locale as PublicLocale}>{children}</DashboardShell>;
 }
