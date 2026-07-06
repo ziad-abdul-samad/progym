@@ -35,6 +35,7 @@ const prisma = new PrismaClient({ adapter });
 const dayMs = 86_400_000;
 const demoPassword = process.env.SEED_DEMO_PASSWORD ?? 'Demo@123456';
 const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? 'Admin@123456';
+const seedDemoData = process.env.SEED_DEMO_DATA !== 'false';
 const uploadRoot = join(process.cwd(), 'uploads');
 
 function addDays(date: Date, days: number) {
@@ -235,6 +236,7 @@ async function seedBaseData() {
       openingHours: {
         friday: { closes: '19:00', opens: '14:00' },
         saturdayThroughThursday: { closes: '12:00', opens: '07:00' },
+      },
       nameAr: 'برو جيم',
       nameEn: 'Pro Gym',
       phone: '2213324',
@@ -1032,16 +1034,20 @@ async function seedOperationalData(adminId: string, adminName: string) {
 
 async function main() {
   const admin = await seedBaseData();
-  await seedDemoUsers();
-  await seedObservers();
-  await cleanupDemoData();
-  await seedOperationalData(admin.id, admin.fullName);
+  if (seedDemoData) {
+    await seedDemoUsers();
+    await seedObservers();
+    await cleanupDemoData();
+    await seedOperationalData(admin.id, admin.fullName);
+  }
 
   console.log('Seed complete.');
   console.log(`Admin username: ${admin.username}`);
   console.log(`Admin password: ${adminPassword}`);
-  console.log(`Demo member password: ${demoPassword}`);
-  console.log('Demo users: coach.omar, coach.karim, ahmad, mohammad, sami, hadi, yazan, firas');
+  if (seedDemoData) {
+    console.log(`Demo member password: ${demoPassword}`);
+    console.log('Demo users: coach.omar, coach.karim, ahmad, mohammad, sami, hadi, yazan, firas');
+  }
 }
 
 main()
