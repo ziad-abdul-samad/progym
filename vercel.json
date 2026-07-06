@@ -3,5 +3,5 @@
   "framework": "nextjs",
   "installCommand": "corepack pnpm install --frozen-lockfile",
   "buildCommand": "corepack pnpm --filter @progym/shared build && corepack pnpm --filter @progym/frontend build",
-  "outputDirectory": "frontend/.next"
+  "outputDirectory": ".next"
 }
