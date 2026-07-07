@@ -23,6 +23,13 @@ import { MotionRibbonSection } from '@/components/public/motion-ribbon-section';
 const imageRoot = '/images/gym';
 const optimizedImageRoot = `${imageRoot}/optimized`;
 
+const motionGridImages = {
+  cardio: `${imageRoot}/WhatsApp Image 2026-07-01 at 2.31.30 PM (4).jpeg`,
+  floorDark: `${imageRoot}/WhatsApp Image 2026-07-01 at 2.31.30 PM (2).jpeg`,
+  plates: `${imageRoot}/WhatsApp Image 2026-07-01 at 2.31.30 PM (6).jpeg`,
+  rack: `${imageRoot}/WhatsApp Image 2026-07-01 at 2.31.30 PM (7).jpeg`,
+} as const;
+
 const optimizedImages = {
   cardio: `${optimizedImageRoot}/gym-04.webp`,
   dumbbellRoom: `${optimizedImageRoot}/gym-05.webp`,
@@ -111,28 +118,28 @@ const steps = {
   ar: [
     {
       body: 'تسجيل QR سريع، ملف منظم، وحالة اشتراك واضحة قبل أن يبدأ اللاعب تمرينه.',
-      image: optimizedImages.floorDark,
+      image: motionGridImages.floorDark,
       number: '01',
       tag: 'الدخول',
       title: 'عضو معروف من أول لحظة.',
     },
     {
       body: 'خطط تدريب وتغذية وإصدارات محفوظة، مع متابعة دقيقة لما نفّذه اللاعب فعلياً.',
-      image: optimizedImages.plates,
+      image: motionGridImages.plates,
       number: '02',
       tag: 'التدريب',
       title: 'الخطة تتحرك مع النتيجة.',
     },
     {
       body: 'الأوزان والتكرارات والإنجازات والأرقام الشخصية تصبح تاريخاً قابلاً للقراءة.',
-      image: optimizedImages.rack,
+      image: motionGridImages.rack,
       number: '03',
       tag: 'الأداء',
       title: 'كل تمرين يترك أثراً.',
     },
     {
       body: 'صور أمامية وجانبية وخلفية، مقارنات صحيحة، وطلبات متابعة لا تكتمل قبل اكتمال المطلوب.',
-      image: optimizedImages.cardio,
+      image: motionGridImages.cardio,
       number: '04',
       tag: 'التقدم',
       title: 'التحول يظهر كما هو.',
@@ -141,28 +148,28 @@ const steps = {
   en: [
     {
       body: 'Fast QR registration, a structured profile, and clear membership status before the workout begins.',
-      image: optimizedImages.floorDark,
+      image: motionGridImages.floorDark,
       number: '01',
       tag: 'Entry',
       title: 'Know every member from minute one.',
     },
     {
       body: 'Versioned workout and nutrition plans with precise tracking of what the member actually completed.',
-      image: optimizedImages.plates,
+      image: motionGridImages.plates,
       number: '02',
       tag: 'Training',
       title: 'The plan moves with the result.',
     },
     {
       body: 'Weights, repetitions, completion, and personal records become a readable performance history.',
-      image: optimizedImages.rack,
+      image: motionGridImages.rack,
       number: '03',
       tag: 'Performance',
       title: 'Every workout leaves a signal.',
     },
     {
       body: 'Correct front, side, and back comparisons with progress requests that wait for every required view.',
-      image: optimizedImages.cardio,
+      image: motionGridImages.cardio,
       number: '04',
       tag: 'Progress',
       title: 'Transformation becomes visible.',
@@ -391,7 +398,7 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
                   data-system-step
                   key={step.number}
                 >
-                  <div className="relative mb-8 aspect-[4/5] overflow-hidden bg-black sm:aspect-[5/4] lg:aspect-[16/7]" data-home-image>
+                  <div className="relative mb-8 aspect-[4/5] overflow-hidden bg-black sm:aspect-[5/4] lg:aspect-[16/7]">
                     <Image
                       alt={step.title}
                       className="object-cover object-center grayscale"
