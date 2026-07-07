@@ -68,6 +68,7 @@ export function RegistrationRequestsPage() {
       setSelected(null);
       setReason('');
       setDays(30);
+      await queryClient.invalidateQueries({ queryKey: ['admin-sidebar-badges'] });
       await queryClient.invalidateQueries({ queryKey: ['registration-requests'] });
       await queryClient.invalidateQueries({ queryKey: ['reception-feed'] });
     },
@@ -133,13 +134,13 @@ export function RegistrationRequestsPage() {
         <div className="grid gap-4 xl:grid-cols-2">
           {requests.data.items.map((request) => (
             <Card className="flex flex-col gap-5 sm:flex-row" key={request.id}>
-              <div className="relative h-28 w-full shrink-0 overflow-hidden rounded-lg bg-muted sm:h-32 sm:w-28">
+              <div className="relative h-40 w-full shrink-0 overflow-hidden rounded-lg border border-border bg-muted sm:h-36 sm:w-36">
                 {request.member.user.avatarUrl ? (
                   <Image
                     alt={request.member.user.fullName}
                     fill
-                    sizes="112px"
-                    className="object-cover"
+                    sizes="(max-width: 640px) 100vw, 144px"
+                    className="object-contain"
                     src={request.member.user.avatarUrl}
                   />
                 ) : null}
@@ -189,14 +190,14 @@ export function RegistrationRequestsPage() {
       >
         {selected ? (
           <div className="space-y-5">
-            <div className="grid gap-4 rounded-lg border border-border p-4 sm:grid-cols-[8rem_1fr]">
-              <div className="relative h-36 overflow-hidden rounded-lg bg-muted">
+            <div className="grid gap-4 rounded-lg border border-border p-4 sm:grid-cols-[14rem_1fr]">
+              <div className="relative h-64 overflow-hidden rounded-lg border border-border bg-muted sm:h-72">
                 {selected.member.user.avatarUrl ? (
                   <Image
                     alt={selected.member.user.fullName}
                     fill
-                    sizes="128px"
-                    className="object-cover"
+                    sizes="(max-width: 640px) 100vw, 224px"
+                    className="object-contain"
                     src={selected.member.user.avatarUrl}
                   />
                 ) : null}

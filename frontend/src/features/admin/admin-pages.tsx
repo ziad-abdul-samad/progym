@@ -53,12 +53,17 @@ type Member = {
   assignments?: Array<{ coach: { user: { fullName: string } } }>;
   age?: number;
   currentWeightKg?: string | number;
+  dateOfBirth?: string;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
   fitnessGoal: string;
   gender?: string;
   heightCm?: string | number;
   id: string;
   joinedAt?: string;
-  subscriptions: Array<{ endsAt: string; id: string; status: string }>;
+  memberCode?: string;
+  notes?: string | null;
+  subscriptions: Array<{ endsAt: string; id: string; startsAt?: string; status: string }>;
   user: {
     avatarUrl?: string | null;
     fullName: string;
@@ -919,28 +924,59 @@ export function AdminMembersPage() {
         title={selectedMember?.user.fullName ?? 'تفاصيل اللاعب'}
       >
         {selectedMember ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <DetailRow label="اسم المستخدم" value={selectedMember.user.username} />
-            <DetailRow label="الهاتف" value={selectedMember.user.phone} />
-            <DetailRow label="الحساب" value={<StatusBadge status={selectedMember.user.status} />} />
-            <DetailRow label="الدور" value={<StatusBadge status={selectedMember.user.role} />} />
-            <DetailRow label="الهدف" value={selectedMember.fitnessGoal} />
-            <DetailRow
-              label="المدرب"
-              value={selectedMember.assignments?.[0]?.coach.user.fullName ?? 'لا يوجد'}
-            />
-            <DetailRow
-              label="الاشتراك"
-              value={<StatusBadge status={selectedMember.subscriptions[0]?.status ?? 'NONE'} />}
-            />
-            <DetailRow
-              label="الأيام المتبقية"
-              value={
-                selectedMember.subscriptions[0]
-                  ? `${subscriptionRemainingDays(selectedMember.subscriptions[0].endsAt)} يوم`
-                  : 'بدون اشتراك'
-              }
-            />
+          <div className="space-y-4">
+            <div className="grid gap-4 rounded-xl border border-border bg-muted/25 p-4 sm:grid-cols-[13rem_1fr]">
+              <div className="relative h-64 overflow-hidden rounded-xl border border-border bg-background sm:h-72">
+                {selectedMember.user.avatarUrl ? (
+                  <Image
+                    alt={selectedMember.user.fullName}
+                    className="object-contain"
+                    fill
+                    sizes="(max-width: 640px) 100vw, 208px"
+                    src={selectedMember.user.avatarUrl}
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm font-black text-muted-foreground">
+                    لا توجد صورة
+                  </div>
+                )}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <DetailRow label="الاسم الكامل" value={selectedMember.user.fullName} />
+                <DetailRow label="اسم المستخدم" value={selectedMember.user.username} />
+                <DetailRow label="الهاتف" value={selectedMember.user.phone} />
+                <DetailRow label="كود اللاعب" value={selectedMember.memberCode ?? 'لا يوجد'} />
+                <DetailRow label="الحساب" value={<StatusBadge status={selectedMember.user.status} />} />
+                <DetailRow label="الدور" value={<StatusBadge status={selectedMember.user.role} />} />
+                <DetailRow label="تاريخ الميلاد" value={selectedMember.dateOfBirth ? formatCompactDate(selectedMember.dateOfBirth) : 'لا يوجد'} />
+                <DetailRow label="العمر" value={selectedMember.age ? `${selectedMember.age} سنة` : 'لا يوجد'} />
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <DetailRow label="الجنس" value={selectedMember.gender ?? 'لا يوجد'} />
+              <DetailRow label="الطول" value={selectedMember.heightCm ? `${selectedMember.heightCm} سم` : 'لا يوجد'} />
+              <DetailRow label="الوزن الحالي" value={selectedMember.currentWeightKg ? `${selectedMember.currentWeightKg} كغ` : 'لا يوجد'} />
+              <DetailRow label="الهدف" value={selectedMember.fitnessGoal} />
+              <DetailRow label="تاريخ الانضمام" value={selectedMember.joinedAt ? formatCompactDate(selectedMember.joinedAt) : 'لا يوجد'} />
+              <DetailRow label="المدرب" value={selectedMember.assignments?.[0]?.coach.user.fullName ?? 'لا يوجد'} />
+              <DetailRow label="الاشتراك" value={<StatusBadge status={selectedMember.subscriptions[0]?.status ?? 'NONE'} />} />
+              <DetailRow label="بداية الاشتراك" value={selectedMember.subscriptions[0]?.startsAt ? formatCompactDate(selectedMember.subscriptions[0].startsAt) : 'لا يوجد'} />
+              <DetailRow
+                label="نهاية الاشتراك"
+                value={selectedMember.subscriptions[0]?.endsAt ? formatCompactDate(selectedMember.subscriptions[0].endsAt) : 'لا يوجد'}
+              />
+              <DetailRow
+                label="الأيام المتبقية"
+                value={
+                  selectedMember.subscriptions[0]
+                    ? `${subscriptionRemainingDays(selectedMember.subscriptions[0].endsAt)} يوم`
+                    : 'بدون اشتراك'
+                }
+              />
+              <DetailRow label="جهة اتصال الطوارئ" value={selectedMember.emergencyContactName ?? 'لا يوجد'} />
+              <DetailRow label="هاتف الطوارئ" value={selectedMember.emergencyContactPhone ?? 'لا يوجد'} />
+            </div>
+            {selectedMember.notes ? <DetailRow label="ملاحظات" value={selectedMember.notes} /> : null}
           </div>
         ) : null}
       </Dialog>

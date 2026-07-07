@@ -230,14 +230,6 @@ export class AttendanceService {
     });
     const attendanceDate = gymDate(new Date());
 
-    const existing = await this.prisma.attendanceRecord.findFirst({
-      where: { attendanceDate, memberId, voidedAt: null },
-    });
-
-    if (existing) {
-      throw new ConflictException('Attendance already recorded today');
-    }
-
     const record = await this.prisma.attendanceRecord.create({
       data: {
         attendanceDate,

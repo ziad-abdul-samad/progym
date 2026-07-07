@@ -30,12 +30,13 @@ import { AnimatePresence, motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import type { PublicLocale } from '@progym/shared';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogCancelButton } from '@/components/ui/dialog';
+import type { PaginatedResponse } from '@/components/ui/pagination';
 import { DashboardLoader, ErrorState } from '@/components/ui/state';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { apiRequest, jsonBody } from '@/lib/api/client';
@@ -46,20 +47,29 @@ import { ReceptionEventCenter } from '@/features/admin/reception-event-center';
 import { MemberLocaleProvider } from '@/features/member/member-locale';
 
 type NavItem = {
+  badgeKey?: AdminSidebarBadgeKey;
   href: string;
   icon: LucideIcon;
   label: string;
 };
 
+type AdminSidebarBadgeKey = 'attendance' | 'members' | 'registrations';
+
+type AdminSidebarBadgeSource = {
+  attendance: Array<{ checkedInAt: string }>;
+  members: Array<{ createdAt?: string; joinedAt?: string }>;
+  registrations: Array<{ createdAt: string }>;
+};
+
 const navItems: Record<SessionUser['role'], NavItem[]> = {
   ADMIN: [
     { href: '/ar/dashboard/admin', icon: Gauge, label: 'لوحة التحكم' },
-    { href: '/ar/dashboard/admin/members', icon: Users, label: 'الأعضاء' },
-    { href: '/ar/dashboard/admin/registrations', icon: UserRoundCheck, label: 'طلبات التسجيل' },
+    { badgeKey: 'members', href: '/ar/dashboard/admin/members', icon: Users, label: 'الأعضاء' },
+    { badgeKey: 'registrations', href: '/ar/dashboard/admin/registrations', icon: UserRoundCheck, label: 'طلبات التسجيل' },
     { href: '/ar/dashboard/admin/coaches', icon: UserCog, label: 'المدربون' },
     { href: '/ar/dashboard/admin/memberships', icon: WalletCards, label: 'الاشتراكات' },
     { href: '/ar/dashboard/admin/observers', icon: ClipboardList, label: 'المراقبون' },
-    { href: '/ar/dashboard/admin/attendance', icon: Activity, label: 'الحضور' },
+    { badgeKey: 'attendance', href: '/ar/dashboard/admin/attendance', icon: Activity, label: 'الحضور' },
     { href: '/ar/dashboard/admin/exercises', icon: Dumbbell, label: 'التمارين' },
     { href: '/ar/dashboard/admin/audit', icon: Shield, label: 'التدقيق' },
   ],
@@ -126,7 +136,50 @@ function homeForRole(role: SessionUser['role'], locale: PublicLocale = 'ar'): st
   return `/${locale}/dashboard/member`;
 }
 
+const ADMIN_SIDEBAR_SEEN_KEY = 'progym-admin-sidebar-seen-at';
+
+function defaultAdminSidebarSeenAt(): Record<AdminSidebarBadgeKey, string> {
+  const now = new Date().toISOString();
+  return { attendance: now, members: now, registrations: now };
+}
+
+function adminBadgeKeyForPath(pathname: string): AdminSidebarBadgeKey | null {
+  const path = pathname.replace(/^\/(ar|en)/, '');
+  if (path === '/dashboard/admin/members') return 'members';
+  if (path === '/dashboard/admin/registrations') return 'registrations';
+  if (path === '/dashboard/admin/attendance') return 'attendance';
+  return null;
+}
+
+function readAdminSidebarSeenAt(): Record<AdminSidebarBadgeKey, string> {
+  if (typeof window === 'undefined') return defaultAdminSidebarSeenAt();
+  const fallback = defaultAdminSidebarSeenAt();
+  try {
+    const stored = window.localStorage.getItem(ADMIN_SIDEBAR_SEEN_KEY);
+    if (!stored) {
+      window.localStorage.setItem(ADMIN_SIDEBAR_SEEN_KEY, JSON.stringify(fallback));
+      return fallback;
+    }
+    return { ...fallback, ...(JSON.parse(stored) as Partial<Record<AdminSidebarBadgeKey, string>>) };
+  } catch {
+    return fallback;
+  }
+}
+
+function countNewerThan(
+  items: Array<{ checkedInAt?: string; createdAt?: string; joinedAt?: string }>,
+  seenAt: string,
+  dateKey: 'checkedInAt' | 'createdAt' | 'joinedAt',
+): number {
+  const seenTime = new Date(seenAt).getTime();
+  return items.filter((item) => {
+    const value = item[dateKey];
+    return value ? new Date(value).getTime() > seenTime : false;
+  }).length;
+}
+
 function Sidebar({
+  badges,
   collapsed,
   items,
   onNavigate,
@@ -135,6 +188,7 @@ function Sidebar({
   user,
   locale,
 }: {
+  badges?: Partial<Record<AdminSidebarBadgeKey, number>>;
   collapsed: boolean;
   items: NavItem[];
   onNavigate?: (href: string) => void;
@@ -175,24 +229,37 @@ function Sidebar({
       <div className="mt-5 grid gap-1">
         {items.map((item) => {
           const active = pathname === item.href;
+          const badgeCount = item.badgeKey ? (badges?.[item.badgeKey] ?? 0) : 0;
           const Icon = item.icon;
 
           return (
             <Link
               className={cn(
-                'group flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-bold transition-colors duration-150',
+                'group relative flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-bold transition-colors duration-150',
                 active
                   ? 'bg-black text-white shadow-sm hover:bg-black hover:text-white'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                collapsed && 'justify-center px-2',
+                collapsed ? 'justify-center px-2' : 'justify-between',
               )}
               href={item.href}
               key={item.href}
               onClick={() => onNavigate?.(item.href)}
               title={collapsed ? item.label : undefined}
             >
-              <Icon className="h-5 w-5 shrink-0" />
-              {!collapsed ? <span>{item.label}</span> : null}
+              <span className={cn('flex min-w-0 items-center gap-3', collapsed && 'justify-center')}>
+                <Icon className="h-5 w-5 shrink-0" />
+                {!collapsed ? <span className="truncate">{item.label}</span> : null}
+              </span>
+              {badgeCount ? (
+                <span
+                  className={cn(
+                    'inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-black leading-none text-white shadow-sm',
+                    collapsed && 'absolute -end-0.5 -top-0.5 h-4 min-w-4 px-1 text-[9px]',
+                  )}
+                >
+                  {badgeCount > 99 ? '99+' : badgeCount}
+                </span>
+              ) : null}
             </Link>
           );
         })}
@@ -395,11 +462,65 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
       router.refresh();
     },
   });
+  const [adminSidebarSeenAt, setAdminSidebarSeenAt] = useState(defaultAdminSidebarSeenAt);
+  const activeAdminBadgeKey =
+    auth.data?.role === 'ADMIN' ? adminBadgeKeyForPath(pathname) : null;
+  const adminSidebarBadgeSource = useQuery({
+    enabled: auth.data?.role === 'ADMIN',
+    queryFn: async (): Promise<AdminSidebarBadgeSource> => {
+      const [members, registrations, attendance] = await Promise.all([
+        apiRequest<PaginatedResponse<{ createdAt?: string; joinedAt?: string }>>(
+          '/admin/members?page=1&pageSize=100',
+        ),
+        apiRequest<PaginatedResponse<{ createdAt: string }>>(
+          '/admin/registration-requests?page=1&pageSize=100&status=PENDING',
+        ),
+        apiRequest<PaginatedResponse<{ checkedInAt: string }>>(
+          '/attendance?page=1&pageSize=100',
+        ),
+      ]);
+      return {
+        attendance: attendance.items,
+        members: members.items,
+        registrations: registrations.items,
+      };
+    },
+    queryKey: ['admin-sidebar-badges'],
+    refetchInterval: 15_000,
+  });
+  const adminSidebarBadges = useMemo<Partial<Record<AdminSidebarBadgeKey, number>>>(() => {
+    if (auth.data?.role !== 'ADMIN' || !adminSidebarBadgeSource.data) return {};
+    return {
+      attendance: countNewerThan(
+        adminSidebarBadgeSource.data.attendance,
+        adminSidebarSeenAt.attendance,
+        'checkedInAt',
+      ),
+      members: countNewerThan(
+        adminSidebarBadgeSource.data.members,
+        adminSidebarSeenAt.members,
+        'joinedAt',
+      ),
+      registrations: countNewerThan(
+        adminSidebarBadgeSource.data.registrations,
+        adminSidebarSeenAt.registrations,
+        'createdAt',
+      ),
+    };
+  }, [adminSidebarBadgeSource.data, adminSidebarSeenAt, auth.data?.role]);
 
   useEffect(() => {
     const stored = window.localStorage.getItem('progym-sidebar-collapsed');
     if (stored) setCollapsed(stored === 'true');
+    setAdminSidebarSeenAt(readAdminSidebarSeenAt());
   }, []);
+
+  useEffect(() => {
+    if (!activeAdminBadgeKey) return;
+    const next = { ...readAdminSidebarSeenAt(), [activeAdminBadgeKey]: new Date().toISOString() };
+    window.localStorage.setItem(ADMIN_SIDEBAR_SEEN_KEY, JSON.stringify(next));
+    setAdminSidebarSeenAt(next);
+  }, [activeAdminBadgeKey]);
 
   useEffect(() => {
     window.localStorage.setItem('progym-sidebar-collapsed', String(collapsed));
@@ -469,6 +590,7 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
       <aside className="relative hidden h-screen p-3 lg:sticky lg:top-0 lg:block">
         <Card className="h-full border-border/80 bg-card/92 p-2 shadow-sm backdrop-blur">
           <Sidebar
+            badges={adminSidebarBadges}
             collapsed={collapsed}
             items={items}
             locale={locale}
@@ -569,6 +691,7 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
             <div className="sticky top-20 h-[calc(100vh-6rem)]">
               <Card className="h-full border-border/80 bg-card/92 p-2 shadow-sm backdrop-blur">
                 <Sidebar
+                  badges={adminSidebarBadges}
                   collapsed={collapsed}
                   items={items}
                   locale={locale}
@@ -687,6 +810,7 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                 <Sidebar
+                  badges={adminSidebarBadges}
                   collapsed={false}
                   items={items}
                   locale={locale}
