@@ -21,18 +21,19 @@ import { AnimatedCounter } from '@/components/public/animated-counter';
 import { MotionRibbonSection } from '@/components/public/motion-ribbon-section';
 
 const imageRoot = '/images/gym';
+const optimizedImageRoot = `${imageRoot}/optimized`;
 
-const images = {
-  cardio: `${imageRoot}/WhatsApp Image 2026-07-01 at 2.31.30 PM (4).jpeg`,
-  dumbbellRoom: `${imageRoot}/WhatsApp Image 2026-07-01 at 2.31.30 PM (5).jpeg`,
-  dumbbells: `${imageRoot}/WhatsApp Image 2026-07-01 at 2.31.30 PM (9).jpeg`,
-  floorDark: `${imageRoot}/WhatsApp Image 2026-07-01 at 2.31.30 PM (2).jpeg`,
-  floorWide: `${imageRoot}/WhatsApp Image 2026-07-01 at 2.31.30 PM (3).jpeg`,
-  legPress: `${imageRoot}/WhatsApp Image 2026-07-01 at 2.31.30 PM (1).jpeg`,
-  plates: `${imageRoot}/WhatsApp Image 2026-07-01 at 2.31.30 PM (6).jpeg`,
-  platesClose: `${imageRoot}/WhatsApp Image 2026-07-01 at 2.31.30 PM (8).jpeg`,
-  rack: `${imageRoot}/WhatsApp Image 2026-07-01 at 2.31.30 PM (7).jpeg`,
-  treadmills: `${imageRoot}/WhatsApp Image 2026-07-01 at 2.31.30 PM.jpeg`,
+const optimizedImages = {
+  cardio: `${optimizedImageRoot}/gym-04.webp`,
+  dumbbellRoom: `${optimizedImageRoot}/gym-05.webp`,
+  dumbbells: `${optimizedImageRoot}/gym-09.webp`,
+  floorDark: `${optimizedImageRoot}/gym-02.webp`,
+  floorWide: `${optimizedImageRoot}/gym-03.webp`,
+  legPress: `${optimizedImageRoot}/gym-01.webp`,
+  plates: `${optimizedImageRoot}/gym-06.webp`,
+  platesClose: `${optimizedImageRoot}/gym-08.webp`,
+  rack: `${optimizedImageRoot}/gym-07.webp`,
+  treadmills: `${optimizedImageRoot}/gym-10.webp`,
 } as const;
 
 const content = {
@@ -110,28 +111,28 @@ const steps = {
   ar: [
     {
       body: 'تسجيل QR سريع، ملف منظم، وحالة اشتراك واضحة قبل أن يبدأ اللاعب تمرينه.',
-      image: images.floorDark,
+      image: optimizedImages.floorDark,
       number: '01',
       tag: 'الدخول',
       title: 'عضو معروف من أول لحظة.',
     },
     {
       body: 'خطط تدريب وتغذية وإصدارات محفوظة، مع متابعة دقيقة لما نفّذه اللاعب فعلياً.',
-      image: images.plates,
+      image: optimizedImages.plates,
       number: '02',
       tag: 'التدريب',
       title: 'الخطة تتحرك مع النتيجة.',
     },
     {
       body: 'الأوزان والتكرارات والإنجازات والأرقام الشخصية تصبح تاريخاً قابلاً للقراءة.',
-      image: images.rack,
+      image: optimizedImages.rack,
       number: '03',
       tag: 'الأداء',
       title: 'كل تمرين يترك أثراً.',
     },
     {
       body: 'صور أمامية وجانبية وخلفية، مقارنات صحيحة، وطلبات متابعة لا تكتمل قبل اكتمال المطلوب.',
-      image: images.cardio,
+      image: optimizedImages.cardio,
       number: '04',
       tag: 'التقدم',
       title: 'التحول يظهر كما هو.',
@@ -140,28 +141,28 @@ const steps = {
   en: [
     {
       body: 'Fast QR registration, a structured profile, and clear membership status before the workout begins.',
-      image: images.floorDark,
+      image: optimizedImages.floorDark,
       number: '01',
       tag: 'Entry',
       title: 'Know every member from minute one.',
     },
     {
       body: 'Versioned workout and nutrition plans with precise tracking of what the member actually completed.',
-      image: images.plates,
+      image: optimizedImages.plates,
       number: '02',
       tag: 'Training',
       title: 'The plan moves with the result.',
     },
     {
       body: 'Weights, repetitions, completion, and personal records become a readable performance history.',
-      image: images.rack,
+      image: optimizedImages.rack,
       number: '03',
       tag: 'Performance',
       title: 'Every workout leaves a signal.',
     },
     {
       body: 'Correct front, side, and back comparisons with progress requests that wait for every required view.',
-      image: images.cardio,
+      image: optimizedImages.cardio,
       number: '04',
       tag: 'Progress',
       title: 'Transformation becomes visible.',
@@ -183,22 +184,31 @@ const roles: Record<PublicLocale, Array<{ body: string; icon: LucideIcon; label:
 };
 
 const gallery = [
-  { category: { ar: 'تشغيل', en: 'Operations' }, image: images.treadmills, index: '01', title: { ar: 'حركة النادي لحظة بلحظة', en: 'The gym in constant motion' } },
-  { category: { ar: 'الأعضاء', en: 'Members' }, image: images.legPress, index: '02', title: { ar: 'كل عضو معروف داخل النظام', en: 'Every member has a clear record' } },
-  { category: { ar: 'المساحة', en: 'Facility' }, image: images.floorWide, index: '03', title: { ar: 'رؤية كاملة للمكان والتشغيل', en: 'Total visibility across the floor' } },
-  { category: { ar: 'الأداء', en: 'Performance' }, image: images.platesClose, index: '04', title: { ar: 'الأرقام تتحول إلى تقدم', en: 'Numbers become visible progress' } },
-  { category: { ar: 'التدريب', en: 'Training' }, image: images.dumbbells, index: '05', title: { ar: 'كل تمرين يترك سجلاً', en: 'Every workout leaves a record' } },
-  { category: { ar: 'القوة', en: 'Strength' }, image: images.plates, index: '06', title: { ar: 'خطط مبنية حول النتيجة', en: 'Plans built around the outcome' } },
-  { category: { ar: 'التجهيزات', en: 'Equipment' }, image: images.cardio, index: '07', title: { ar: 'كل جهاز جزء من التجربة', en: 'Every machine supports the system' } },
-  { category: { ar: 'المتابعة', en: 'Tracking' }, image: images.rack, index: '08', title: { ar: 'تفاصيل صغيرة، قرارات أدق', en: 'Small details, sharper decisions' } },
-  { category: { ar: 'النظام', en: 'System' }, image: images.floorDark, index: '09', title: { ar: 'هدوء في الواجهة وقوة في الداخل', en: 'Quiet interface, powerful operation' } },
-  { category: { ar: 'المجتمع', en: 'Community' }, image: images.dumbbellRoom, index: '10', title: { ar: 'نادي واحد، تجربة متصلة', en: 'One gym, one connected experience' } },
+  { category: { ar: 'تشغيل', en: 'Operations' }, image: optimizedImages.treadmills, index: '01', title: { ar: 'حركة النادي لحظة بلحظة', en: 'The gym in constant motion' } },
+  { category: { ar: 'الأعضاء', en: 'Members' }, image: optimizedImages.legPress, index: '02', title: { ar: 'كل عضو معروف داخل النظام', en: 'Every member has a clear record' } },
+  { category: { ar: 'المساحة', en: 'Facility' }, image: optimizedImages.floorWide, index: '03', title: { ar: 'رؤية كاملة للمكان والتشغيل', en: 'Total visibility across the floor' } },
+  { category: { ar: 'الأداء', en: 'Performance' }, image: optimizedImages.platesClose, index: '04', title: { ar: 'الأرقام تتحول إلى تقدم', en: 'Numbers become visible progress' } },
+  { category: { ar: 'التدريب', en: 'Training' }, image: optimizedImages.dumbbells, index: '05', title: { ar: 'كل تمرين يترك سجلاً', en: 'Every workout leaves a record' } },
+  { category: { ar: 'القوة', en: 'Strength' }, image: optimizedImages.plates, index: '06', title: { ar: 'خطط مبنية حول النتيجة', en: 'Plans built around the outcome' } },
+  { category: { ar: 'التجهيزات', en: 'Equipment' }, image: optimizedImages.cardio, index: '07', title: { ar: 'كل جهاز جزء من التجربة', en: 'Every machine supports the system' } },
+  { category: { ar: 'المتابعة', en: 'Tracking' }, image: optimizedImages.rack, index: '08', title: { ar: 'تفاصيل صغيرة، قرارات أدق', en: 'Small details, sharper decisions' } },
+  { category: { ar: 'النظام', en: 'System' }, image: optimizedImages.floorDark, index: '09', title: { ar: 'هدوء في الواجهة وقوة في الداخل', en: 'Quiet interface, powerful operation' } },
+  { category: { ar: 'المجتمع', en: 'Community' }, image: optimizedImages.dumbbellRoom, index: '10', title: { ar: 'نادي واحد، تجربة متصلة', en: 'One gym, one connected experience' } },
 ] as const;
 
 function Eyebrow({ children }: { children: string }) {
   return (
     <p className="flex items-center gap-3 text-[0.62rem] font-black uppercase tracking-[0.24em] text-[#39ff14]">
       <span className="h-1.5 w-1.5 rounded-full bg-[#39ff14] shadow-[0_0_12px_#39ff14]" />
+      {children}
+    </p>
+  );
+}
+
+function DarkSurfaceEyebrow({ children }: { children: string }) {
+  return (
+    <p className="flex items-center gap-3 text-[0.62rem] font-black uppercase tracking-[0.24em] text-black/62">
+      <span className="h-1.5 w-1.5 rounded-full bg-black/70 shadow-[0_0_12px_rgba(0,0,0,0.18)]" />
       {children}
     </p>
   );
@@ -308,9 +318,15 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
             </div>
           </div>
         </div>
-        <div className="relative mx-auto mt-16 max-w-[94rem] overflow-hidden" data-home-image>
-          <div className="relative aspect-[16/8] min-h-[26rem]">
-            <Image alt="Pro Gym dumbbell training area" className="object-cover grayscale" fill sizes="100vw" src={images.dumbbellRoom} />
+        <div className="relative mx-auto mt-16 max-w-[94rem] overflow-hidden bg-black" data-home-image>
+          <div className="relative aspect-[3/2] md:aspect-[16/8] md:min-h-[26rem]">
+            <Image
+              alt="Pro Gym dumbbell training area"
+              className="object-contain grayscale md:object-cover"
+              fill
+              sizes="(max-width: 768px) 100vw, 94rem"
+              src={optimizedImages.dumbbellRoom}
+            />
             <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_48%,rgba(0,0,0,0.62))]" />
             <div className="absolute inset-x-5 bottom-5 flex items-end justify-between border-t border-white/20 pt-4 text-[0.58rem] font-black uppercase tracking-[0.2em] text-white/55 md:inset-x-8 md:bottom-8">
               <span>Pro Gym / Homs</span>
@@ -375,8 +391,14 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
                   data-system-step
                   key={step.number}
                 >
-              <div className="relative mb-8 aspect-[5/3] overflow-hidden lg:aspect-[16/7]" data-home-image>
-                    <Image alt={step.title} className="object-cover grayscale" fill sizes="100vw" src={step.image} />
+                  <div className="relative mb-8 aspect-[4/5] overflow-hidden bg-black sm:aspect-[5/4] lg:aspect-[16/7]" data-home-image>
+                    <Image
+                      alt={step.title}
+                      className="object-cover object-center grayscale"
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 70vw, 58vw"
+                      src={step.image}
+                    />
                   </div>
                   <div className="flex items-start justify-between gap-5">
                     <span className="text-xs font-black text-[#39ff14]">{step.number}</span>
@@ -411,7 +433,7 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
             className="flex w-[88vw] shrink-0 flex-col justify-center lg:w-[58vw]"
             dir={locale === 'ar' ? 'rtl' : 'ltr'}
           >
-            <Eyebrow>{copy.gallery.eyebrow}</Eyebrow>
+            <DarkSurfaceEyebrow>{copy.gallery.eyebrow}</DarkSurfaceEyebrow>
             <h2
               className={`mt-8 max-w-4xl font-black leading-[0.92] ${
                 isArabic ? 'text-[clamp(2.35rem,3.8vw,4.6rem)]' : 'text-[clamp(3rem,6.4vw,7.2rem)]'
@@ -536,7 +558,7 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
       </section>
 
       <section className="relative isolate min-h-[90vh] overflow-hidden px-5 py-24 md:px-8 md:py-36 lg:px-10 xl:px-14">
-        <Image alt="Pro Gym strength area" className="absolute inset-0 -z-20 object-cover grayscale" fill sizes="100vw" src={images.dumbbellRoom} />
+        <Image alt="Pro Gym strength area" className="absolute inset-0 -z-20 object-cover grayscale" fill sizes="100vw" src={optimizedImages.dumbbellRoom} />
         <div className="absolute inset-0 -z-10 bg-black/78" />
         <div className="home-hero-grid absolute inset-0 -z-10 opacity-20" />
         <div className="mx-auto flex min-h-[65vh] max-w-[94rem] flex-col justify-between">
