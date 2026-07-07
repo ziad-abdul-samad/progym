@@ -2,7 +2,6 @@
 
 import { useMutation } from '@tanstack/react-query';
 import { ArrowUpRight, CheckCircle2, LogIn, ScanLine, UserPlus } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { PublicLocale } from '@progym/shared';
@@ -11,7 +10,7 @@ import { apiRequest } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth/use-auth';
 
 type EntryResult = {
-  member: { name: string; photoUrl?: string | null };
+  member: { name: string };
   membership: { remainingDays: number; status: string };
   message: string;
 };
@@ -23,7 +22,6 @@ export function EntryPage({ locale }: { locale: PublicLocale }) {
   });
   const [autoSubmitted, setAutoSubmitted] = useState(false);
   const ar = locale === 'ar';
-  const memberPhoto = entry.data?.member.photoUrl ?? auth.data?.avatarUrl ?? null;
 
   useEffect(() => {
     if (auth.data?.role !== 'MEMBER' || autoSubmitted || entry.isPending || entry.data) return;
@@ -57,38 +55,19 @@ export function EntryPage({ locale }: { locale: PublicLocale }) {
           <div className="mt-10 border-t border-white/10 pt-8">
             {entry.data ? (
               <div className="border border-[#39ff14]/30 bg-[#39ff14]/[0.06] p-6">
-                <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-                  <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.06]">
-                    {memberPhoto ? (
-                      <Image
-                        alt={entry.data.member.name}
-                        className="object-contain"
-                        fill
-                        sizes="144px"
-                        src={memberPhoto}
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <CheckCircle2 className="h-12 w-12 text-[#39ff14]" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <CheckCircle2 className="h-8 w-8 text-[#39ff14]" />
-                    <h2 className="mt-4 font-ar-display text-3xl font-black leading-[1.4]">
-                      {ar ? `أهلاً ${entry.data.member.name}` : `Welcome, ${entry.data.member.name}`}
-                    </h2>
-                    <p className="mt-3 text-white/55">
-                      {entry.data.membership.status === 'ACTIVE'
-                        ? ar
-                          ? `تم تسجيل دخولك. متبقي ${entry.data.membership.remainingDays} يوم في اشتراكك.`
-                          : `Entry recorded. ${entry.data.membership.remainingDays} membership days remain.`
-                        : ar
-                          ? 'تم تسجيل دخولك، لكن اشتراكك يحتاج إلى مراجعة الاستقبال.'
-                          : 'Entry recorded, but reception needs to review your membership.'}
-                    </p>
-                  </div>
-                </div>
+                <CheckCircle2 className="h-8 w-8 text-[#39ff14]" />
+                <h2 className="mt-4 font-ar-display text-3xl font-black leading-[1.4]">
+                  {ar ? `أهلاً ${entry.data.member.name}` : `Welcome, ${entry.data.member.name}`}
+                </h2>
+                <p className="mt-3 text-white/55">
+                  {entry.data.membership.status === 'ACTIVE'
+                    ? ar
+                      ? `تم تسجيل دخولك. متبقي ${entry.data.membership.remainingDays} يوم في اشتراكك.`
+                      : `Entry recorded. ${entry.data.membership.remainingDays} membership days remain.`
+                    : ar
+                      ? 'تم تسجيل دخولك، لكن اشتراكك يحتاج إلى مراجعة الاستقبال.'
+                      : 'Entry recorded, but reception needs to review your membership.'}
+                </p>
               </div>
             ) : (
               <>
