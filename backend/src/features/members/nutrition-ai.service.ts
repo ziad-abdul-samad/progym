@@ -83,7 +83,7 @@ export class NutritionAiService {
     history: ChatHistoryItem[],
     apiKey: string,
   ) {
-    const configuredModel = this.config.get<string>('GEMINI_MODEL')?.trim() || 'gemini-3.5-flash';
+    const configuredModel = this.config.get<string>('GEMINI_MODEL')?.trim() || 'gemini-2.5-flash';
     if (!/^[a-z0-9._-]+$/i.test(configuredModel)) {
       throw new Error('Invalid Gemini model');
     }
@@ -186,7 +186,8 @@ export class NutritionAiService {
         }
 
         lastStatus = response.status;
-        const retryable = response.status === 429 || response.status >= 500;
+        const retryable =
+          response.status === 400 || response.status === 404 || response.status === 429 || response.status >= 500;
         if (!retryable) throw new Error(`Gemini request failed: ${response.status}`);
 
         if (attempt === 0) {
