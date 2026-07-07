@@ -2616,7 +2616,8 @@ export function AdminObserversPage() {
                     تعديل
                   </Button>
                   <Button
-                    isLoading={status.isPending}
+                    disabled={status.isPending}
+                    isLoading={status.isPending && status.variables?.id === observer.id}
                     onClick={() =>
                       status.mutate({
                         action: observer.status === 'ACTIVE' ? 'deactivate' : 'activate',

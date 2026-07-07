@@ -227,6 +227,24 @@ type MemberProfileChangeRequest = {
   status: 'APPROVED' | 'PENDING' | 'REJECTED';
 };
 
+function compactFormPayload(form: HTMLFormElement) {
+  return Object.fromEntries(
+    Array.from(new FormData(form).entries()).filter(([, value]) => {
+      if (typeof value !== 'string') return true;
+      return value.trim().length > 0;
+    }),
+  );
+}
+
+function normalizeRepsInput(value: FormDataEntryValue | null) {
+  return String(value ?? '')
+    .replace(/[،，]/g, ',')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
 function PageState<T>({
   query,
   children,
@@ -267,7 +285,11 @@ export function MemberOverviewPage() {
               tone="success"
               value={data.membership.remainingDays}
             />
-            <MetricCard icon={Activity} label={text('عدد الحضور', 'Attendance')} value={data.attendanceCount} />
+            <MetricCard
+              icon={Activity}
+              label={text('عدد الحضور', 'Attendance')}
+              value={data.attendanceCount}
+            />
             <MetricCard
               icon={Weight}
               label={text('الوزن الحالي', 'Current weight')}
@@ -299,7 +321,8 @@ export function MemberOverviewPage() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <CardTitle>
-                        {text('التدريب الخاص مع', 'Private coaching with')} {data.privateCoaching.coachName}
+                        {text('التدريب الخاص مع', 'Private coaching with')}{' '}
+                        {data.privateCoaching.coachName}
                       </CardTitle>
                       <StatusBadge status={data.privateCoaching.status} />
                     </div>
@@ -343,13 +366,17 @@ export function MemberOverviewPage() {
           ) : null}
           <div className="grid gap-4 md:grid-cols-3">
             <Card>
-              <p className="text-sm text-muted-foreground">{text('حالة الاشتراك', 'Membership status')}</p>
+              <p className="text-sm text-muted-foreground">
+                {text('حالة الاشتراك', 'Membership status')}
+              </p>
               <div className="mt-3">
                 <StatusBadge status={data.membership.status} />
               </div>
             </Card>
             <Card>
-              <p className="text-sm text-muted-foreground">{text('الأيام المتبقية', 'Days remaining')}</p>
+              <p className="text-sm text-muted-foreground">
+                {text('الأيام المتبقية', 'Days remaining')}
+              </p>
               <p className="mt-2 text-3xl font-bold">{data.membership.remainingDays}</p>
             </Card>
             <Card>
@@ -365,8 +392,12 @@ export function MemberOverviewPage() {
               </p>
             </Card>
             <Card>
-              <p className="text-sm text-muted-foreground">{text('الوزن الحالي', 'Current weight')}</p>
-              <p className="mt-2 text-3xl font-bold">{data.currentWeight} {text('كغ', 'kg')}</p>
+              <p className="text-sm text-muted-foreground">
+                {text('الوزن الحالي', 'Current weight')}
+              </p>
+              <p className="mt-2 text-3xl font-bold">
+                {data.currentWeight} {text('كغ', 'kg')}
+              </p>
             </Card>
             <Card>
               <p className="text-sm text-muted-foreground">{text('الهدف', 'Goal')}</p>
@@ -381,7 +412,8 @@ export function MemberOverviewPage() {
                   <div className="rounded-md bg-muted p-3" key={request.id}>
                     <p className="font-semibold">{request.type}</p>
                     <p className="text-sm text-muted-foreground">
-                      {request.message ?? text('طلب متابعة من المدرب', 'Follow-up request from your coach')}
+                      {request.message ??
+                        text('طلب متابعة من المدرب', 'Follow-up request from your coach')}
                     </p>
                   </div>
                 ))
@@ -417,7 +449,10 @@ export function MemberProfilePage() {
       setPhoto(null);
       push({
         title: text('تم إرسال طلب التعديل', 'Update request submitted'),
-        body: text('ستظهر البيانات الجديدة بعد موافقة الإدارة.', 'Your changes will appear after approval.'),
+        body: text(
+          'ستظهر البيانات الجديدة بعد موافقة الإدارة.',
+          'Your changes will appear after approval.',
+        ),
         tone: 'success',
       });
     },
@@ -438,11 +473,16 @@ export function MemberProfilePage() {
             <Card className="border-amber-400/40 bg-amber-400/10">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <CardTitle>{text('طلب التعديل قيد المراجعة', 'Update request under review')}</CardTitle>
+                  <CardTitle>
+                    {text('طلب التعديل قيد المراجعة', 'Update request under review')}
+                  </CardTitle>
                   <p className="mt-2 text-sm font-semibold text-muted-foreground">
                     {text('أرسلت الطلب في', 'Submitted on')}{' '}
                     {formatCompactDateTime(pendingRequest.createdAt)}.{' '}
-                    {text('لا يمكن إرسال طلب جديد حتى تراجعه الإدارة.', 'You cannot submit another request until it is reviewed.')}
+                    {text(
+                      'لا يمكن إرسال طلب جديد حتى تراجعه الإدارة.',
+                      'You cannot submit another request until it is reviewed.',
+                    )}
                   </p>
                 </div>
                 <StatusBadge status="PENDING" />
@@ -599,7 +639,10 @@ export function MemberProgressPage() {
       ]);
       push({
         title: text('تم رفع صورة التقدم', 'Progress photo uploaded'),
-        body: text('تم إرسالها للمدرب وفتح القفل إن وجد.', 'It was sent to your coach and any related lock was cleared.'),
+        body: text(
+          'تم إرسالها للمدرب وفتح القفل إن وجد.',
+          'It was sent to your coach and any related lock was cleared.',
+        ),
         tone: 'success',
       });
     },
@@ -620,7 +663,7 @@ export function MemberProgressPage() {
           className="mt-4 grid gap-3 md:grid-cols-4"
           onSubmit={(event) => {
             event.preventDefault();
-            mutation.mutate(Object.fromEntries(new FormData(event.currentTarget)));
+            mutation.mutate(compactFormPayload(event.currentTarget));
           }}
         >
           <Input name="weightKg" placeholder={text('الوزن', 'Weight')} type="number" />
@@ -728,7 +771,9 @@ export function MemberProgressPage() {
                 <section className="rounded-lg border border-border p-3" key={type}>
                   <div className="mb-3 flex items-center justify-between">
                     <StatusBadge status={type} />
-                    <span className="text-xs font-bold text-muted-foreground">{text('الأقدم ← الأحدث', 'Oldest → newest')}</span>
+                    <span className="text-xs font-bold text-muted-foreground">
+                      {text('الأقدم ← الأحدث', 'Oldest → newest')}
+                    </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {[pair.baseline, pair.latest].map((photo, index) =>
@@ -766,14 +811,18 @@ export function MemberProgressPage() {
                 value: Number(entry.weightKg),
               }))}
               label={text('تطور الوزن', 'Weight progress')}
-              subtitle={text('التغير في قياسات الوزن المسجلة بمرور الوقت', 'Changes in recorded weight over time')}
+              subtitle={text(
+                'التغير في قياسات الوزن المسجلة بمرور الوقت',
+                'Changes in recorded weight over time',
+              )}
             />
             <Card>
               <CardTitle>{text('سجل القياسات', 'Measurement history')}</CardTitle>
               <div className="mt-6 grid gap-2">
                 {items.map((entry) => (
                   <div className="rounded-md bg-muted p-3 text-sm" key={entry.id}>
-                    {formatCompactDate(entry.measuredAt)} - {text('وزن', 'Weight')} {entry.weightKg ?? '-'} {text('كغ', 'kg')} - {text('خصر', 'Waist')}{' '}
+                    {formatCompactDate(entry.measuredAt)} - {text('وزن', 'Weight')}{' '}
+                    {entry.weightKg ?? '-'} {text('كغ', 'kg')} - {text('خصر', 'Waist')}{' '}
                     {entry.waistCm ?? '-'} {text('سم', 'cm')}
                   </div>
                 ))}
@@ -799,7 +848,9 @@ export function MemberAttendancePage() {
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
-              <p className="text-muted-foreground">{text('حضور هذا الشهر', 'Attendance this month')}</p>
+              <p className="text-muted-foreground">
+                {text('حضور هذا الشهر', 'Attendance this month')}
+              </p>
               <p className="mt-2 text-3xl font-bold">{data.monthlyCount}</p>
             </Card>
             <Card>
@@ -838,12 +889,16 @@ export function MemberMembershipHistoryPage() {
     <PageState query={query}>
       {(items) => (
         <div className="space-y-4">
-          <h1 className="text-2xl font-black">{text('سجل اشتراكات النادي', 'Membership history')}</h1>
+          <h1 className="text-2xl font-black">
+            {text('سجل اشتراكات النادي', 'Membership history')}
+          </h1>
           {items.map((subscription) => (
             <Card key={subscription.id}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <CardTitle>{subscription.plan?.nameAr ?? text('اشتراك مخصص', 'Custom membership')}</CardTitle>
+                  <CardTitle>
+                    {subscription.plan?.nameAr ?? text('اشتراك مخصص', 'Custom membership')}
+                  </CardTitle>
                   <p className="mt-2 text-sm text-muted-foreground">
                     {formatCompactDate(subscription.startsAt)} —{' '}
                     {formatCompactDate(subscription.endsAt)}
@@ -854,7 +909,10 @@ export function MemberMembershipHistoryPage() {
               {subscription.auditLogs.length ? (
                 <div className="mt-4 grid gap-2 border-t border-border pt-4">
                   {subscription.auditLogs.map((log, index) => (
-                    <div className="rounded-md bg-muted/40 p-3 text-sm" key={`${log.createdAt}-${index}`}>
+                    <div
+                      className="rounded-md bg-muted/40 p-3 text-sm"
+                      key={`${log.createdAt}-${index}`}
+                    >
                       <span className="font-black">{log.action}</span>
                       <span className="text-muted-foreground">
                         {' '}
@@ -866,7 +924,9 @@ export function MemberMembershipHistoryPage() {
               ) : null}
             </Card>
           ))}
-          {!items.length ? <EmptyState title={text('لا يوجد سجل اشتراكات بعد', 'No membership history yet')} /> : null}
+          {!items.length ? (
+            <EmptyState title={text('لا يوجد سجل اشتراكات بعد', 'No membership history yet')} />
+          ) : null}
         </div>
       )}
     </PageState>
@@ -903,7 +963,10 @@ function WorkoutLogButton({
         {text('تسجيل التنفيذ', 'Record workout')}
       </Button>
       <Dialog
-        description={text('سجل الأداء الفعلي ليظهر في تاريخ تمارينك وأرقامك الشخصية.', 'Record your actual performance for your workout history and personal records.')}
+        description={text(
+          'سجل الأداء الفعلي ليظهر في تاريخ تمارينك وأرقامك الشخصية.',
+          'Record your actual performance for your workout history and personal records.',
+        )}
         onClose={() => setOpen(false)}
         open={open}
         title={exerciseName}
@@ -912,7 +975,10 @@ function WorkoutLogButton({
           actions={
             <>
               <DialogCancelButton label={text('إلغاء', 'Cancel')} onClick={() => setOpen(false)} />
-              <Button isLoading={mutation.isPending} loadingText={text('جاري حفظ التمرين', 'Saving workout')}>
+              <Button
+                isLoading={mutation.isPending}
+                loadingText={text('جاري حفظ التمرين', 'Saving workout')}
+              >
                 {text('حفظ التنفيذ', 'Save workout')}
               </Button>
             </>
@@ -927,7 +993,7 @@ function WorkoutLogButton({
               load: String(form.get('load') ?? '').trim() || undefined,
               notes: String(form.get('notes') ?? '').trim() || undefined,
               planItemId,
-              repsCompleted: String(form.get('repsCompleted') ?? '').trim() || undefined,
+              repsCompleted: normalizeRepsInput(form.get('repsCompleted')) || undefined,
               setsCompleted: Number(form.get('setsCompleted')),
             });
           }}
@@ -935,18 +1001,37 @@ function WorkoutLogButton({
           <div className="grid gap-3 sm:grid-cols-3">
             <label className="grid gap-2 text-sm font-black">
               {text('المجموعات الفعلية', 'Sets completed')}
-              <Input autoFocus inputMode="numeric" min={1} name="setsCompleted" required step={1} type="number" />
+              <Input
+                autoFocus
+                inputMode="numeric"
+                min={1}
+                name="setsCompleted"
+                required
+                step={1}
+                type="number"
+              />
             </label>
             <label className="grid gap-2 text-sm font-black">
               {text('التكرارات الفعلية', 'Repetitions completed')}
-              <Input inputMode="numeric" name="repsCompleted" placeholder={text('مثال: 12، 10، 8', 'Example: 12, 10, 8')} required />
+              <Input
+                name="repsCompleted"
+                pattern="[0-9٠-٩۰-۹,،，\s]+"
+                placeholder={text('مثال: 12، 10، 8', 'Example: 12, 10, 8')}
+                required
+              />
             </label>
             <label className="grid gap-2 text-sm font-black">
               {text('الوزن المستخدم', 'Weight used')}
               <Input name="load" placeholder={text('مثال: 40 كغ', 'Example: 40 kg')} />
             </label>
           </div>
-          <Textarea name="notes" placeholder={text('ملاحظة عن الأداء أو التقنية (اختياري)', 'Performance or technique note (optional)')} />
+          <Textarea
+            name="notes"
+            placeholder={text(
+              'ملاحظة عن الأداء أو التقنية (اختياري)',
+              'Performance or technique note (optional)',
+            )}
+          />
           <label className="flex items-center gap-3 rounded-md border border-border bg-muted/35 p-3 text-sm font-black">
             <input className="h-4 w-4 accent-black" name="isPersonalRecord" type="checkbox" />
             <Trophy className="h-4 w-4 text-amber-500" />
@@ -964,7 +1049,8 @@ function GeneralExerciseLibrary() {
   const [categoryId, setCategoryId] = useState('');
   const [search, setSearch] = useState('');
   const categories = useQuery({
-    queryFn: () => apiRequest<Array<{ id: string; nameAr: string; nameEn: string }>>('/exercises/categories'),
+    queryFn: () =>
+      apiRequest<Array<{ id: string; nameAr: string; nameEn: string }>>('/exercises/categories'),
     queryKey: ['member-exercise-categories'],
   });
   const exercises = useQuery({
@@ -978,7 +1064,9 @@ function GeneralExerciseLibrary() {
       const matchesSearch =
         !normalized ||
         (isEnglish ? exercise.nameEn : exercise.nameAr)?.toLocaleLowerCase().includes(normalized) ||
-        (isEnglish ? exercise.category.nameEn : exercise.category.nameAr).toLocaleLowerCase().includes(normalized);
+        (isEnglish ? exercise.category.nameEn : exercise.category.nameAr)
+          .toLocaleLowerCase()
+          .includes(normalized);
       return matchesCategory && matchesSearch;
     });
   }, [categoryId, exercises.data, isEnglish, search]);
@@ -993,7 +1081,10 @@ function GeneralExerciseLibrary() {
               <CardTitle>{text('مكتبة التمارين العامة', 'Exercise library')}</CardTitle>
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
-              {text('ابحث بالاسم أو اختر العضلة، ثم سجل أداءك بدون مغادرة الصفحة.', 'Search by name or muscle group, then record your performance without leaving the page.')}
+              {text(
+                'ابحث بالاسم أو اختر العضلة، ثم سجل أداءك بدون مغادرة الصفحة.',
+                'Search by name or muscle group, then record your performance without leaving the page.',
+              )}
             </p>
           </div>
           <span className="rounded-md border border-border bg-card px-3 py-2 text-xs font-black text-muted-foreground">
@@ -1054,14 +1145,19 @@ function GeneralExerciseLibrary() {
                 {isEnglish ? exercise.category.nameEn : exercise.category.nameAr}
               </span>
             </div>
-            <p className="mt-4 text-lg font-black">{isEnglish ? exercise.nameEn ?? exercise.nameAr : exercise.nameAr}</p>
+            <p className="mt-4 text-lg font-black">
+              {isEnglish ? (exercise.nameEn ?? exercise.nameAr) : exercise.nameAr}
+            </p>
             {(isEnglish ? exercise.descriptionEn : exercise.descriptionAr) ? (
               <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
                 {isEnglish ? exercise.descriptionEn : exercise.descriptionAr}
               </p>
             ) : null}
             <div className="mt-auto flex flex-wrap gap-2 pt-4">
-              <WorkoutLogButton exerciseId={exercise.id} exerciseName={isEnglish ? exercise.nameEn ?? exercise.nameAr : exercise.nameAr} />
+              <WorkoutLogButton
+                exerciseId={exercise.id}
+                exerciseName={isEnglish ? (exercise.nameEn ?? exercise.nameAr) : exercise.nameAr}
+              />
               {exercise.videoUrl ? (
                 <a
                   className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border px-4 text-sm font-black transition hover:bg-muted"
@@ -1079,7 +1175,9 @@ function GeneralExerciseLibrary() {
       </div>
       {!exercises.isLoading && !visibleExercises.length ? (
         <div className="p-5 pt-0">
-          <EmptyState title={text('لا توجد تمارين مطابقة للفلتر', 'No exercises match this filter')} />
+          <EmptyState
+            title={text('لا توجد تمارين مطابقة للفلتر', 'No exercises match this filter')}
+          />
         </div>
       ) : null}
     </Card>
@@ -1102,7 +1200,10 @@ function WorkoutHistory() {
             {text('سجل التنفيذ', 'Workout history')}
           </p>
           <p className="mt-1 text-sm font-semibold text-white/60">
-            {text('آخر التمارين والأوزان والتكرارات الفعلية.', 'Your latest workouts, weights, and completed repetitions.')}
+            {text(
+              'آخر التمارين والأوزان والتكرارات الفعلية.',
+              'Your latest workouts, weights, and completed repetitions.',
+            )}
           </p>
         </div>
         <div className="flex gap-2">
@@ -1124,7 +1225,10 @@ function WorkoutHistory() {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-black">
-                  {(isEnglish ? log.exercise?.nameEn : log.exercise?.nameAr) ?? log.exercise?.nameAr ?? log.planItem?.exerciseName ?? text('تمرين', 'Exercise')}
+                  {(isEnglish ? log.exercise?.nameEn : log.exercise?.nameAr) ??
+                    log.exercise?.nameAr ??
+                    log.planItem?.exerciseName ??
+                    text('تمرين', 'Exercise')}
                 </p>
                 {log.isPersonalRecord ? (
                   <span className="inline-flex items-center gap-1 rounded-md bg-brand-accent px-2 py-0.5 text-xs font-black text-black">
@@ -1134,8 +1238,8 @@ function WorkoutHistory() {
                 ) : null}
               </div>
               <p className="mt-1 text-xs font-bold text-muted-foreground">
-                {log.setsCompleted ?? 0} {text('مجموعات', 'sets')} · {log.repsCompleted ?? '-'} {text('تكرار', 'reps')} ·{' '}
-                {log.load ?? text('بدون وزن مسجل', 'No weight recorded')}
+                {log.setsCompleted ?? 0} {text('مجموعات', 'sets')} · {log.repsCompleted ?? '-'}{' '}
+                {text('تكرار', 'reps')} · {log.load ?? text('بدون وزن مسجل', 'No weight recorded')}
               </p>
             </div>
             <span className="text-xs font-bold text-muted-foreground">
@@ -1143,7 +1247,9 @@ function WorkoutHistory() {
             </span>
           </div>
         ))}
-        {logs.data && !logs.data.length ? <EmptyState title={text('لم تسجل تنفيذ أي تمرين بعد', 'No workouts recorded yet')} /> : null}
+        {logs.data && !logs.data.length ? (
+          <EmptyState title={text('لم تسجل تنفيذ أي تمرين بعد', 'No workouts recorded yet')} />
+        ) : null}
       </div>
     </Card>
   );
@@ -1168,19 +1274,28 @@ export function MemberPlansPage({ type }: { type: 'workouts' | 'nutrition' }) {
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-brand-accent">
                     WORKOUT CENTER
                   </p>
-                  <h1 className="mt-3 text-3xl font-black text-white">{text('مركز التمرين', 'Workout center')}</h1>
+                  <h1 className="mt-3 text-3xl font-black text-white">
+                    {text('مركز التمرين', 'Workout center')}
+                  </h1>
                   <p className="mt-2 max-w-2xl text-sm font-semibold leading-7 text-white/60">
-                    {text('برنامج المدرب، مكتبة التمارين، وتسجيل أدائك في مساحة واحدة واضحة.', 'Your coach plan, exercise library, and performance tracking in one clear workspace.')}
+                    {text(
+                      'برنامج المدرب، مكتبة التمارين، وتسجيل أدائك في مساحة واحدة واضحة.',
+                      'Your coach plan, exercise library, and performance tracking in one clear workspace.',
+                    )}
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-center">
                   <div className="min-w-24 border border-white/15 bg-white/5 px-4 py-3">
                     <p className="text-xl font-black text-brand-accent">{plans.length}</p>
-                    <p className="text-[11px] font-bold text-white/55">{text('خطط نشطة', 'Active plans')}</p>
+                    <p className="text-[11px] font-bold text-white/55">
+                      {text('خطط نشطة', 'Active plans')}
+                    </p>
                   </div>
                   <div className="min-w-24 border border-white/15 bg-white/5 px-4 py-3">
                     <Dumbbell className="mx-auto h-5 w-5 text-brand-accent" />
-                    <p className="mt-1 text-[11px] font-bold text-white/55">{text('جاهز للتدريب', 'Ready to train')}</p>
+                    <p className="mt-1 text-[11px] font-bold text-white/55">
+                      {text('جاهز للتدريب', 'Ready to train')}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1193,7 +1308,9 @@ export function MemberPlansPage({ type }: { type: 'workouts' | 'nutrition' }) {
               <p className="text-xs font-black uppercase tracking-[0.18em] text-green-700 dark:text-brand-accent">
                 COACH PROGRAM
               </p>
-              <h2 className="mt-1 text-2xl font-black">{text('برنامجك التدريبي الخاص', 'Your private workout program')}</h2>
+              <h2 className="mt-1 text-2xl font-black">
+                {text('برنامجك التدريبي الخاص', 'Your private workout program')}
+              </h2>
             </div>
           ) : null}
           {plans.length ? (
@@ -1215,7 +1332,9 @@ export function MemberPlansPage({ type }: { type: 'workouts' | 'nutrition' }) {
                             <div className="flex items-center justify-between gap-3 border-b border-border bg-foreground px-4 py-3 text-background dark:bg-brand-accent dark:text-black">
                               <span className="flex items-center gap-2">
                                 <CalendarDays className="h-4 w-4" />
-                                <span className="font-black">{text('اليوم', 'Day')} {dayIndex + 1}</span>
+                                <span className="font-black">
+                                  {text('اليوم', 'Day')} {dayIndex + 1}
+                                </span>
                               </span>
                               <span className="text-xs font-black">
                                 {plan.items?.find((item) => item.dayIndex === dayIndex)?.dayTitle ||
@@ -1226,14 +1345,26 @@ export function MemberPlansPage({ type }: { type: 'workouts' | 'nutrition' }) {
                               {plan.items
                                 ?.filter((item) => item.dayIndex === dayIndex)
                                 .map((item) => (
-                                  <div className="grid gap-3 p-4 lg:grid-cols-[1fr_auto] lg:items-center" key={item.id}>
+                                  <div
+                                    className="grid gap-3 p-4 lg:grid-cols-[1fr_auto] lg:items-center"
+                                    key={item.id}
+                                  >
                                     <div>
                                       <p className="font-black">
-                                        {(isEnglish ? item.exercise?.nameEn : item.exercise?.nameAr) ?? item.exercise?.nameAr ?? item.exerciseName}
+                                        {(isEnglish
+                                          ? item.exercise?.nameEn
+                                          : item.exercise?.nameAr) ??
+                                          item.exercise?.nameAr ??
+                                          item.exerciseName}
                                       </p>
                                       <p className="mt-1 text-xs font-bold text-muted-foreground">
-                                        {(isEnglish ? item.exercise?.category.nameEn : item.exercise?.category.nameAr) ?? item.exercise?.category.nameAr ?? text('تمرين مخصص', 'Custom exercise')} ·{' '}
-                                        {item.sets ?? '-'} {text('مجموعات', 'sets')} · {item.reps ?? '-'} {text('تكرار', 'reps')}
+                                        {(isEnglish
+                                          ? item.exercise?.category.nameEn
+                                          : item.exercise?.category.nameAr) ??
+                                          item.exercise?.category.nameAr ??
+                                          text('تمرين مخصص', 'Custom exercise')}{' '}
+                                        · {item.sets ?? '-'} {text('مجموعات', 'sets')} ·{' '}
+                                        {item.reps ?? '-'} {text('تكرار', 'reps')}
                                       </p>
                                       {item.notes ? (
                                         <p className="mt-2 text-sm text-muted-foreground">
@@ -1255,7 +1386,14 @@ export function MemberPlansPage({ type }: { type: 'workouts' | 'nutrition' }) {
                                       ) : null}
                                       <WorkoutLogButton
                                         exerciseId={item.exercise?.id}
-                                        exerciseName={(isEnglish ? item.exercise?.nameEn : item.exercise?.nameAr) ?? item.exercise?.nameAr ?? item.exerciseName ?? text('تمرين', 'Exercise')}
+                                        exerciseName={
+                                          (isEnglish
+                                            ? item.exercise?.nameEn
+                                            : item.exercise?.nameAr) ??
+                                          item.exercise?.nameAr ??
+                                          item.exerciseName ??
+                                          text('تمرين', 'Exercise')
+                                        }
                                         planItemId={item.id}
                                       />
                                     </div>
@@ -1302,8 +1440,8 @@ export function MemberPlansPage({ type }: { type: 'workouts' | 'nutrition' }) {
                               <p className="text-xs text-muted-foreground">{item.quantity}</p>
                             </div>
                             <p className="text-xs font-black text-muted-foreground">
-                              {item.calories ?? 0} {text('سعرة', 'kcal')} · {item.proteinG ?? 0}P · {item.carbsG ?? 0}
-                              C · {item.fatG ?? 0}F
+                              {item.calories ?? 0} {text('سعرة', 'kcal')} · {item.proteinG ?? 0}P ·{' '}
+                              {item.carbsG ?? 0}C · {item.fatG ?? 0}F
                             </p>
                           </div>
                         ))}
@@ -1357,12 +1495,14 @@ export function MemberRequestsPage() {
                 <div>
                   <p className="font-semibold">{request.type}</p>
                   <p className="text-sm text-muted-foreground">
-                    {request.coach.user.fullName} - {request.message ?? text('طلب متابعة', 'Follow-up request')}
+                    {request.coach.user.fullName} -{' '}
+                    {request.message ?? text('طلب متابعة', 'Follow-up request')}
                   </p>
                   {request.type === 'NEW_PHOTOS' && request.status === 'PENDING' ? (
                     <p className="mt-2 text-xs font-black text-brand-accent-foreground">
                       {request.submittedPhotoTypes?.length ?? 0} {text('من', 'of')}{' '}
-                      {request.requiredPhotoTypes?.length ?? 3} {text('زوايا تم رفعها', 'angles uploaded')}
+                      {request.requiredPhotoTypes?.length ?? 3}{' '}
+                      {text('زوايا تم رفعها', 'angles uploaded')}
                     </p>
                   ) : null}
                 </div>
@@ -1461,9 +1601,24 @@ export function MemberCalculatorsPage() {
     label: string;
     value: CalculatorMode;
   }> = [
-    { body: text('عجز معتدل لخسارة الدهون', 'Moderate deficit for fat loss'), icon: Flame, label: text('تنشيف', 'Cutting'), value: 'cutting' },
-    { body: text('للحفاظ على الوزن الحالي', 'Maintain your current weight'), icon: Gauge, label: text('ثبات', 'Maintenance'), value: 'maintenance' },
-    { body: text('فائض محسوب لبناء الكتلة', 'Calculated surplus to build mass'), icon: Dumbbell, label: text('تضخيم', 'Bulking'), value: 'bulking' },
+    {
+      body: text('عجز معتدل لخسارة الدهون', 'Moderate deficit for fat loss'),
+      icon: Flame,
+      label: text('تنشيف', 'Cutting'),
+      value: 'cutting',
+    },
+    {
+      body: text('للحفاظ على الوزن الحالي', 'Maintain your current weight'),
+      icon: Gauge,
+      label: text('ثبات', 'Maintenance'),
+      value: 'maintenance',
+    },
+    {
+      body: text('فائض محسوب لبناء الكتلة', 'Calculated surplus to build mass'),
+      icon: Dumbbell,
+      label: text('تضخيم', 'Bulking'),
+      value: 'bulking',
+    },
   ];
   const activityLabel =
     activityMultiplier < 1.35
@@ -1503,9 +1658,14 @@ export function MemberCalculatorsPage() {
               <Sparkles className="h-4 w-4" />
               PRO GYM SMART NUTRITION
             </span>
-            <h1 className="mt-4 text-2xl font-black md:text-3xl">{text('حاسباتك الغذائية الذكية', 'Smart nutrition tools')}</h1>
+            <h1 className="mt-4 text-2xl font-black md:text-3xl">
+              {text('حاسباتك الغذائية الذكية', 'Smart nutrition tools')}
+            </h1>
             <p className="mt-2 max-w-2xl text-sm font-semibold leading-7 text-white/65">
-              {text('احسب احتياجك حسب بيانات حسابك، ثم حلل وجبتك بمحادثة بسيطة بدون جداول معقدة.', 'Calculate your needs from your profile, then analyze meals through a simple conversation.')}
+              {text(
+                'احسب احتياجك حسب بيانات حسابك، ثم حلل وجبتك بمحادثة بسيطة بدون جداول معقدة.',
+                'Calculate your needs from your profile, then analyze meals through a simple conversation.',
+              )}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -1528,9 +1688,14 @@ export function MemberCalculatorsPage() {
                   <Target className="h-5 w-5" />
                 </span>
                 <div>
-                  <CardTitle>{text('السعرات والماكروز اليومية', 'Daily calories and macros')}</CardTitle>
+                  <CardTitle>
+                    {text('السعرات والماكروز اليومية', 'Daily calories and macros')}
+                  </CardTitle>
                   <p className="mt-1 text-sm font-semibold text-muted-foreground">
-                    {text('اختر هدفك ومستوى نشاطك، وسنستخدم بيانات ملفك تلقائياً.', 'Choose your goal and activity level; your profile data is used automatically.')}
+                    {text(
+                      'اختر هدفك ومستوى نشاطك، وسنستخدم بيانات ملفك تلقائياً.',
+                      'Choose your goal and activity level; your profile data is used automatically.',
+                    )}
                   </p>
                 </div>
               </div>
@@ -1576,7 +1741,9 @@ export function MemberCalculatorsPage() {
               <div className="rounded-lg border border-border bg-muted/25 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="font-black">{text('مستوى النشاط اليومي', 'Daily activity level')}</p>
+                    <p className="font-black">
+                      {text('مستوى النشاط اليومي', 'Daily activity level')}
+                    </p>
                     <p className="mt-1 text-xs font-bold text-muted-foreground">{activityLabel}</p>
                   </div>
                   <span className="rounded-full bg-brand-accent/15 px-3 py-1 text-sm font-black text-brand-accent-foreground">
@@ -1661,7 +1828,9 @@ export function MemberCalculatorsPage() {
                             </div>
                             <p className="mt-4 text-xs font-bold text-muted-foreground">{label}</p>
                             <p className="mt-1 text-2xl font-black">{String(calories)}</p>
-                            <p className="text-xs font-bold text-muted-foreground">{text('سعرة / يوم', 'kcal / day')}</p>
+                            <p className="text-xs font-bold text-muted-foreground">
+                              {text('سعرة / يوم', 'kcal / day')}
+                            </p>
                           </div>
                         );
                       })}
@@ -1670,9 +1839,14 @@ export function MemberCalculatorsPage() {
                     <div className="rounded-lg bg-foreground p-5 text-background">
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="font-black">{text('توزيع الماكروز لهدفك', 'Macro split for your goal')}</p>
+                          <p className="font-black">
+                            {text('توزيع الماكروز لهدفك', 'Macro split for your goal')}
+                          </p>
                           <p className="mt-1 text-xs font-semibold text-background/55">
-                            {text('محسوب من وزنك وهدفك الحالي', 'Calculated from your weight and current goal')}
+                            {text(
+                              'محسوب من وزنك وهدفك الحالي',
+                              'Calculated from your weight and current goal',
+                            )}
                           </p>
                         </div>
                         <Leaf className="h-6 w-6 text-brand-accent" />
@@ -1700,8 +1874,10 @@ export function MemberCalculatorsPage() {
                     </div>
 
                     <p className="text-center text-xs font-semibold text-muted-foreground">
-                      {text('الحساب مبني على', 'Calculated using')} {calculator.data.profile.weightKg} {text('كغ', 'kg')} ·{' '}
-                      {calculator.data.profile.heightCm} {text('سم', 'cm')} · {text('عمر', 'age')} {calculator.data.profile.age}
+                      {text('الحساب مبني على', 'Calculated using')}{' '}
+                      {calculator.data.profile.weightKg} {text('كغ', 'kg')} ·{' '}
+                      {calculator.data.profile.heightCm} {text('سم', 'cm')} · {text('عمر', 'age')}{' '}
+                      {calculator.data.profile.age}
                     </p>
                   </div>
                 ) : (
@@ -1710,9 +1886,14 @@ export function MemberCalculatorsPage() {
                     key="calculator-empty"
                   >
                     <Gauge className="mx-auto h-8 w-8 text-muted-foreground" />
-                    <p className="mt-3 font-black">{text('نتيجتك ستظهر هنا', 'Your result will appear here')}</p>
+                    <p className="mt-3 font-black">
+                      {text('نتيجتك ستظهر هنا', 'Your result will appear here')}
+                    </p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {text('اختر هدفك ثم اضغط على زر الحساب.', 'Choose your goal, then press calculate.')}
+                      {text(
+                        'اختر هدفك ثم اضغط على زر الحساب.',
+                        'Choose your goal, then press calculate.',
+                      )}
                     </p>
                   </div>
                 )}
@@ -1729,7 +1910,9 @@ export function MemberCalculatorsPage() {
                   <Bot className="h-6 w-6" />
                 </span>
                 <div>
-                  <CardTitle className="text-background">{text('مساعد التغذية الذكي', 'Smart nutrition assistant')}</CardTitle>
+                  <CardTitle className="text-background">
+                    {text('مساعد التغذية الذكي', 'Smart nutrition assistant')}
+                  </CardTitle>
                   <p className="mt-1 text-xs font-semibold text-background/55">
                     {text('اكتب بالعربية أو الإنجليزية', 'Write in English or Arabic')}
                   </p>
@@ -1784,8 +1967,14 @@ export function MemberCalculatorsPage() {
                 <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
                   {[
                     text('200 غرام دجاج و150 غرام رز', '200 g chicken and 150 g rice'),
-                    text('ما أفضل وجبة بعد التمرين لهدفي؟', 'What is the best post-workout meal for my goal?'),
-                    text('أكلت صحن كبسة دجاج متوسط، كم تقريباً؟', 'I ate a medium chicken kabsa; what are the estimated macros?'),
+                    text(
+                      'ما أفضل وجبة بعد التمرين لهدفي؟',
+                      'What is the best post-workout meal for my goal?',
+                    ),
+                    text(
+                      'أكلت صحن كبسة دجاج متوسط، كم تقريباً؟',
+                      'I ate a medium chicken kabsa; what are the estimated macros?',
+                    ),
                   ].map((example) => (
                     <button
                       className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-xs font-bold transition hover:border-brand-accent"
@@ -1809,7 +1998,10 @@ export function MemberCalculatorsPage() {
                     className="min-h-12 resize-none"
                     maxLength={500}
                     onChange={(event) => setFoodMessage(event.target.value)}
-                    placeholder={text('اكتب وجبتك أو اسأل سؤالاً عن التغذية...', 'Enter your meal or ask a nutrition question...')}
+                    placeholder={text(
+                      'اكتب وجبتك أو اسأل سؤالاً عن التغذية...',
+                      'Enter your meal or ask a nutrition question...',
+                    )}
                     value={foodMessage}
                   />
                   <Button
@@ -1823,7 +2015,10 @@ export function MemberCalculatorsPage() {
                 </form>
                 <p className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
                   <MessageCircle className="h-3.5 w-3.5" />
-                  {text('يعرف بيانات جسمك وهدفك ويطلب توضيحاً عندما تكون الكمية غير كافية.', 'Uses your body data and goal, and asks for clarification when quantities are unclear.')}
+                  {text(
+                    'يعرف بيانات جسمك وهدفك ويطلب توضيحاً عندما تكون الكمية غير كافية.',
+                    'Uses your body data and goal, and asks for clarification when quantities are unclear.',
+                  )}
                 </p>
               </div>
             </div>
@@ -1883,7 +2078,9 @@ function FoodAnalysisMessage({
       <div className="flex items-center justify-between gap-3 border-b border-border bg-brand-accent/10 px-4 py-3">
         <div className="flex items-center gap-2">
           <Bot className="h-4 w-4 text-brand-accent-foreground" />
-          <span className="text-xs font-black">{text('مساعد Pro Gym AI', 'Pro Gym AI assistant')}</span>
+          <span className="text-xs font-black">
+            {text('مساعد Pro Gym AI', 'Pro Gym AI assistant')}
+          </span>
         </div>
         <span className="text-[10px] font-black text-muted-foreground">
           {text('ثقة', 'Confidence')}{' '}
@@ -1907,7 +2104,9 @@ function FoodAnalysisMessage({
                   <p className="text-sm font-black">{item.name}</p>
                   <p className="text-xs font-bold text-muted-foreground">{item.quantity}</p>
                 </div>
-                <p className="text-xs font-black">{item.calories} {text('سعرة', 'kcal')}</p>
+                <p className="text-xs font-black">
+                  {item.calories} {text('سعرة', 'kcal')}
+                </p>
               </div>
             ))}
           </div>

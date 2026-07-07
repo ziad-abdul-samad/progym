@@ -59,7 +59,7 @@ export function RegistrationRequestsPage() {
     queryKey: ['shift-observers', 'registration-requests'],
   });
   const review = useMutation({
-    mutationFn: (approve: boolean) =>
+    mutationFn: ({ approve }: { approve: boolean }) =>
       apiRequest(`/admin/registration-requests/${selected?.id}/review`, {
         body: jsonBody({ approve, days, observerId: approve ? observerId : undefined, reason }),
         method: 'POST',
@@ -247,13 +247,17 @@ export function RegistrationRequestsPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <Button
                 disabled={review.isPending || !observerId || days < 1}
-                onClick={() => review.mutate(true)}
+                isLoading={review.isPending && review.variables?.approve === true}
+                loadingText="جاري القبول"
+                onClick={() => review.mutate({ approve: true })}
               >
                 <Check className="h-4 w-4" /> قبول وتفعيل الاشتراك
               </Button>
               <Button
                 disabled={review.isPending}
-                onClick={() => review.mutate(false)}
+                isLoading={review.isPending && review.variables?.approve === false}
+                loadingText="جاري الرفض"
+                onClick={() => review.mutate({ approve: false })}
                 variant="danger"
               >
                 <X className="h-4 w-4" /> رفض الطلب

@@ -55,7 +55,7 @@ export function EmptyState({ title, body }: { title: string; body?: string }) {
 
 export function ErrorState({ message }: { message: string }) {
   return (
-    <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-red-100">
+    <div className="rounded-lg border border-rose-500/25 bg-rose-50 p-4 text-sm font-semibold text-rose-800 shadow-sm dark:bg-rose-500/15 dark:text-rose-100">
       {message}
     </div>
   );

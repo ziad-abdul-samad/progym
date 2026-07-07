@@ -189,7 +189,8 @@ export function ReceptionEventCenter() {
                 <>
                   <DialogCancelButton onClick={markSeenAndClose} />
                   <Button
-                    isLoading={review.isPending}
+                    disabled={review.isPending}
+                    isLoading={review.isPending && review.variables?.approve === false}
                     loadingText="جاري رفض الطلب"
                     onClick={() =>
                       review.mutate({ approve: false, reason: 'رفض الطلب من نافذة الاستقبال' })
@@ -199,7 +200,11 @@ export function ReceptionEventCenter() {
                   >
                     رفض
                   </Button>
-                  <Button isLoading={review.isPending} loadingText="جاري تفعيل الاشتراك">
+                  <Button
+                    disabled={review.isPending}
+                    isLoading={review.isPending && review.variables?.approve === true}
+                    loadingText="جاري تفعيل الاشتراك"
+                  >
                     تفعيل مدة اللاعب
                   </Button>
                 </>
