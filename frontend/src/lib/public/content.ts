@@ -25,7 +25,7 @@ function localizedRecord<T extends Record<PublicLocale, string>>(record: T): T {
       if (property === 'ar' || property === 'en') return target[property];
       return target.ar;
     },
-  }) as T;
+  });
 }
 
 export const brand = {
@@ -35,12 +35,11 @@ export const brand = {
     en: 'Al-Inshaat, opposite the automatic bakery',
   }),
   logoBw: '/images/gym/log_bw.jpeg',
-  mapsUrl: 'https://www.google.com/maps/place/Progym/@34.7180298,36.6969446,20.7z/data=!4m6!3m5!1s0x15230fd5758aedab:0x7e5d4a17c189b619!8m2!3d34.7179977!4d36.6970795!16s%2Fg%2F11t_py2s53?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D',
+  mapsUrl:
+    'https://www.google.com/maps/place/Progym/@34.7180298,36.6969446,20.7z/data=!4m6!3m5!1s0x15230fd5758aedab:0x7e5d4a17c189b619!8m2!3d34.7179977!4d36.6970795!16s%2Fg%2F11t_py2s53?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D',
   name: 'Pro Gym',
   phone: '2213324',
-  social: [
-    { href: 'https://www.instagram.com/progym.homs/', label: 'Instagram' },
-  ],
+  social: [{ href: 'https://www.instagram.com/progym.homs/', label: 'Instagram' }],
 };
 
 export const publicImages = {
@@ -177,8 +176,7 @@ const publicCopyBase = {
         title: 'مساحة تدريب منظمة، قوية، ومريحة للتركيز.',
       },
       hero: {
-        body:
-          'نظام تدريب عصري يجمع بين صالة احترافية، متابعة رقمية، ومدربين يفهمون معنى الالتزام.',
+        body: 'نظام تدريب عصري يجمع بين صالة احترافية، متابعة رقمية، ومدربين يفهمون معنى الالتزام.',
         eyebrow: 'Pro Gym Homs',
         primary: 'ابدأ تحولك',
         secondary: 'استكشف النادي',
@@ -210,7 +208,12 @@ const publicCopyBase = {
       },
     },
     membership: {
-      benefits: ['اشتراكات يومية مرنة', 'متابعة حضور واشتراك', 'برامج تدريب وتغذية', 'إدارة تقدم وصور خاصة'],
+      benefits: [
+        'اشتراكات يومية مرنة',
+        'متابعة حضور واشتراك',
+        'برامج تدريب وتغذية',
+        'إدارة تقدم وصور خاصة',
+      ],
       eyebrow: 'العضويات',
       intro:
         'صممنا تجربة العضوية حول الوضوح: تعرف أيامك المتبقية، خطتك الحالية، وتقدمك من لوحة واحدة.',
@@ -244,7 +247,8 @@ const publicCopyBase = {
         title: 'تواصل مع Pro Gym',
       },
       home: {
-        description: 'Pro Gym تجربة تدريب Premium في حمص تجمع بين القوة، المتابعة الرقمية، والمدربين المحترفين.',
+        description:
+          'Pro Gym تجربة تدريب Premium في حمص تجمع بين القوة، المتابعة الرقمية، والمدربين المحترفين.',
         title: 'Pro Gym | تدريب Premium للتحول الحقيقي',
       },
       membership: {
@@ -339,8 +343,7 @@ const publicCopyBase = {
         title: 'A structured, powerful training space built for focus.',
       },
       hero: {
-        body:
-          'A modern training system combining a professional facility, digital follow-up, and coaches who understand discipline.',
+        body: 'A modern training system combining a professional facility, digital follow-up, and coaches who understand discipline.',
         eyebrow: 'Pro Gym Homs',
         primary: 'Start transformation',
         secondary: 'Explore the club',
@@ -364,15 +367,29 @@ const publicCopyBase = {
       why: {
         eyebrow: 'Why Pro Gym',
         items: [
-          ['Measurable training', 'Every improvement has a number, photo, or attendance record behind it.'],
-          ['Coaches close to your goal', 'Follow-up is not a vague promise. It is built into the platform.'],
-          ['Premium experience', 'Bold identity, measured motion, and a website that feels trusted from second one.'],
+          [
+            'Measurable training',
+            'Every improvement has a number, photo, or attendance record behind it.',
+          ],
+          [
+            'Coaches close to your goal',
+            'Follow-up is not a vague promise. It is built into the platform.',
+          ],
+          [
+            'Premium experience',
+            'Bold identity, measured motion, and a website that feels trusted from second one.',
+          ],
         ],
         title: 'The gym that makes discipline easier.',
       },
     },
     membership: {
-      benefits: ['Flexible day-based subscriptions', 'Attendance and membership tracking', 'Workout and nutrition plans', 'Private progress photo management'],
+      benefits: [
+        'Flexible day-based subscriptions',
+        'Attendance and membership tracking',
+        'Workout and nutrition plans',
+        'Private progress photo management',
+      ],
       eyebrow: 'Memberships',
       intro:
         'We designed membership around clarity: know your remaining days, current plan, and progress from one dashboard.',
@@ -394,30 +411,44 @@ const publicCopyBase = {
     },
     seo: {
       about: {
-        description: 'Learn the story, mission, and vision behind Pro Gym and its modern training experience.',
+        description:
+          'Learn the story, mission, and vision behind Pro Gym and its modern training experience.',
         title: 'About Pro Gym',
       },
       coaches: {
-        description: 'Meet the Pro Gym coaching team and their expertise in strength, transformation, and follow-up.',
+        description:
+          'Meet the Pro Gym coaching team and their expertise in strength, transformation, and follow-up.',
         title: 'Pro Gym Coaches',
       },
       contact: {
-        description: 'Contact Pro Gym to start your membership or ask about training and subscriptions.',
+        description:
+          'Contact Pro Gym to start your membership or ask about training and subscriptions.',
         title: 'Contact Pro Gym',
       },
       home: {
-        description: 'Pro Gym is a premium training experience in Homs combining strength, digital follow-up, and professional coaching.',
+        description:
+          'Pro Gym is a premium training experience in Homs combining strength, digital follow-up, and professional coaching.',
         title: 'Pro Gym | Premium Training for Real Transformation',
       },
       membership: {
-        description: 'Explore Pro Gym memberships and the benefits of structured training with digital follow-up.',
+        description:
+          'Explore Pro Gym memberships and the benefits of structured training with digital follow-up.',
         title: 'Pro Gym Memberships',
       },
     },
     testimonials: [
-      ['A different experience from week one. The follow-up helped me understand where I was actually improving.', 'Mohammad A.'],
-      ['My coach knows my goal and follows photos, weight, and attendance. That is exactly what I needed.', 'Karim K.'],
-      ['The gym is organized and the atmosphere helps you commit. You do not feel alone in the plan.', 'Ahmad S.'],
+      [
+        'A different experience from week one. The follow-up helped me understand where I was actually improving.',
+        'Mohammad A.',
+      ],
+      [
+        'My coach knows my goal and follows photos, weight, and attendance. That is exactly what I needed.',
+        'Karim K.',
+      ],
+      [
+        'The gym is organized and the atmosphere helps you commit. You do not feel alone in the plan.',
+        'Ahmad S.',
+      ],
     ],
   },
 } satisfies Record<PublicLocale, Record<string, unknown>>;
@@ -427,7 +458,7 @@ export const publicCopy = new Proxy(publicCopyBase, {
     if (property === 'ar' || property === 'en') return target[property];
     return target.ar;
   },
-}) as typeof publicCopyBase;
+});
 
 export const coaches = [
   {
@@ -477,10 +508,10 @@ export const coaches = [
   specialty: Record<PublicLocale, string>;
 }>;
 
-export function localizedPath(locale: PublicLocale | string | null | undefined, path = ''): string {
+export function localizedPath(locale: string | null | undefined, path = ''): string {
   return `/${resolvePublicLocale(locale)}${path}`;
 }
 
-export function getPublicCopy(locale: PublicLocale | string | null | undefined) {
+export function getPublicCopy(locale: string | null | undefined) {
   return publicCopy[resolvePublicLocale(locale)];
 }

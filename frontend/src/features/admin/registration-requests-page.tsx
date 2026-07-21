@@ -190,14 +190,14 @@ export function RegistrationRequestsPage() {
       >
         {selected ? (
           <div className="space-y-5">
-            <div className="grid gap-4 rounded-lg border border-border p-4 sm:grid-cols-[14rem_1fr]">
-              <div className="relative h-64 overflow-hidden rounded-lg border border-border bg-muted sm:h-72">
+            <div className="grid gap-5 rounded-lg border border-border p-4 md:grid-cols-[minmax(18rem,0.9fr)_1.1fr]">
+              <div className="relative mx-auto aspect-[3/4] max-h-[34rem] w-full max-w-sm overflow-hidden rounded-lg border border-border bg-muted">
                 {selected.member.user.avatarUrl ? (
                   <Image
                     alt={selected.member.user.fullName}
                     fill
-                    sizes="(max-width: 640px) 100vw, 224px"
-                    className="object-contain"
+                    sizes="(max-width: 768px) 100vw, 384px"
+                    className="object-contain p-1"
                     src={selected.member.user.avatarUrl}
                   />
                 ) : null}

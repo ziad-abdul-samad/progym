@@ -79,7 +79,7 @@ function ElectricArc({
     }
 
     positionAttribute.needsUpdate = true;
-    const material = line.material as THREE.LineBasicMaterial;
+    const material = line.material;
     material.opacity = 0.5 + Math.abs(Math.sin(clock.elapsedTime * 8 + seed)) * 0.5;
   });
 
@@ -156,7 +156,7 @@ function BoltModel() {
   );
 
   return (
-    <group ref={groupRef} rotation={[0, -0.12, -0.08]} scale={0.96}>
+    <group ref={groupRef} rotation={[0, -0.12, -0.08]} scale={[0.87, 0.96, 0.96]}>
       <mesh geometry={boltGeometry} scale={1.075}>
         <meshBasicMaterial
           blending={THREE.AdditiveBlending}

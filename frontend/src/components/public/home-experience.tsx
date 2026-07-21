@@ -24,10 +24,10 @@ const imageRoot = '/images/gym';
 const optimizedImageRoot = `${imageRoot}/optimized`;
 
 const motionGridImages = {
-  cardio: `${imageRoot}/WhatsApp Image 2026-07-01 at 2.31.30 PM (4).jpeg`,
-  floorDark: `${imageRoot}/WhatsApp Image 2026-07-01 at 2.31.30 PM (2).jpeg`,
-  plates: `${imageRoot}/WhatsApp Image 2026-07-01 at 2.31.30 PM (6).jpeg`,
-  rack: `${imageRoot}/WhatsApp Image 2026-07-01 at 2.31.30 PM (7).jpeg`,
+  cardio: `${optimizedImageRoot}/facility-10.webp`,
+  floorDark: `${optimizedImageRoot}/gym-02.webp`,
+  plates: `${optimizedImageRoot}/facility-07.webp`,
+  rack: `${optimizedImageRoot}/gym-07.webp`,
 } as const;
 
 const optimizedImages = {
@@ -41,6 +41,16 @@ const optimizedImages = {
   platesClose: `${optimizedImageRoot}/gym-08.webp`,
   rack: `${optimizedImageRoot}/gym-07.webp`,
   treadmills: `${optimizedImageRoot}/gym-10.webp`,
+  facility01: `${optimizedImageRoot}/facility-01.webp`,
+  facility02: `${optimizedImageRoot}/facility-02.webp`,
+  facility03: `${optimizedImageRoot}/facility-03.webp`,
+  facility04: `${optimizedImageRoot}/facility-04.webp`,
+  facility05: `${optimizedImageRoot}/facility-05.webp`,
+  facility06: `${optimizedImageRoot}/facility-06.webp`,
+  facility07: `${optimizedImageRoot}/facility-07.webp`,
+  facility08: `${optimizedImageRoot}/facility-08.webp`,
+  facility09: `${optimizedImageRoot}/facility-09.webp`,
+  facility10: `${optimizedImageRoot}/facility-10.webp`,
 } as const;
 
 const content = {
@@ -100,7 +110,13 @@ const content = {
       eyebrow: 'The real facility',
       title: 'Technology designed around a real gym—not stock imagery.',
     },
-    marquee: ['Member operations', 'Smart attendance', 'Workout plans', 'Progress tracking', 'Coach control'],
+    marquee: [
+      'Member operations',
+      'Smart attendance',
+      'Workout plans',
+      'Progress tracking',
+      'Coach control',
+    ],
     roles: {
       body: 'A focused interface for every role, with data and decisions connected through one operating system.',
       eyebrow: 'One system, three experiences',
@@ -177,30 +193,113 @@ const steps = {
   ],
 } as const;
 
-const roles: Record<PublicLocale, Array<{ body: string; icon: LucideIcon; label: string; title: string }>> = {
+const roles: Record<
+  PublicLocale,
+  Array<{ body: string; icon: LucideIcon; label: string; title: string }>
+> = {
   ar: [
-    { body: 'اشتراكات، حضور، مدربون، تدقيق، وتنبيهات تشغيلية في مكان واحد.', icon: BarChart3, label: '01 / Owner', title: 'المالك يرى الصورة كاملة.' },
-    { body: 'عملاء، خطط، طلبات تقدم، وسجل أداء يساعد على اتخاذ قرار أدق.', icon: Dumbbell, label: '02 / Coach', title: 'المدرب يعمل ببيانات حقيقية.' },
-    { body: 'اشتراكه، حضوره، خطته، إنجازه، وصور تقدمه بدون تعقيد.', icon: Users, label: '03 / Member', title: 'اللاعب يعرف خطوته التالية.' },
+    {
+      body: 'اشتراكات، حضور، مدربون، تدقيق، وتنبيهات تشغيلية في مكان واحد.',
+      icon: BarChart3,
+      label: '01 / Owner',
+      title: 'المالك يرى الصورة كاملة.',
+    },
+    {
+      body: 'عملاء، خطط، طلبات تقدم، وسجل أداء يساعد على اتخاذ قرار أدق.',
+      icon: Dumbbell,
+      label: '02 / Coach',
+      title: 'المدرب يعمل ببيانات حقيقية.',
+    },
+    {
+      body: 'اشتراكه، حضوره، خطته، إنجازه، وصور تقدمه بدون تعقيد.',
+      icon: Users,
+      label: '03 / Member',
+      title: 'اللاعب يعرف خطوته التالية.',
+    },
   ],
   en: [
-    { body: 'Memberships, attendance, coaches, audit, and operational alerts in one place.', icon: BarChart3, label: '01 / Owner', title: 'The owner sees the whole picture.' },
-    { body: 'Clients, plans, progress requests, and performance history for better coaching decisions.', icon: Dumbbell, label: '02 / Coach', title: 'The coach works with real data.' },
-    { body: 'Membership, attendance, plans, achievements, and progress photography without friction.', icon: Users, label: '03 / Member', title: 'The member knows the next move.' },
+    {
+      body: 'Memberships, attendance, coaches, audit, and operational alerts in one place.',
+      icon: BarChart3,
+      label: '01 / Owner',
+      title: 'The owner sees the whole picture.',
+    },
+    {
+      body: 'Clients, plans, progress requests, and performance history for better coaching decisions.',
+      icon: Dumbbell,
+      label: '02 / Coach',
+      title: 'The coach works with real data.',
+    },
+    {
+      body: 'Membership, attendance, plans, achievements, and progress photography without friction.',
+      icon: Users,
+      label: '03 / Member',
+      title: 'The member knows the next move.',
+    },
   ],
 };
 
 const gallery = [
-  { category: { ar: 'تشغيل', en: 'Operations' }, image: optimizedImages.treadmills, index: '01', title: { ar: 'حركة النادي لحظة بلحظة', en: 'The gym in constant motion' } },
-  { category: { ar: 'الأعضاء', en: 'Members' }, image: optimizedImages.legPress, index: '02', title: { ar: 'كل عضو معروف داخل النظام', en: 'Every member has a clear record' } },
-  { category: { ar: 'المساحة', en: 'Facility' }, image: optimizedImages.floorWide, index: '03', title: { ar: 'رؤية كاملة للمكان والتشغيل', en: 'Total visibility across the floor' } },
-  { category: { ar: 'الأداء', en: 'Performance' }, image: optimizedImages.platesClose, index: '04', title: { ar: 'الأرقام تتحول إلى تقدم', en: 'Numbers become visible progress' } },
-  { category: { ar: 'التدريب', en: 'Training' }, image: optimizedImages.dumbbells, index: '05', title: { ar: 'كل تمرين يترك سجلاً', en: 'Every workout leaves a record' } },
-  { category: { ar: 'القوة', en: 'Strength' }, image: optimizedImages.plates, index: '06', title: { ar: 'خطط مبنية حول النتيجة', en: 'Plans built around the outcome' } },
-  { category: { ar: 'التجهيزات', en: 'Equipment' }, image: optimizedImages.cardio, index: '07', title: { ar: 'كل جهاز جزء من التجربة', en: 'Every machine supports the system' } },
-  { category: { ar: 'المتابعة', en: 'Tracking' }, image: optimizedImages.rack, index: '08', title: { ar: 'تفاصيل صغيرة، قرارات أدق', en: 'Small details, sharper decisions' } },
-  { category: { ar: 'النظام', en: 'System' }, image: optimizedImages.floorDark, index: '09', title: { ar: 'هدوء في الواجهة وقوة في الداخل', en: 'Quiet interface, powerful operation' } },
-  { category: { ar: 'المجتمع', en: 'Community' }, image: optimizedImages.dumbbellRoom, index: '10', title: { ar: 'نادي واحد، تجربة متصلة', en: 'One gym, one connected experience' } },
+  {
+    category: { ar: 'تشغيل', en: 'Operations' },
+    image: optimizedImages.facility10,
+    index: '01',
+    title: { ar: 'حركة النادي لحظة بلحظة', en: 'The gym in constant motion' },
+  },
+  {
+    category: { ar: 'الأعضاء', en: 'Members' },
+    image: optimizedImages.legPress,
+    index: '02',
+    title: { ar: 'كل عضو معروف داخل النظام', en: 'Every member has a clear record' },
+  },
+  {
+    category: { ar: 'المساحة', en: 'Facility' },
+    image: optimizedImages.facility04,
+    index: '03',
+    title: { ar: 'رؤية كاملة للمكان والتشغيل', en: 'Total visibility across the floor' },
+  },
+  {
+    category: { ar: 'الأداء', en: 'Performance' },
+    image: optimizedImages.platesClose,
+    index: '04',
+    title: { ar: 'الأرقام تتحول إلى تقدم', en: 'Numbers become visible progress' },
+  },
+  {
+    category: { ar: 'التدريب', en: 'Training' },
+    image: optimizedImages.facility08,
+    index: '05',
+    title: { ar: 'كل تمرين يترك سجلاً', en: 'Every workout leaves a record' },
+  },
+  {
+    category: { ar: 'القوة', en: 'Strength' },
+    image: optimizedImages.plates,
+    index: '06',
+    title: { ar: 'خطط مبنية حول النتيجة', en: 'Plans built around the outcome' },
+  },
+  {
+    category: { ar: 'التجهيزات', en: 'Equipment' },
+    image: optimizedImages.facility03,
+    index: '07',
+    title: { ar: 'كل جهاز جزء من التجربة', en: 'Every machine supports the system' },
+  },
+  {
+    category: { ar: 'المتابعة', en: 'Tracking' },
+    image: optimizedImages.rack,
+    index: '08',
+    title: { ar: 'تفاصيل صغيرة، قرارات أدق', en: 'Small details, sharper decisions' },
+  },
+  {
+    category: { ar: 'النظام', en: 'System' },
+    image: optimizedImages.facility06,
+    index: '09',
+    title: { ar: 'هدوء في الواجهة وقوة في الداخل', en: 'Quiet interface, powerful operation' },
+  },
+  {
+    category: { ar: 'المجتمع', en: 'Community' },
+    image: optimizedImages.dumbbellRoom,
+    index: '10',
+    title: { ar: 'نادي واحد، تجربة متصلة', en: 'One gym, one connected experience' },
+  },
 ] as const;
 
 function Eyebrow({ children }: { children: string }) {
@@ -318,14 +417,19 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
             </h2>
           </div>
           <div className="lg:pb-3" data-home-reveal>
-            <p className="max-w-xl text-base leading-8 text-white/55 md:text-lg">{copy.about.body}</p>
+            <p className="max-w-xl text-base leading-8 text-white/55 md:text-lg">
+              {copy.about.body}
+            </p>
             <div className="mt-8 flex items-center gap-4 border-t border-white/12 pt-5 text-xs font-bold leading-6 text-white/35">
               <Sparkles className="h-5 w-5 shrink-0 text-[#39ff14]" />
               {copy.about.note}
             </div>
           </div>
         </div>
-        <div className="relative mx-auto mt-16 max-w-[94rem] overflow-hidden bg-black" data-home-image>
+        <div
+          className="relative mx-auto mt-16 max-w-[94rem] overflow-hidden bg-black"
+          data-home-image
+        >
           <div className="relative aspect-[3/2] md:aspect-[16/8] md:min-h-[26rem]">
             <Image
               alt="Pro Gym dumbbell training area"
@@ -347,7 +451,11 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
         <div className="home-marquee flex w-max items-center">
           {[...copy.marquee, ...copy.marquee].map((item, index) => (
             <div className="flex items-center" key={`${item}-${index}`}>
-              <span className={`px-7 text-2xl font-black uppercase md:px-12 md:text-4xl ${isArabic ? 'font-ar-display' : ''}`}>{item}</span>
+              <span
+                className={`px-7 text-2xl font-black uppercase md:px-12 md:text-4xl ${isArabic ? 'font-ar-display' : ''}`}
+              >
+                {item}
+              </span>
               <span className="text-2xl">✦</span>
             </div>
           ))}
@@ -364,12 +472,16 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
                 <Eyebrow>{copy.capabilities.eyebrow}</Eyebrow>
                 <h2
                   className={`mt-7 font-black leading-[0.98] ${
-                    isArabic ? 'text-[clamp(2.1rem,3.15vw,3.75rem)]' : 'text-[clamp(2.65rem,4.5vw,5.1rem)]'
+                    isArabic
+                      ? 'text-[clamp(2.1rem,3.15vw,3.75rem)]'
+                      : 'text-[clamp(2.65rem,4.5vw,5.1rem)]'
                   } ${displayClass}`}
                 >
                   {copy.capabilities.title}
                 </h2>
-                <p className="mt-6 max-w-lg text-sm leading-7 text-white/45 md:text-base">{copy.capabilities.body}</p>
+                <p className="mt-6 max-w-lg text-sm leading-7 text-white/45 md:text-base">
+                  {copy.capabilities.body}
+                </p>
               </div>
               <div className="relative mt-10 hidden h-[45vh] min-h-[22rem] overflow-hidden border border-white/12 lg:block">
                 {localeSteps.map((step, index) => (
@@ -409,16 +521,22 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
                   </div>
                   <div className="flex items-start justify-between gap-5">
                     <span className="text-xs font-black text-[#39ff14]">{step.number}</span>
-                    <span className="text-[0.58rem] font-black uppercase tracking-[0.2em] text-white/30">{step.tag}</span>
+                    <span className="text-[0.58rem] font-black uppercase tracking-[0.2em] text-white/30">
+                      {step.tag}
+                    </span>
                   </div>
                   <h3
                     className={`mt-10 max-w-3xl font-black leading-[0.98] transition group-hover:text-[#39ff14] ${
-                      isArabic ? 'text-[clamp(2rem,3vw,3.5rem)]' : 'text-[clamp(2.3rem,4.5vw,5.2rem)]'
+                      isArabic
+                        ? 'text-[clamp(2rem,3vw,3.5rem)]'
+                        : 'text-[clamp(2.3rem,4.5vw,5.2rem)]'
                     } ${displayClass}`}
                   >
                     {step.title}
                   </h3>
-                  <p className="mt-6 max-w-xl text-sm leading-7 text-white/45 md:text-base">{step.body}</p>
+                  <p className="mt-6 max-w-xl text-sm leading-7 text-white/45 md:text-base">
+                    {step.body}
+                  </p>
                 </article>
               ))}
             </div>
@@ -500,13 +618,17 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
               <Eyebrow>{copy.stats.eyebrow}</Eyebrow>
               <h2
                 className={`mt-7 font-black leading-[0.96] ${
-                  isArabic ? 'text-[clamp(2.25rem,3.4vw,4.1rem)]' : 'text-[clamp(2.8rem,5vw,5.7rem)]'
+                  isArabic
+                    ? 'text-[clamp(2.25rem,3.4vw,4.1rem)]'
+                    : 'text-[clamp(2.8rem,5vw,5.7rem)]'
                 } ${displayClass}`}
               >
                 {copy.stats.title}
               </h2>
             </div>
-            <p className="max-w-lg text-base leading-8 text-white/45 lg:justify-self-end">{copy.stats.body}</p>
+            <p className="max-w-lg text-base leading-8 text-white/45 lg:justify-self-end">
+              {copy.stats.body}
+            </p>
           </div>
           <div className="mt-16 grid border-t border-white/14 md:grid-cols-2 lg:grid-cols-4">
             {[
@@ -515,8 +637,13 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
               ['94', '%', isArabic ? 'معدل الحضور' : 'Attendance rate'],
               ['126', '', isArabic ? 'اشتراكاً فعالاً' : 'Active subscriptions'],
             ].map(([target, suffix, label], index) => (
-              <div className="border-b border-white/14 py-8 md:px-7 md:odd:border-e lg:border-e lg:last:border-e-0" key={label}>
-                <p className="text-[0.58rem] font-black uppercase tracking-[0.18em] text-[#39ff14]">0{index + 1}</p>
+              <div
+                className="border-b border-white/14 py-8 md:px-7 md:odd:border-e lg:border-e lg:last:border-e-0"
+                key={label}
+              >
+                <p className="text-[0.58rem] font-black uppercase tracking-[0.18em] text-[#39ff14]">
+                  0{index + 1}
+                </p>
                 <p className="mt-10 text-[clamp(3.8rem,7vw,7.4rem)] font-black leading-none tracking-[-0.08em] tabular-nums">
                   <AnimatedCounter suffix={suffix} value={Number(target)} />
                 </p>
@@ -537,13 +664,17 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
               </p>
               <h2
                 className={`mt-7 font-black leading-[0.94] ${
-                  isArabic ? 'text-[clamp(2.3rem,3.6vw,4.3rem)]' : 'text-[clamp(2.8rem,5.4vw,6.1rem)]'
+                  isArabic
+                    ? 'text-[clamp(2.3rem,3.6vw,4.3rem)]'
+                    : 'text-[clamp(2.8rem,5.4vw,6.1rem)]'
                 } ${displayClass}`}
               >
                 {copy.roles.title}
               </h2>
             </div>
-            <p className="max-w-lg text-base font-medium leading-8 text-black/58 lg:justify-self-end">{copy.roles.body}</p>
+            <p className="max-w-lg text-base font-medium leading-8 text-black/58 lg:justify-self-end">
+              {copy.roles.body}
+            </p>
           </div>
           <div className="mt-16 grid gap-3 lg:grid-cols-3">
             {roles[locale].map(({ body, icon: Icon, label, title }) => (
@@ -556,7 +687,11 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
                   <p className="text-[0.58rem] font-black uppercase tracking-[0.18em]">{label}</p>
                   <Icon className="h-6 w-6 transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110" />
                 </div>
-                <h3 className={`mt-16 text-3xl font-black leading-tight md:text-4xl ${isArabic ? 'font-ar-display' : ''}`}>{title}</h3>
+                <h3
+                  className={`mt-16 text-3xl font-black leading-tight md:text-4xl ${isArabic ? 'font-ar-display' : ''}`}
+                >
+                  {title}
+                </h3>
                 <p className="mt-5 text-sm font-medium leading-7 text-black/55">{body}</p>
               </article>
             ))}
@@ -565,7 +700,13 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
       </section>
 
       <section className="relative isolate min-h-[90vh] overflow-hidden px-5 py-24 md:px-8 md:py-36 lg:px-10 xl:px-14">
-        <Image alt="Pro Gym strength area" className="absolute inset-0 -z-20 object-cover grayscale" fill sizes="100vw" src={optimizedImages.dumbbellRoom} />
+        <Image
+          alt="Pro Gym strength area"
+          className="absolute inset-0 -z-20 object-cover grayscale"
+          fill
+          sizes="100vw"
+          src={optimizedImages.dumbbellRoom}
+        />
         <div className="absolute inset-0 -z-10 bg-black/78" />
         <div className="home-hero-grid absolute inset-0 -z-10 opacity-20" />
         <div className="mx-auto flex min-h-[65vh] max-w-[94rem] flex-col justify-between">
@@ -573,20 +714,31 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
             <Eyebrow>Pro Gym / Next move</Eyebrow>
             <h2
               className={`mt-8 max-w-6xl font-black leading-[0.9] ${
-                isArabic ? 'text-[clamp(2.65rem,4.4vw,5.2rem)]' : 'text-[clamp(3.2rem,7.5vw,8.5rem)]'
+                isArabic
+                  ? 'text-[clamp(2.65rem,4.4vw,5.2rem)]'
+                  : 'text-[clamp(3.2rem,7.5vw,8.5rem)]'
               } ${displayClass}`}
             >
               {copy.final.title}
             </h2>
           </div>
-          <div className="mt-16 grid gap-8 border-t border-white/20 pt-6 lg:grid-cols-[1fr_auto]" data-home-reveal>
+          <div
+            className="mt-16 grid gap-8 border-t border-white/20 pt-6 lg:grid-cols-[1fr_auto]"
+            data-home-reveal
+          >
             <p className="max-w-xl text-base leading-8 text-white/55">{copy.final.body}</p>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Link className="group flex min-h-14 items-center justify-between gap-10 bg-[#39ff14] px-6 text-xs font-black text-black transition hover:bg-white" href={`/${locale}/register`}>
+              <Link
+                className="group flex min-h-14 items-center justify-between gap-10 bg-[#39ff14] px-6 text-xs font-black text-black transition hover:bg-white"
+                href={`/${locale}/register`}
+              >
                 {copy.final.primary}
                 <ArrowUpRight className="h-4 w-4" />
               </Link>
-              <Link className="flex min-h-14 items-center justify-between gap-10 border border-white/25 bg-black/30 px-6 text-xs font-black backdrop-blur-md transition hover:border-white" href={`/${locale}/login`}>
+              <Link
+                className="flex min-h-14 items-center justify-between gap-10 border border-white/25 bg-black/30 px-6 text-xs font-black backdrop-blur-md transition hover:border-white"
+                href={`/${locale}/login`}
+              >
                 {copy.final.secondary}
                 <ScanLine className="h-4 w-4 text-[#39ff14]" />
               </Link>

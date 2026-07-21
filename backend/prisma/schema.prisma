@@ -893,21 +893,23 @@ model AuditLog {
 }
 
 model GymSettings {
-  id            String   @id @default(cuid())
-  singletonKey  String   @unique @default("primary")
-  nameAr        String
-  nameEn        String
-  descriptionAr String?
-  descriptionEn String?
-  phone         String?
-  email         String?
-  addressAr     String?
-  addressEn     String?
-  latitude      Decimal? @db.Decimal(9, 6)
-  longitude     Decimal? @db.Decimal(9, 6)
-  openingHours  Json?
-  socialLinks   Json?
-  logoUrl       String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                            String   @id @default(cuid())
+  singletonKey                  String   @unique @default("primary")
+  nameAr                        String
+  nameEn                        String
+  descriptionAr                 String?
+  descriptionEn                 String?
+  phone                         String?
+  email                         String?
+  addressAr                     String?
+  addressEn                     String?
+  latitude                      Decimal? @db.Decimal(9, 6)
+  longitude                     Decimal? @db.Decimal(9, 6)
+  openingHours                  Json?
+  socialLinks                   Json?
+  logoUrl                       String?
+  monthlySubscriptionPriceMinor Int      @default(2500)
+  membershipCurrency            String   @default("USD")
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
 }

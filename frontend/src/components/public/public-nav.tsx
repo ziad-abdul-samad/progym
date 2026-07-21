@@ -6,7 +6,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { PublicLocale } from '@progym/shared';
 
 import { useAuth, type SessionUser } from '@/lib/auth/use-auth';
@@ -43,7 +44,8 @@ const navCopy = {
     logoutBody: 'Do you want to log out of your account?',
     logoutCancel: 'Stay signed in',
     logoutConfirm: 'Confirm logout',
-    logoutConfirmBody: 'Your current session will end and you will return to the public site. Are you sure?',
+    logoutConfirmBody:
+      'Your current session will end and you will return to the public site. Are you sure?',
     logoutConfirmTitle: 'Confirm logout',
     logoutTitle: 'Pro Gym account',
     menu: 'Menu',
@@ -103,16 +105,36 @@ export function PublicNav({ locale }: { locale: PublicLocale }) {
     { href: `/${locale}/contact`, label: content.contact },
   ];
   const isActive = (href: string) =>
-    href === `/${locale}` ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+    href === `/${locale}`
+      ? pathname === href
+      : pathname === href || pathname.startsWith(`${href}/`);
   const closeAccountDialog = () => {
     setLogoutOpen(false);
     setLogoutConfirming(false);
   };
 
+  useEffect(() => {
+    if (!logoutOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeAccountDialog();
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [logoutOpen]);
+
   return (
     <header className="fixed inset-x-0 top-0 z-[70] text-white">
       <nav className="relative z-[72] flex h-[4.75rem] w-full items-center justify-between gap-2 border-b border-white/14 bg-black/55 px-3 backdrop-blur-xl sm:px-5 md:px-8 lg:px-10">
-        <Link aria-label="Pro Gym" className="group flex shrink-0 items-center gap-3" href={`/${locale}`}>
+        <Link
+          aria-label="Pro Gym"
+          className="group flex shrink-0 items-center gap-3"
+          href={`/${locale}`}
+        >
           <span className="relative h-11 w-9 overflow-hidden bg-black">
             <Image
               alt="Pro Gym"
@@ -210,12 +232,16 @@ export function PublicNav({ locale }: { locale: PublicLocale }) {
                     <Link
                       aria-current={isActive(link.href) ? 'page' : undefined}
                       className={`group flex items-center gap-5 border-b border-white/10 px-4 py-3 text-[clamp(2.4rem,5.2vw,5.5rem)] font-black uppercase leading-none tracking-[-0.06em] transition ${
-                        isActive(link.href) ? 'bg-[#39ff14] text-black' : 'text-white hover:text-[#39ff14]'
+                        isActive(link.href)
+                          ? 'bg-[#39ff14] text-black'
+                          : 'text-white hover:text-[#39ff14]'
                       }`}
                       href={link.href}
                       onClick={() => setOpen(false)}
                     >
-                      <span className="w-6 text-[0.55rem] font-black tracking-normal text-[#39ff14]">0{index + 1}</span>
+                      <span className="w-6 text-[0.55rem] font-black tracking-normal text-[#39ff14]">
+                        0{index + 1}
+                      </span>
                       {link.label}
                       <ArrowUpRight className="ms-auto h-6 w-6 translate-y-2 opacity-0 transition duration-300 group-hover:translate-y-0 group-hover:opacity-100 md:h-9 md:w-9" />
                     </Link>
@@ -230,11 +256,13 @@ export function PublicNav({ locale }: { locale: PublicLocale }) {
                     className="object-cover grayscale"
                     fill
                     sizes="32vw"
-                    src="/images/gym/WhatsApp Image 2026-07-01 at 2.31.30 PM (6).jpeg"
+                    src="/images/gym/optimized/gym-06.webp"
                   />
                   <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.68))]" />
                   <div className="absolute inset-x-4 bottom-4 flex items-end justify-between">
-                    <p className="max-w-32 text-xs font-bold uppercase tracking-[0.14em] text-white/62">Real gym. One smart system.</p>
+                    <p className="max-w-32 text-xs font-bold uppercase tracking-[0.14em] text-white/62">
+                      Real gym. One smart system.
+                    </p>
                     <span className="text-3xl font-black text-[#39ff14]">PG</span>
                   </div>
                 </div>
@@ -249,98 +277,94 @@ export function PublicNav({ locale }: { locale: PublicLocale }) {
         ) : null}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {logoutOpen && user ? (
-          <motion.div
-            animate={{ opacity: 1 }}
-            className="fixed inset-0 z-[90] flex items-end justify-center bg-black/75 p-3 backdrop-blur-md sm:items-center"
-            exit={{ opacity: 0 }}
-            initial={{ opacity: 0 }}
-          >
-            <button
-              aria-label={content.logoutCancel}
-              className="absolute inset-0"
-              onClick={closeAccountDialog}
-              type="button"
-            />
-            <motion.section
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              aria-modal="true"
-              className="relative w-full max-w-md overflow-hidden border border-white/14 bg-[#080a08] p-6 text-white shadow-[0_30px_100px_rgba(0,0,0,0.7)]"
-              exit={{ opacity: 0, scale: 0.97, y: 18 }}
-              initial={{ opacity: 0, scale: 0.97, y: 18 }}
-              role="dialog"
-            >
-              <div className="absolute inset-x-0 top-0 h-1 bg-[#39ff14]" />
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[0.58rem] font-black uppercase tracking-[0.2em] text-[#39ff14]">
-                    {logoutConfirming ? content.logoutConfirmTitle : content.logoutTitle}
-                  </p>
-                  <h2 className="mt-3 text-2xl font-black">{accountGreeting(user, locale)}</h2>
-                </div>
-                <button
-                  aria-label={content.logoutCancel}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center border border-white/14 text-white/60 transition hover:border-[#39ff14] hover:text-[#39ff14]"
-                  onClick={closeAccountDialog}
-                  type="button"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <p className="mt-5 border-s border-white/16 ps-4 text-sm leading-7 text-white/52">
-                {logoutConfirming ? content.logoutConfirmBody : content.logoutBody}
-              </p>
-              {logoutConfirming ? (
-                <div className="mt-7 grid grid-cols-2 gap-2">
+      {typeof document !== 'undefined' && logoutOpen && user
+        ? createPortal(
+            <div className="fixed inset-0 z-[160] flex items-end justify-center bg-black/80 p-3 backdrop-blur-md sm:items-center">
+              <button
+                aria-label={content.logoutCancel}
+                className="absolute inset-0"
+                onClick={closeAccountDialog}
+                type="button"
+              />
+              <section
+                aria-modal="true"
+                aria-labelledby="public-account-dialog-title"
+                className="relative z-10 w-full max-w-md overflow-hidden border border-white/14 bg-[#080a08] p-6 text-white shadow-[0_30px_100px_rgba(0,0,0,0.7)]"
+                role="dialog"
+              >
+                <div className="absolute inset-x-0 top-0 h-1 bg-[#39ff14]" />
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[0.58rem] font-black uppercase tracking-[0.2em] text-[#39ff14]">
+                      {logoutConfirming ? content.logoutConfirmTitle : content.logoutTitle}
+                    </p>
+                    <h2 className="mt-3 text-2xl font-black" id="public-account-dialog-title">
+                      {accountGreeting(user, locale)}
+                    </h2>
+                  </div>
                   <button
-                    className="min-h-12 border border-white/14 px-4 text-xs font-black transition hover:border-white/45"
-                    onClick={() => setLogoutConfirming(false)}
-                    type="button"
-                  >
-                    {content.logoutCancel}
-                  </button>
-                  <button
-                    className="flex min-h-12 items-center justify-center gap-2 bg-red-500 px-4 text-xs font-black text-white transition hover:bg-red-400 disabled:opacity-50"
-                    disabled={logout.isPending}
-                    onClick={() => logout.mutate()}
-                    type="button"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    {content.logoutConfirm}
-                  </button>
-                </div>
-              ) : (
-                <div className="mt-7 grid grid-cols-2 gap-2">
-                  <Link
-                    className="col-span-2 flex min-h-12 items-center justify-center gap-2 border border-[#39ff14]/50 bg-[#39ff14]/10 px-4 text-xs font-black text-[#39ff14] transition hover:bg-[#39ff14] hover:text-black"
-                    href={dashboardPath(user, locale)}
-                    onClick={closeAccountDialog}
-                  >
-                    {content.dashboard}
-                    <ArrowUpRight className="h-4 w-4" />
-                  </Link>
-                  <button
-                    className="min-h-12 border border-white/14 px-4 text-xs font-black transition hover:border-white/45"
+                    aria-label={content.logoutCancel}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center border border-white/14 text-white/60 transition hover:border-[#39ff14] hover:text-[#39ff14]"
                     onClick={closeAccountDialog}
                     type="button"
                   >
-                    {content.logoutCancel}
-                  </button>
-                  <button
-                    className="flex min-h-12 items-center justify-center gap-2 bg-[#39ff14] px-4 text-xs font-black text-black transition hover:bg-white"
-                    onClick={() => setLogoutConfirming(true)}
-                    type="button"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    {content.logout}
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
-              )}
-            </motion.section>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+                <p className="mt-5 border-s border-white/16 ps-4 text-sm leading-7 text-white/52">
+                  {logoutConfirming ? content.logoutConfirmBody : content.logoutBody}
+                </p>
+                {logoutConfirming ? (
+                  <div className="mt-7 grid grid-cols-2 gap-2">
+                    <button
+                      className="min-h-12 border border-white/14 px-4 text-xs font-black transition hover:border-white/45"
+                      onClick={() => setLogoutConfirming(false)}
+                      type="button"
+                    >
+                      {content.logoutCancel}
+                    </button>
+                    <button
+                      className="flex min-h-12 items-center justify-center gap-2 bg-red-500 px-4 text-xs font-black text-white transition hover:bg-red-400 disabled:opacity-50"
+                      disabled={logout.isPending}
+                      onClick={() => logout.mutate()}
+                      type="button"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      {content.logoutConfirm}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-7 grid grid-cols-2 gap-2">
+                    <Link
+                      className="col-span-2 flex min-h-12 items-center justify-center gap-2 border border-[#39ff14]/50 bg-[#39ff14]/10 px-4 text-xs font-black text-[#39ff14] transition hover:bg-[#39ff14] hover:text-black"
+                      href={dashboardPath(user, locale)}
+                      onClick={closeAccountDialog}
+                    >
+                      {content.dashboard}
+                      <ArrowUpRight className="h-4 w-4" />
+                    </Link>
+                    <button
+                      className="min-h-12 border border-white/14 px-4 text-xs font-black transition hover:border-white/45"
+                      onClick={closeAccountDialog}
+                      type="button"
+                    >
+                      {content.logoutCancel}
+                    </button>
+                    <button
+                      className="flex min-h-12 items-center justify-center gap-2 bg-[#39ff14] px-4 text-xs font-black text-black transition hover:bg-white"
+                      onClick={() => setLogoutConfirming(true)}
+                      type="button"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      {content.logout}
+                    </button>
+                  </div>
+                )}
+              </section>
+            </div>,
+            document.body,
+          )
+        : null}
     </header>
   );
 }

@@ -127,8 +127,8 @@ export function ReceptionEventCenter() {
               {activeEvent.member.avatarUrl ? (
                 <Image
                   alt={activeEvent.member.name}
-                  className="h-24 w-24 rounded-lg object-cover ring-2 ring-brand-accent"
-                  height={96}
+                  className="h-28 w-24 rounded-lg bg-black/20 object-contain p-0.5 ring-2 ring-brand-accent"
+                  height={112}
                   src={activeEvent.member.avatarUrl}
                   width={96}
                 />
@@ -215,8 +215,12 @@ export function ReceptionEventCenter() {
                 review.mutate({
                   approve: true,
                   days: Number(form.get('days')),
-                  observerId: String(form.get('observerId')),
-                  reason: String(form.get('reason')),
+                  observerId:
+                    typeof form.get('observerId') === 'string'
+                      ? (form.get('observerId') as string)
+                      : '',
+                  reason:
+                    typeof form.get('reason') === 'string' ? (form.get('reason') as string) : '',
                 });
               }}
             >

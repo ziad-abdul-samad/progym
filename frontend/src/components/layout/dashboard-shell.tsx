@@ -9,9 +9,11 @@ import {
   ChevronRight,
   ClipboardList,
   Dumbbell,
+  FileText,
   Gauge,
   Home,
   LineChart,
+  Loader2,
   LockKeyhole,
   LogOut,
   Menu,
@@ -58,6 +60,7 @@ type AdminSidebarBadgeKey = 'attendance' | 'members' | 'registrations';
 type AdminSidebarBadgeSource = {
   attendance: Array<{ checkedInAt: string }>;
   members: Array<{ createdAt?: string; joinedAt?: string }>;
+  profileChanges: Array<{ createdAt: string; status: string }>;
   registrations: Array<{ createdAt: string }>;
 };
 
@@ -65,11 +68,22 @@ const navItems: Record<SessionUser['role'], NavItem[]> = {
   ADMIN: [
     { href: '/ar/dashboard/admin', icon: Gauge, label: 'لوحة التحكم' },
     { badgeKey: 'members', href: '/ar/dashboard/admin/members', icon: Users, label: 'الأعضاء' },
-    { badgeKey: 'registrations', href: '/ar/dashboard/admin/registrations', icon: UserRoundCheck, label: 'طلبات التسجيل' },
+    {
+      badgeKey: 'registrations',
+      href: '/ar/dashboard/admin/registrations',
+      icon: UserRoundCheck,
+      label: 'طلبات التسجيل',
+    },
     { href: '/ar/dashboard/admin/coaches', icon: UserCog, label: 'المدربون' },
     { href: '/ar/dashboard/admin/memberships', icon: WalletCards, label: 'الاشتراكات' },
+    { href: '/ar/dashboard/admin/reports', icon: FileText, label: 'التقارير' },
     { href: '/ar/dashboard/admin/observers', icon: ClipboardList, label: 'المراقبون' },
-    { badgeKey: 'attendance', href: '/ar/dashboard/admin/attendance', icon: Activity, label: 'الحضور' },
+    {
+      badgeKey: 'attendance',
+      href: '/ar/dashboard/admin/attendance',
+      icon: Activity,
+      label: 'الحضور',
+    },
     { href: '/ar/dashboard/admin/exercises', icon: Dumbbell, label: 'التمارين' },
     { href: '/ar/dashboard/admin/audit', icon: Shield, label: 'التدقيق' },
   ],
@@ -160,7 +174,10 @@ function readAdminSidebarSeenAt(): Record<AdminSidebarBadgeKey, string> {
       window.localStorage.setItem(ADMIN_SIDEBAR_SEEN_KEY, JSON.stringify(fallback));
       return fallback;
     }
-    return { ...fallback, ...(JSON.parse(stored) as Partial<Record<AdminSidebarBadgeKey, string>>) };
+    return {
+      ...fallback,
+      ...(JSON.parse(stored) as Partial<Record<AdminSidebarBadgeKey, string>>),
+    };
   } catch {
     return fallback;
   }
@@ -208,13 +225,7 @@ function Sidebar({
         onClick={() => onNavigate?.(homeForRole(user.role, locale))}
       >
         <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-border bg-white shadow-sm">
-          <Image
-            alt="Pro Gym logo"
-            className="object-cover"
-            fill
-            sizes="44px"
-            src={brand.logoBw}
-          />
+          <Image alt="Pro Gym logo" className="object-cover" fill sizes="44px" src={brand.logoBw} />
         </span>
         {!collapsed ? (
           <span>
@@ -246,7 +257,9 @@ function Sidebar({
               onClick={() => onNavigate?.(item.href)}
               title={collapsed ? item.label : undefined}
             >
-              <span className={cn('flex min-w-0 items-center gap-3', collapsed && 'justify-center')}>
+              <span
+                className={cn('flex min-w-0 items-center gap-3', collapsed && 'justify-center')}
+              >
                 <Icon className="h-5 w-5 shrink-0" />
                 {!collapsed ? <span className="truncate">{item.label}</span> : null}
               </span>
@@ -268,11 +281,12 @@ function Sidebar({
       <div className="sticky bottom-0 z-10 mt-auto rounded-md border border-border bg-background/95 p-3 shadow-[0_-12px_28px_rgba(0,0,0,0.08)] backdrop-blur">
         {user.role === 'MEMBER' && user.assignedCoach ? (
           <div
-            className={cn(
-              'mb-3 border-b border-border pb-3',
-              collapsed && 'flex justify-center',
-            )}
-            title={collapsed ? `${locale === 'en' ? 'Coach' : 'المدرب'}: ${user.assignedCoach.fullName}` : undefined}
+            className={cn('mb-3 border-b border-border pb-3', collapsed && 'flex justify-center')}
+            title={
+              collapsed
+                ? `${locale === 'en' ? 'Coach' : 'المدرب'}: ${user.assignedCoach.fullName}`
+                : undefined
+            }
           >
             {collapsed ? (
               <UserRoundCheck className="h-5 w-5 text-green-700 dark:text-brand-accent" />
@@ -287,8 +301,12 @@ function Sidebar({
                 </p>
                 <p className="text-xs font-semibold text-muted-foreground">
                   {user.assignedCoach.status === 'ACTIVE'
-                    ? locale === 'en' ? 'Coaching active' : 'التدريب نشط'
-                    : locale === 'en' ? 'Coaching paused' : 'التدريب متوقف مؤقتاً'}
+                    ? locale === 'en'
+                      ? 'Coaching active'
+                      : 'التدريب نشط'
+                    : locale === 'en'
+                      ? 'Coaching paused'
+                      : 'التدريب متوقف مؤقتاً'}
                 </p>
               </>
             )}
@@ -344,7 +362,10 @@ function NotificationCenter({ locale }: { locale: PublicLocale }) {
   });
   const markAll = useMutation({
     mutationFn: () => apiRequest('/notifications/read-all', { body: jsonBody({}), method: 'POST' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      setOpen(false);
+    },
   });
   const unread = query.data?.unread ?? 0;
 
@@ -385,18 +406,29 @@ function NotificationCenter({ locale }: { locale: PublicLocale }) {
           >
             <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border p-3 sm:items-center sm:p-4">
               <div className="min-w-0">
-                <p className="font-black text-foreground">{locale === 'en' ? 'Notifications' : 'الإشعارات'}</p>
+                <p className="font-black text-foreground">
+                  {locale === 'en' ? 'Notifications' : 'الإشعارات'}
+                </p>
                 <p className="text-xs font-semibold text-muted-foreground">
-                  {locale === 'en' ? 'Membership, plan, and coach request alerts' : 'تنبيهات الاشتراك، الخطط، وطلبات المدرب'}
+                  {locale === 'en'
+                    ? 'Membership, plan, and coach request alerts'
+                    : 'تنبيهات الاشتراك، الخطط، وطلبات المدرب'}
                 </p>
               </div>
               <button
-                className="shrink-0 text-xs font-black text-green-700 transition hover:text-foreground dark:text-brand-accent"
+                className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-md border border-brand-accent/30 bg-brand-accent/10 px-3 text-xs font-black text-green-700 transition hover:bg-brand-accent hover:text-black disabled:cursor-not-allowed disabled:opacity-55 dark:text-brand-accent"
                 disabled={!unread || markAll.isPending}
                 onClick={() => markAll.mutate()}
                 type="button"
               >
-                {locale === 'en' ? 'Mark all read' : 'قراءة الكل'}
+                {markAll.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                {markAll.isPending
+                  ? locale === 'en'
+                    ? 'Marking...'
+                    : 'جارٍ التحديد...'
+                  : locale === 'en'
+                    ? 'Mark all read'
+                    : 'قراءة الكل'}
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5 sm:max-h-96 sm:flex-none sm:p-2">
@@ -409,7 +441,10 @@ function NotificationCenter({ locale }: { locale: PublicLocale }) {
                     )}
                     href={
                       locale === 'en'
-                        ? (item.actionUrl?.replace('/ar/dashboard/member', '/en/dashboard/member') ?? '#')
+                        ? (item.actionUrl?.replace(
+                            '/ar/dashboard/member',
+                            '/en/dashboard/member',
+                          ) ?? '#')
                         : (item.actionUrl ?? '#')
                     }
                     key={item.id}
@@ -444,7 +479,13 @@ function NotificationCenter({ locale }: { locale: PublicLocale }) {
   );
 }
 
-export function DashboardShell({ children, locale }: { children: ReactNode; locale: PublicLocale }) {
+export function DashboardShell({
+  children,
+  locale,
+}: {
+  children: ReactNode;
+  locale: PublicLocale;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const auth = useAuth();
@@ -463,25 +504,26 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
     },
   });
   const [adminSidebarSeenAt, setAdminSidebarSeenAt] = useState(defaultAdminSidebarSeenAt);
-  const activeAdminBadgeKey =
-    auth.data?.role === 'ADMIN' ? adminBadgeKeyForPath(pathname) : null;
+  const activeAdminBadgeKey = auth.data?.role === 'ADMIN' ? adminBadgeKeyForPath(pathname) : null;
   const adminSidebarBadgeSource = useQuery({
     enabled: auth.data?.role === 'ADMIN',
     queryFn: async (): Promise<AdminSidebarBadgeSource> => {
-      const [members, registrations, attendance] = await Promise.all([
+      const [members, profileChanges, registrations, attendance] = await Promise.all([
         apiRequest<PaginatedResponse<{ createdAt?: string; joinedAt?: string }>>(
           '/admin/members?page=1&pageSize=100',
+        ),
+        apiRequest<Array<{ createdAt: string; status: string }>>(
+          '/admin/members/profile-change-requests',
         ),
         apiRequest<PaginatedResponse<{ createdAt: string }>>(
           '/admin/registration-requests?page=1&pageSize=100&status=PENDING',
         ),
-        apiRequest<PaginatedResponse<{ checkedInAt: string }>>(
-          '/attendance?page=1&pageSize=100',
-        ),
+        apiRequest<PaginatedResponse<{ checkedInAt: string }>>('/attendance?page=1&pageSize=100'),
       ]);
       return {
         attendance: attendance.items,
         members: members.items,
+        profileChanges,
         registrations: registrations.items,
       };
     },
@@ -496,11 +538,19 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
         adminSidebarSeenAt.attendance,
         'checkedInAt',
       ),
-      members: countNewerThan(
-        adminSidebarBadgeSource.data.members,
-        adminSidebarSeenAt.members,
-        'joinedAt',
-      ),
+      members:
+        countNewerThan(
+          adminSidebarBadgeSource.data.members,
+          adminSidebarSeenAt.members,
+          'joinedAt',
+        ) +
+        countNewerThan(
+          adminSidebarBadgeSource.data.profileChanges.filter(
+            (request) => request.status === 'PENDING',
+          ),
+          adminSidebarSeenAt.members,
+          'createdAt',
+        ),
       registrations: countNewerThan(
         adminSidebarBadgeSource.data.registrations,
         adminSidebarSeenAt.registrations,
@@ -563,7 +613,15 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
   }
 
   if (auth.isError || !auth.data) {
-    return <ErrorState message={locale === 'en' ? 'You must log in to access the dashboard' : 'يجب تسجيل الدخول للوصول إلى لوحة التحكم'} />;
+    return (
+      <ErrorState
+        message={
+          locale === 'en'
+            ? 'You must log in to access the dashboard'
+            : 'يجب تسجيل الدخول للوصول إلى لوحة التحكم'
+        }
+      />
+    );
   }
 
   const user = auth.data;
@@ -577,8 +635,7 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
       pathname.includes('/dashboard/member/calculators'));
   const pendingPhotoRequest = user.role === 'MEMBER' ? user.pendingPhotoRequest : null;
   const isPhotoLocked =
-    Boolean(pendingPhotoRequest) &&
-    pathname.includes('/dashboard/member/nutrition');
+    Boolean(pendingPhotoRequest) && pathname.includes('/dashboard/member/nutrition');
   const sidebarWidth = collapsed ? 'lg:grid-cols-[5.25rem_1fr]' : 'lg:grid-cols-[17rem_1fr]';
   const pageTitle =
     items.find((item) => item.href === pathname)?.label ??
@@ -722,7 +779,9 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
           <main className="min-w-0">
             {isExpiredContentLocked ? (
               <Card className="flex min-h-[60vh] flex-col items-center justify-center text-center shadow-sm">
-                <h1 className="text-3xl font-black">{locale === 'en' ? 'Your membership has expired' : 'انتهى اشتراكك'}</h1>
+                <h1 className="text-3xl font-black">
+                  {locale === 'en' ? 'Your membership has expired' : 'انتهى اشتراكك'}
+                </h1>
                 <p className="mt-3 max-w-md text-muted-foreground">
                   Your subscription has expired. Please contact Pro Gym administration.
                 </p>
@@ -739,7 +798,9 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
                 <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-foreground text-background dark:bg-brand-accent dark:text-black">
                   <LockKeyhole className="h-8 w-8" />
                 </div>
-                <h1 className="mt-5 text-3xl font-black">{locale === 'en' ? 'New progress photos required' : 'مطلوب رفع صور تقدم جديدة'}</h1>
+                <h1 className="mt-5 text-3xl font-black">
+                  {locale === 'en' ? 'New progress photos required' : 'مطلوب رفع صور تقدم جديدة'}
+                </h1>
                 <p className="mt-3 max-w-xl text-sm leading-7 text-muted-foreground">
                   {locale === 'en'
                     ? `Coach ${pendingPhotoRequest?.coach?.user?.fullName ?? ''} requested new progress photos. The rest of the dashboard will unlock after you upload the required photos from Progress.`
@@ -828,17 +889,26 @@ export function DashboardShell({ children, locale }: { children: ReactNode; loca
         ) : null}
       </AnimatePresence>
       <Dialog
-        description={locale === 'en' ? 'Your current session will end and you will return to the login page.' : 'سيتم إنهاء الجلسة الحالية والعودة إلى صفحة تسجيل الدخول.'}
+        description={
+          locale === 'en'
+            ? 'Your current session will end and you will return to the login page.'
+            : 'سيتم إنهاء الجلسة الحالية والعودة إلى صفحة تسجيل الدخول.'
+        }
         onClose={() => setLogoutOpen(false)}
         open={logoutOpen}
         title={locale === 'en' ? 'Confirm logout' : 'تأكيد تسجيل الخروج'}
       >
         <div className="space-y-4">
           <p className="rounded-lg border border-border bg-muted/35 p-4 text-sm font-bold">
-            {locale === 'en' ? `Do you want to log out of ${user.fullName}'s account?` : `هل تريد تسجيل الخروج من حساب ${user.fullName}؟`}
+            {locale === 'en'
+              ? `Do you want to log out of ${user.fullName}'s account?`
+              : `هل تريد تسجيل الخروج من حساب ${user.fullName}؟`}
           </p>
           <div className="flex justify-end gap-2">
-            <DialogCancelButton label={locale === 'en' ? 'Cancel' : 'إلغاء'} onClick={() => setLogoutOpen(false)} />
+            <DialogCancelButton
+              label={locale === 'en' ? 'Cancel' : 'إلغاء'}
+              onClick={() => setLogoutOpen(false)}
+            />
             <Button
               className="gap-2"
               isLoading={logout.isPending}

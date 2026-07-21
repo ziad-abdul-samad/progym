@@ -23,6 +23,29 @@ import { breadcrumbJsonLd, coachesJsonLd, membershipJsonLd } from '@/lib/public/
 import { cn } from '@/lib/utils';
 
 const gymImages = [
+  '/images/gym/optimized/facility-04.webp',
+  '/images/gym/optimized/gym-02.webp',
+  '/images/gym/optimized/facility-02.webp',
+  '/images/gym/optimized/gym-04.webp',
+  '/images/gym/optimized/facility-08.webp',
+  '/images/gym/optimized/gym-06.webp',
+  '/images/gym/optimized/facility-09.webp',
+  '/images/gym/optimized/gym-08.webp',
+  '/images/gym/optimized/facility-01.webp',
+  '/images/gym/optimized/gym-10.webp',
+  '/images/gym/optimized/facility-03.webp',
+  '/images/gym/optimized/gym-01.webp',
+  '/images/gym/optimized/facility-05.webp',
+  '/images/gym/optimized/gym-03.webp',
+  '/images/gym/optimized/facility-06.webp',
+  '/images/gym/optimized/gym-05.webp',
+  '/images/gym/optimized/facility-07.webp',
+  '/images/gym/optimized/gym-07.webp',
+  '/images/gym/optimized/facility-10.webp',
+  '/images/gym/optimized/gym-09.webp',
+] as const;
+
+const oldGymImages = [
   '/images/gym/optimized/gym-01.webp',
   '/images/gym/optimized/gym-02.webp',
   '/images/gym/optimized/gym-03.webp',
@@ -58,21 +81,25 @@ const labels = {
     values: 'المبادئ',
   },
   en: {
-    aboutBody: 'A real training floor run through one clear system, from the first visit to the latest result.',
+    aboutBody:
+      'A real training floor run through one clear system, from the first visit to the latest result.',
     aboutGallery: 'Space / detail',
     aboutKicker: 'Inside Pro Gym',
     aboutMission: 'Our mission',
     aboutVision: 'Our vision',
-    coachCta: 'Choose the coach who understands the target, then start with a plan you can measure.',
+    coachCta:
+      'Choose the coach who understands the target, then start with a plan you can measure.',
     coachIndex: 'Training team',
     contactHours: 'Opening hours',
     contactHoursValue: 'Daily 7:00 AM — 12:00 PM / Friday 2:00 PM — 7:00 PM',
     contactFormTitle: 'Tell us what you want to change.',
-    contactIntro: 'One visit is enough to see the space, understand the system, and define your next move.',
+    contactIntro:
+      'One visit is enough to see the space, understand the system, and define your next move.',
     contactKicker: 'Start the conversation',
     included: 'What is included',
     join: 'Get started',
-    membershipIntro: 'Direct options without friction. Choose the duration, start training, and track everything from your account.',
+    membershipIntro:
+      'Direct options without friction. Choose the duration, start training, and track everything from your account.',
     membershipKicker: 'Choose your commitment',
     next: 'Next move',
     realFacility: 'Real photographs from the gym',
@@ -89,12 +116,22 @@ function Eyebrow({ children }: { children: string }) {
   );
 }
 
-function PageButton({ children, href, inverse = false }: { children: string; href: string; inverse?: boolean }) {
+function PageButton({
+  children,
+  href,
+  inverse = false,
+}: {
+  children: string;
+  href: string;
+  inverse?: boolean;
+}) {
   return (
     <Link
       className={cn(
         'group inline-flex min-h-14 items-center justify-between gap-10 px-6 text-xs font-black uppercase tracking-[0.12em] transition',
-        inverse ? 'border border-white/18 text-white hover:border-white/60' : 'bg-[#39ff14] text-black hover:bg-white',
+        inverse
+          ? 'border border-white/18 text-white hover:border-white/60'
+          : 'bg-[#39ff14] text-black hover:bg-white',
       )}
       href={href}
     >
@@ -148,6 +185,7 @@ function PageHero({
   image,
   locale,
   compactTitle = false,
+  src,
   title,
 }: {
   body: string;
@@ -155,6 +193,7 @@ function PageHero({
   image: number;
   locale: PublicLocale;
   compactTitle?: boolean;
+  src?: string;
   title: string;
 }) {
   const isArabic = locale === 'ar';
@@ -185,7 +224,14 @@ function PageHero({
           </div>
         </div>
         <div className="relative min-h-[25rem] lg:h-[70vh]" data-reveal>
-          <Photo alt={title} className="absolute inset-0" index={image} number={`0${image + 1}`} priority />
+          <Photo
+            alt={title}
+            className="absolute inset-0"
+            index={image}
+            number={`0${image + 1}`}
+            priority
+            src={src}
+          />
           <div className="absolute -start-4 top-8 hidden bg-[#39ff14] px-4 py-3 text-[0.55rem] font-black uppercase tracking-[0.16em] text-black md:block">
             Homs / Syria
           </div>
@@ -196,7 +242,15 @@ function PageHero({
   );
 }
 
-function ContactHero({ body, locale, title }: { body: string; locale: PublicLocale; title: string }) {
+function ContactHero({
+  body,
+  locale,
+  title,
+}: {
+  body: string;
+  locale: PublicLocale;
+  title: string;
+}) {
   const local = labels[locale];
 
   return (
@@ -217,15 +271,21 @@ function ContactHero({ body, locale, title }: { body: string; locale: PublicLoca
             >
               {title}
             </h1>
-            <p className="mt-7 max-w-lg border-s border-white/18 ps-5 text-base leading-8 text-white/48">{body}</p>
+            <p className="mt-7 max-w-lg border-s border-white/18 ps-5 text-base leading-8 text-white/48">
+              {body}
+            </p>
           </div>
           <div className="mt-12 grid gap-px bg-white/12 sm:grid-cols-2">
             <div className="bg-[#080a08] p-5">
-              <p className="text-[0.54rem] font-black uppercase tracking-[0.18em] text-[#39ff14]">{local.contactHours}</p>
+              <p className="text-[0.54rem] font-black uppercase tracking-[0.18em] text-[#39ff14]">
+                {local.contactHours}
+              </p>
               <p className="mt-3 text-sm font-black text-white/72">{local.contactHoursValue}</p>
             </div>
             <div className="bg-[#080a08] p-5">
-              <p className="text-[0.54rem] font-black uppercase tracking-[0.18em] text-[#39ff14]">{publicCopy[locale].contact.address}</p>
+              <p className="text-[0.54rem] font-black uppercase tracking-[0.18em] text-[#39ff14]">
+                {publicCopy[locale].contact.address}
+              </p>
               <p className="mt-3 text-sm font-black text-white/72">{brand.address[locale]}</p>
             </div>
           </div>
@@ -239,7 +299,7 @@ function ContactHero({ body, locale, title }: { body: string; locale: PublicLoca
             number="10"
             priority
             sizes="(min-width: 1024px) 90vw, 100vw"
-            src="/images/gym/WhatsApp Image 2026-07-01 at 2.31.30 PM.jpeg"
+            src={oldGymImages[9]}
           />
           <div className="absolute start-0 top-8 bg-[#39ff14] px-5 py-4 text-[0.58rem] font-black uppercase tracking-[0.16em] text-black">
             {locale === 'ar' ? 'احجز زيارتك' : 'Book your visit'}
@@ -268,7 +328,12 @@ function Marquee({ locale }: { locale: PublicLocale }) {
       <div className="home-marquee flex w-max items-center">
         {[...words, ...words].map((word, index) => (
           <div className="flex items-center" key={`${word}-${index}`}>
-            <span className={cn('px-8 text-2xl font-black uppercase md:px-14 md:text-4xl', locale === 'ar' && 'font-ar-display')}>
+            <span
+              className={cn(
+                'px-8 text-2xl font-black uppercase md:px-14 md:text-4xl',
+                locale === 'ar' && 'font-ar-display',
+              )}
+            >
               {word}
             </span>
             <span className="text-xl">✦</span>
@@ -285,7 +350,9 @@ function FinalBand({ locale, title }: { locale: PublicLocale; title: string }) {
       <div className="absolute inset-0 premium-grid opacity-20" />
       <div className="relative mx-auto flex max-w-[94rem] flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">
         <div data-reveal>
-          <p className="text-[0.62rem] font-black uppercase tracking-[0.22em]">Pro Gym / {labels[locale].next}</p>
+          <p className="text-[0.62rem] font-black uppercase tracking-[0.22em]">
+            Pro Gym / {labels[locale].next}
+          </p>
           <h2
             className={cn(
               'mt-5 max-w-5xl font-black leading-[0.92]',
@@ -327,6 +394,7 @@ export function AboutPage({ locale }: { locale: PublicLocale }) {
         eyebrow={copy.about.eyebrow}
         image={2}
         locale={locale}
+        src={oldGymImages[2]}
         title={copy.about.title}
       />
       <Marquee locale={locale} />
@@ -347,11 +415,17 @@ export function AboutPage({ locale }: { locale: PublicLocale }) {
               return (
                 <article className="bg-[#080a08] p-7 md:p-12" data-reveal key={String(heading)}>
                   <div className="flex items-center justify-between border-b border-white/10 pb-6">
-                    <p className="text-[0.6rem] font-black uppercase tracking-[0.2em] text-[#39ff14]">0{index + 1}</p>
+                    <p className="text-[0.6rem] font-black uppercase tracking-[0.2em] text-[#39ff14]">
+                      0{index + 1}
+                    </p>
                     <ItemIcon className="h-5 w-5 text-white/28" />
                   </div>
-                  <h2 className="mt-8 text-xl font-black uppercase tracking-[0.08em] text-white/45">{String(heading)}</h2>
-                  <p className="mt-5 text-2xl font-black leading-[1.35] text-white md:text-4xl">{String(body)}</p>
+                  <h2 className="mt-8 text-xl font-black uppercase tracking-[0.08em] text-white/45">
+                    {String(heading)}
+                  </h2>
+                  <p className="mt-5 text-2xl font-black leading-[1.35] text-white md:text-4xl">
+                    {String(body)}
+                  </p>
                 </article>
               );
             })}
@@ -361,20 +435,43 @@ export function AboutPage({ locale }: { locale: PublicLocale }) {
 
       <section className="px-5 pb-24 md:px-8 md:pb-36 lg:px-10 xl:px-14">
         <div className="mx-auto max-w-[94rem]">
-          <div className="mb-10 flex items-end justify-between border-b border-white/12 pb-5" data-reveal>
+          <div
+            className="mb-10 flex items-end justify-between border-b border-white/12 pb-5"
+            data-reveal
+          >
             <div>
               <Eyebrow>{local.aboutGallery}</Eyebrow>
-              <h2 className="mt-5 text-3xl font-black uppercase tracking-[-0.05em] md:text-6xl">{copy.about.facilityTitle}</h2>
+              <h2 className="mt-5 text-3xl font-black uppercase tracking-[-0.05em] md:text-6xl">
+                {copy.about.facilityTitle}
+              </h2>
             </div>
             <span className="hidden text-[0.55rem] font-black uppercase tracking-[0.18em] text-white/30 md:block">
               {local.realFacility} / 10
             </span>
           </div>
           <div className="grid gap-3 md:grid-cols-12">
-            <Photo alt={copy.about.facilityTitle} className="min-h-[32rem] md:col-span-7" index={4} number="05" />
+            <Photo
+              alt={copy.about.facilityTitle}
+              className="min-h-[32rem] md:col-span-7"
+              index={4}
+              number="05"
+              src={oldGymImages[4]}
+            />
             <div className="grid gap-3 md:col-span-5">
-              <Photo alt={copy.about.facilityTitle} className="min-h-64" index={7} number="08" />
-              <Photo alt={copy.about.facilityTitle} className="min-h-64" index={9} number="10" />
+              <Photo
+                alt={copy.about.facilityTitle}
+                className="min-h-64"
+                index={7}
+                number="08"
+                src={oldGymImages[7]}
+              />
+              <Photo
+                alt={copy.about.facilityTitle}
+                className="min-h-64"
+                index={9}
+                number="10"
+                src={oldGymImages[9]}
+              />
             </div>
           </div>
           <div className="mt-12 grid gap-px bg-white/12 sm:grid-cols-2 lg:grid-cols-4">
@@ -405,7 +502,13 @@ export function CoachesPage({ locale }: { locale: PublicLocale }) {
           { label: copy.nav.coaches, path: `/${locale}/coaches` },
         ])}
       />
-      <PageHero body={copy.coaches.intro} eyebrow={copy.coaches.eyebrow} image={6} locale={locale} title={copy.coaches.title} />
+      <PageHero
+        body={copy.coaches.intro}
+        eyebrow={copy.coaches.eyebrow}
+        image={6}
+        locale={locale}
+        title={copy.coaches.title}
+      />
       <Marquee locale={locale} />
 
       <section className="px-5 py-24 md:px-8 md:py-36 lg:px-10 xl:px-14">
@@ -413,9 +516,13 @@ export function CoachesPage({ locale }: { locale: PublicLocale }) {
           <div className="mb-12 grid gap-8 lg:grid-cols-2 lg:items-end" data-reveal>
             <div>
               <Eyebrow>{local.coachIndex}</Eyebrow>
-              <h2 className="mt-6 text-4xl font-black uppercase tracking-[-0.055em] md:text-7xl">{copy.coaches.eyebrow}</h2>
+              <h2 className="mt-6 text-4xl font-black uppercase tracking-[-0.055em] md:text-7xl">
+                {copy.coaches.eyebrow}
+              </h2>
             </div>
-            <p className="max-w-xl text-base leading-8 text-white/48 lg:justify-self-end">{local.coachCta}</p>
+            <p className="max-w-xl text-base leading-8 text-white/48 lg:justify-self-end">
+              {local.coachCta}
+            </p>
           </div>
 
           <div className="grid gap-px bg-white/12 lg:grid-cols-3">
@@ -431,15 +538,26 @@ export function CoachesPage({ locale }: { locale: PublicLocale }) {
                   <p className="text-[0.58rem] font-black uppercase tracking-[0.18em] text-[#39ff14]">
                     {coach.specialty[locale]}
                   </p>
-                  <h2 className="mt-4 text-3xl font-black uppercase tracking-[-0.04em]">{coach.name[locale]}</h2>
-                  <p className="mt-2 text-xs font-bold uppercase tracking-[0.1em] text-white/35">{coach.experience[locale]}</p>
-                  <p className="mt-6 border-t border-white/10 pt-5 text-sm leading-7 text-white/48">{coach.bio[locale]}</p>
+                  <h2 className="mt-4 text-3xl font-black uppercase tracking-[-0.04em]">
+                    {coach.name[locale]}
+                  </h2>
+                  <p className="mt-2 text-xs font-bold uppercase tracking-[0.1em] text-white/35">
+                    {coach.experience[locale]}
+                  </p>
+                  <p className="mt-6 border-t border-white/10 pt-5 text-sm leading-7 text-white/48">
+                    {coach.bio[locale]}
+                  </p>
                 </div>
               </article>
             ))}
           </div>
-          <div className="mt-10 flex flex-col items-start justify-between gap-6 border-t border-white/12 pt-8 md:flex-row md:items-center" data-reveal>
-            <p className="max-w-2xl text-2xl font-black leading-tight md:text-4xl">{copy.coaches.cta}</p>
+          <div
+            className="mt-10 flex flex-col items-start justify-between gap-6 border-t border-white/12 pt-8 md:flex-row md:items-center"
+            data-reveal
+          >
+            <p className="max-w-2xl text-2xl font-black leading-tight md:text-4xl">
+              {copy.coaches.cta}
+            </p>
             <PageButton href={`/${locale}/contact`}>{copy.nav.contact}</PageButton>
           </div>
         </div>
@@ -462,7 +580,13 @@ export function MembershipPage({ locale }: { locale: PublicLocale }) {
           { label: copy.nav.membership, path: `/${locale}/membership` },
         ])}
       />
-      <PageHero body={local.membershipIntro} eyebrow={copy.membership.eyebrow} image={0} locale={locale} title={copy.membership.title} />
+      <PageHero
+        body={local.membershipIntro}
+        eyebrow={copy.membership.eyebrow}
+        image={0}
+        locale={locale}
+        title={copy.membership.title}
+      />
       <Marquee locale={locale} />
 
       <section className="relative px-5 py-24 md:px-8 md:py-36 lg:px-10 xl:px-14">
@@ -471,9 +595,13 @@ export function MembershipPage({ locale }: { locale: PublicLocale }) {
           <div className="mb-12 grid gap-8 lg:grid-cols-2 lg:items-end" data-reveal>
             <div>
               <Eyebrow>{local.membershipKicker}</Eyebrow>
-              <h2 className="mt-6 text-4xl font-black uppercase tracking-[-0.055em] md:text-7xl">{copy.membership.eyebrow}</h2>
+              <h2 className="mt-6 text-4xl font-black uppercase tracking-[-0.055em] md:text-7xl">
+                {copy.membership.eyebrow}
+              </h2>
             </div>
-            <p className="max-w-xl text-base leading-8 text-white/48 lg:justify-self-end">{copy.membership.intro}</p>
+            <p className="max-w-xl text-base leading-8 text-white/48 lg:justify-self-end">
+              {copy.membership.intro}
+            </p>
           </div>
 
           <div className="grid gap-px bg-white/12 lg:grid-cols-3">
@@ -486,12 +614,32 @@ export function MembershipPage({ locale }: { locale: PublicLocale }) {
                 data-reveal
                 key={title}
               >
-                <div className={cn('flex items-center justify-between border-b pb-5', index === 1 ? 'border-black/20' : 'border-white/10')}>
-                  <p className="text-[0.58rem] font-black uppercase tracking-[0.18em]">Pro Gym / 0{index + 1}</p>
-                  {index === 1 ? <Trophy className="h-5 w-5" /> : <Zap className="h-5 w-5 text-[#39ff14]" />}
+                <div
+                  className={cn(
+                    'flex items-center justify-between border-b pb-5',
+                    index === 1 ? 'border-black/20' : 'border-white/10',
+                  )}
+                >
+                  <p className="text-[0.58rem] font-black uppercase tracking-[0.18em]">
+                    Pro Gym / 0{index + 1}
+                  </p>
+                  {index === 1 ? (
+                    <Trophy className="h-5 w-5" />
+                  ) : (
+                    <Zap className="h-5 w-5 text-[#39ff14]" />
+                  )}
                 </div>
-                <h2 className="mt-10 text-5xl font-black uppercase tracking-[-0.06em] md:text-6xl">{title}</h2>
-                <p className={cn('mt-6 text-sm leading-7', index === 1 ? 'text-black/60' : 'text-white/45')}>{body}</p>
+                <h2 className="mt-10 text-5xl font-black uppercase tracking-[-0.06em] md:text-6xl">
+                  {title}
+                </h2>
+                <p
+                  className={cn(
+                    'mt-6 text-sm leading-7',
+                    index === 1 ? 'text-black/60' : 'text-white/45',
+                  )}
+                >
+                  {body}
+                </p>
                 <Link
                   className={cn(
                     'group mt-auto flex items-center justify-between border-t pt-6 text-xs font-black uppercase tracking-[0.12em]',
@@ -512,7 +660,10 @@ export function MembershipPage({ locale }: { locale: PublicLocale }) {
               <Eyebrow>{local.included}</Eyebrow>
               <div className="mt-8">
                 {copy.membership.benefits.map((benefit, index) => (
-                  <div className="flex items-center gap-5 border-t border-white/12 py-6" key={benefit}>
+                  <div
+                    className="flex items-center gap-5 border-t border-white/12 py-6"
+                    key={benefit}
+                  >
                     <span className="text-[0.56rem] font-black text-[#39ff14]">0{index + 1}</span>
                     <p className="text-xl font-black md:text-2xl">{benefit}</p>
                     <Check className="ms-auto h-5 w-5 text-white/30" />
@@ -553,10 +704,16 @@ export function ContactPage({ locale }: { locale: PublicLocale }) {
           <div className="grid gap-12 lg:grid-cols-[0.85fr_1.15fr]">
             <div data-reveal>
               <Eyebrow>{local.contactKicker}</Eyebrow>
-              <h2 className="mt-7 text-4xl font-black uppercase leading-[0.95] tracking-[-0.055em] md:text-7xl">{local.contactFormTitle}</h2>
+              <h2 className="mt-7 text-4xl font-black uppercase leading-[0.95] tracking-[-0.055em] md:text-7xl">
+                {local.contactFormTitle}
+              </h2>
               <div className="mt-12 grid gap-px bg-white/12 sm:grid-cols-2 lg:grid-cols-1">
                 {contactItems.map(([label, value, Icon, href], index) => (
-                  <a className="group flex items-start gap-5 bg-[#080a08] p-5 transition hover:bg-white/[0.06]" href={href} key={label}>
+                  <a
+                    className="group flex items-start gap-5 bg-[#080a08] p-5 transition hover:bg-white/[0.06]"
+                    href={href}
+                    key={label}
+                  >
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center border border-white/12 text-[#39ff14]">
                       <Icon className="h-5 w-5" />
                     </span>
@@ -577,14 +734,23 @@ export function ContactPage({ locale }: { locale: PublicLocale }) {
 
           <div className="mt-16 grid gap-3 md:grid-cols-12" id="location">
             <div className="md:col-span-8">
-              <ExpandedMap label={brand.address[locale]} latitude={34.7179977} longitude={36.6970795} mapUrl={brand.mapsUrl} />
+              <ExpandedMap
+                label={brand.address[locale]}
+                latitude={34.7179977}
+                longitude={36.6970795}
+                mapUrl={brand.mapsUrl}
+              />
             </div>
             <div className="relative flex min-h-72 flex-col justify-between overflow-hidden bg-[#39ff14] p-7 text-black md:col-span-4">
               <div className="premium-grid absolute inset-0 opacity-25" />
               <div className="relative">
                 <MapPin className="h-10 w-10" />
-                <p className="mt-8 text-[0.58rem] font-black uppercase tracking-[0.18em]">{copy.contact.map}</p>
-                <h2 className="mt-4 text-4xl font-black uppercase leading-none tracking-[-0.05em]">{brand.address[locale]}</h2>
+                <p className="mt-8 text-[0.58rem] font-black uppercase tracking-[0.18em]">
+                  {copy.contact.map}
+                </p>
+                <h2 className="mt-4 text-4xl font-black uppercase leading-none tracking-[-0.05em]">
+                  {brand.address[locale]}
+                </h2>
               </div>
               <div className="relative border-t border-black/20 pt-5">
                 <p className="text-xs font-black uppercase tracking-[0.12em]">Pro Gym / Homs</p>

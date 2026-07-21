@@ -8,13 +8,13 @@ import * as THREE from 'three';
 import { useSceneVisibility } from '@/components/public/use-scene-visibility';
 
 const texturePaths = [
-  '/images/gym/optimized/gym-07.webp',
+  '/images/gym/optimized/facility-04.webp',
   '/images/gym/optimized/gym-01.webp',
-  '/images/gym/optimized/gym-03.webp',
+  '/images/gym/optimized/facility-07.webp',
+  '/images/gym/optimized/facility-02.webp',
   '/images/gym/optimized/gym-05.webp',
-  '/images/gym/optimized/gym-10.webp',
-  '/images/gym/optimized/gym-06.webp',
-  '/images/gym/optimized/gym-09.webp',
+  '/images/gym/optimized/facility-10.webp',
+  '/images/gym/optimized/facility-01.webp',
 ];
 
 const CARD_WIDTH = 7.2;
@@ -487,7 +487,7 @@ export function MotionRibbonScene({ progress }: { progress: ScrollProgress }) {
             className="h-full w-full object-cover grayscale"
             height={800}
             sizes="(max-width: 768px) 78vw, 46vw"
-            src="/images/gym/optimized/gym-05.webp"
+            src="/images/gym/optimized/facility-06.webp"
             width={1280}
           />
         </div>

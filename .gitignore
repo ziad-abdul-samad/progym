@@ -29,3 +29,7 @@ test-results/
 Thumbs.db
 .idea/
 .vscode/
+
+# Local source photography (optimized copies live in frontend/public)
+new images/
+.local-postgres/

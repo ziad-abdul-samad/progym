@@ -171,16 +171,6 @@ type MembershipAuditItem = {
   reason: string;
 };
 
-type GeneralAuditItem = {
-  action: string;
-  actor: { fullName: string; username: string } | null;
-  createdAt: string;
-  entityId: string | null;
-  entityType: string;
-  id: string;
-  metadata: Record<string, unknown> | null;
-};
-
 type AdminExercise = {
   category: { id: string; nameAr: string };
   categoryId?: string;
@@ -275,6 +265,19 @@ function objectFromForm(form: HTMLFormElement): Record<string, FormDataEntryValu
   return Object.fromEntries(new FormData(form));
 }
 
+function formText(value: FormDataEntryValue | null | undefined): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function auditValue(value: unknown): string {
+  if (value === null || value === undefined) return '-';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return `${value}`;
+  }
+  return JSON.stringify(value) ?? '-';
+}
+
 function PageHeader({
   body,
   icon: Icon,
@@ -358,9 +361,7 @@ function JsonPreview({ value }: { value: Record<string, unknown> }) {
           key={key}
         >
           <span className="font-black text-muted-foreground">{key}</span>
-          <span className="break-all text-end font-bold text-foreground">
-            {String(item ?? '-')}
-          </span>
+          <span className="break-all text-end font-bold text-foreground">{auditValue(item)}</span>
         </div>
       ))}
     </div>
@@ -773,29 +774,33 @@ export function AdminMembersPage() {
       {process.env.NEXT_PUBLIC_ENABLE_MANUAL_MEMBER_CREATION === 'true' ? (
         <Card>
           <CardTitle>إنشاء لاعب يدوياً (بيئة التطوير فقط)</CardTitle>
-        <form
-          className="mt-4 grid gap-3 md:grid-cols-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            create.mutate(objectFromForm(event.currentTarget));
-          }}
-        >
-          <Input name="fullName" placeholder="الاسم الكامل" required />
-          <Input name="username" placeholder="اسم المستخدم" required />
-          <Input name="password" placeholder="كلمة المرور" required type="password" />
-          <Input name="phone" placeholder="الهاتف" required />
-          <Input name="dateOfBirth" aria-label="تاريخ الميلاد" required type="date" />
-          <SelectField name="gender" required>
-            <option value="MALE">ذكر</option>
-            <option value="FEMALE">أنثى</option>
-          </SelectField>
-          <Input name="heightCm" placeholder="الطول" required type="number" />
-          <Input name="weightKg" placeholder="الوزن" required type="number" />
-          <Input name="fitnessGoal" placeholder="الهدف" required />
-          <Button className="md:col-span-3" isLoading={create.isPending} loadingText="جاري الإنشاء">
-            إنشاء اللاعب
-          </Button>
-        </form>
+          <form
+            className="mt-4 grid gap-3 md:grid-cols-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              create.mutate(objectFromForm(event.currentTarget));
+            }}
+          >
+            <Input name="fullName" placeholder="الاسم الكامل" required />
+            <Input name="username" placeholder="اسم المستخدم" required />
+            <Input name="password" placeholder="كلمة المرور" required type="password" />
+            <Input name="phone" placeholder="الهاتف" required />
+            <Input name="dateOfBirth" aria-label="تاريخ الميلاد" required type="date" />
+            <SelectField name="gender" required>
+              <option value="MALE">ذكر</option>
+              <option value="FEMALE">أنثى</option>
+            </SelectField>
+            <Input name="heightCm" placeholder="الطول" required type="number" />
+            <Input name="weightKg" placeholder="الوزن" required type="number" />
+            <Input name="fitnessGoal" placeholder="الهدف" required />
+            <Button
+              className="md:col-span-3"
+              isLoading={create.isPending}
+              loadingText="جاري الإنشاء"
+            >
+              إنشاء اللاعب
+            </Button>
+          </form>
         </Card>
       ) : null}
 
@@ -946,24 +951,72 @@ export function AdminMembersPage() {
                 <DetailRow label="اسم المستخدم" value={selectedMember.user.username} />
                 <DetailRow label="الهاتف" value={selectedMember.user.phone} />
                 <DetailRow label="كود اللاعب" value={selectedMember.memberCode ?? 'لا يوجد'} />
-                <DetailRow label="الحساب" value={<StatusBadge status={selectedMember.user.status} />} />
-                <DetailRow label="الدور" value={<StatusBadge status={selectedMember.user.role} />} />
-                <DetailRow label="تاريخ الميلاد" value={selectedMember.dateOfBirth ? formatCompactDate(selectedMember.dateOfBirth) : 'لا يوجد'} />
-                <DetailRow label="العمر" value={selectedMember.age ? `${selectedMember.age} سنة` : 'لا يوجد'} />
+                <DetailRow
+                  label="الحساب"
+                  value={<StatusBadge status={selectedMember.user.status} />}
+                />
+                <DetailRow
+                  label="الدور"
+                  value={<StatusBadge status={selectedMember.user.role} />}
+                />
+                <DetailRow
+                  label="تاريخ الميلاد"
+                  value={
+                    selectedMember.dateOfBirth
+                      ? formatCompactDate(selectedMember.dateOfBirth)
+                      : 'لا يوجد'
+                  }
+                />
+                <DetailRow
+                  label="العمر"
+                  value={selectedMember.age ? `${selectedMember.age} سنة` : 'لا يوجد'}
+                />
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <DetailRow label="الجنس" value={selectedMember.gender ?? 'لا يوجد'} />
-              <DetailRow label="الطول" value={selectedMember.heightCm ? `${selectedMember.heightCm} سم` : 'لا يوجد'} />
-              <DetailRow label="الوزن الحالي" value={selectedMember.currentWeightKg ? `${selectedMember.currentWeightKg} كغ` : 'لا يوجد'} />
+              <DetailRow
+                label="الطول"
+                value={selectedMember.heightCm ? `${selectedMember.heightCm} سم` : 'لا يوجد'}
+              />
+              <DetailRow
+                label="الوزن الحالي"
+                value={
+                  selectedMember.currentWeightKg
+                    ? `${selectedMember.currentWeightKg} كغ`
+                    : 'لا يوجد'
+                }
+              />
               <DetailRow label="الهدف" value={selectedMember.fitnessGoal} />
-              <DetailRow label="تاريخ الانضمام" value={selectedMember.joinedAt ? formatCompactDate(selectedMember.joinedAt) : 'لا يوجد'} />
-              <DetailRow label="المدرب" value={selectedMember.assignments?.[0]?.coach.user.fullName ?? 'لا يوجد'} />
-              <DetailRow label="الاشتراك" value={<StatusBadge status={selectedMember.subscriptions[0]?.status ?? 'NONE'} />} />
-              <DetailRow label="بداية الاشتراك" value={selectedMember.subscriptions[0]?.startsAt ? formatCompactDate(selectedMember.subscriptions[0].startsAt) : 'لا يوجد'} />
+              <DetailRow
+                label="تاريخ الانضمام"
+                value={
+                  selectedMember.joinedAt ? formatCompactDate(selectedMember.joinedAt) : 'لا يوجد'
+                }
+              />
+              <DetailRow
+                label="المدرب"
+                value={selectedMember.assignments?.[0]?.coach.user.fullName ?? 'لا يوجد'}
+              />
+              <DetailRow
+                label="الاشتراك"
+                value={<StatusBadge status={selectedMember.subscriptions[0]?.status ?? 'NONE'} />}
+              />
+              <DetailRow
+                label="بداية الاشتراك"
+                value={
+                  selectedMember.subscriptions[0]?.startsAt
+                    ? formatCompactDate(selectedMember.subscriptions[0].startsAt)
+                    : 'لا يوجد'
+                }
+              />
               <DetailRow
                 label="نهاية الاشتراك"
-                value={selectedMember.subscriptions[0]?.endsAt ? formatCompactDate(selectedMember.subscriptions[0].endsAt) : 'لا يوجد'}
+                value={
+                  selectedMember.subscriptions[0]?.endsAt
+                    ? formatCompactDate(selectedMember.subscriptions[0].endsAt)
+                    : 'لا يوجد'
+                }
               />
               <DetailRow
                 label="الأيام المتبقية"
@@ -973,10 +1026,18 @@ export function AdminMembersPage() {
                     : 'بدون اشتراك'
                 }
               />
-              <DetailRow label="جهة اتصال الطوارئ" value={selectedMember.emergencyContactName ?? 'لا يوجد'} />
-              <DetailRow label="هاتف الطوارئ" value={selectedMember.emergencyContactPhone ?? 'لا يوجد'} />
+              <DetailRow
+                label="جهة اتصال الطوارئ"
+                value={selectedMember.emergencyContactName ?? 'لا يوجد'}
+              />
+              <DetailRow
+                label="هاتف الطوارئ"
+                value={selectedMember.emergencyContactPhone ?? 'لا يوجد'}
+              />
             </div>
-            {selectedMember.notes ? <DetailRow label="ملاحظات" value={selectedMember.notes} /> : null}
+            {selectedMember.notes ? (
+              <DetailRow label="ملاحظات" value={selectedMember.notes} />
+            ) : null}
           </div>
         ) : null}
       </Dialog>
@@ -1001,7 +1062,7 @@ export function AdminMembersPage() {
               const form = objectFromForm(event.currentTarget);
               userAction.mutate({
                 action: 'reset-password',
-                body: { newPassword: String(form.newPassword) },
+                body: { newPassword: formText(form.newPassword) },
                 id: passwordMember.user.id,
               });
             }}
@@ -1043,7 +1104,7 @@ export function AdminMembersPage() {
               reviewProfile.mutate({
                 approve: profileReview.approve,
                 id: profileReview.request.id,
-                reason: String(form.get('reason') ?? ''),
+                reason: formText(form.get('reason')),
               });
             }}
           >
@@ -1067,13 +1128,20 @@ export function AdminMembersPage() {
               ))}
             </div>
             {profileReview.request.stagedAvatarId ? (
-              <Image
-                alt="الصورة الشخصية المقترحة"
-                className="h-44 w-full rounded-lg border border-border object-cover"
-                height={176}
-                src={`/api/v1/files/${profileReview.request.stagedAvatarId}`}
-                width={560}
-              />
+              <div className="rounded-xl border border-border bg-muted/25 p-3">
+                <p className="mb-3 text-xs font-black text-muted-foreground">
+                  الصورة الشخصية المقترحة بالحجم الكامل
+                </p>
+                <div className="relative mx-auto aspect-[3/4] max-h-[32rem] w-full max-w-sm overflow-hidden rounded-lg bg-background">
+                  <Image
+                    alt="الصورة الشخصية المقترحة"
+                    className="object-contain p-1"
+                    fill
+                    sizes="(max-width: 640px) 100vw, 384px"
+                    src={`/api/v1/files/${profileReview.request.stagedAvatarId}`}
+                  />
+                </div>
+              </div>
             ) : null}
             <Textarea
               name="reason"
@@ -1126,6 +1194,9 @@ export function AdminCoachesPage() {
   const { push } = useToast();
   const [coachQuery, setCoachQuery] = useState('');
   const deferredCoachQuery = useDeferredValue(coachQuery);
+  const [promotionQuery, setPromotionQuery] = useState('');
+  const deferredPromotionQuery = useDeferredValue(promotionQuery);
+  const [promotionMember, setPromotionMember] = useState<Member | null>(null);
   const [coachPage, setCoachPage] = useState(1);
   const [selectedCoach, setSelectedCoach] = useState<Coach | null>(null);
   const [demoteCoach, setDemoteCoach] = useState<Coach | null>(null);
@@ -1134,8 +1205,15 @@ export function AdminCoachesPage() {
     request: CoachProfileChangeRequest;
   } | null>(null);
   const members = useQuery({
-    queryFn: () => apiRequest<PaginatedResponse<Member>>('/admin/members?page=1&pageSize=100'),
-    queryKey: ['admin-members', 'coach-select'],
+    queryFn: () =>
+      apiRequest<PaginatedResponse<Member>>(
+        pagedPath('/admin/members', {
+          page: 1,
+          pageSize: 30,
+          q: deferredPromotionQuery,
+        }),
+      ),
+    queryKey: ['admin-members', 'coach-select', deferredPromotionQuery],
   });
   const coaches = useQuery({
     queryFn: () =>
@@ -1166,6 +1244,8 @@ export function AdminCoachesPage() {
       apiRequest(`/admin/coaches/promote/${userId}`, { body: jsonBody({}), method: 'POST' }),
     onSuccess: async () => {
       await queryClient.invalidateQueries();
+      setPromotionMember(null);
+      setPromotionQuery('');
       push({ title: 'تمت ترقية اللاعب إلى مدرب', tone: 'success' });
     },
   });
@@ -1260,23 +1340,78 @@ export function AdminCoachesPage() {
             محفوظاً.
           </p>
           <form
-            className="mt-4 flex flex-col gap-3 sm:flex-row"
+            className="mt-5 space-y-4"
             onSubmit={(event) => {
               event.preventDefault();
-              const payload = objectFromForm(event.currentTarget);
-              promote.mutate(String(payload.userId));
+              if (promotionMember) promote.mutate(promotionMember.user.id);
             }}
           >
-            <SelectField className="flex-1" name="userId" required>
-              {promotableMembers.map((member) => (
-                <option key={member.user.id} value={member.user.id}>
-                  {member.user.fullName}
-                </option>
-              ))}
-            </SelectField>
+            <label className="relative block">
+              <span className="sr-only">ابحث عن لاعب لترقيته</span>
+              <Search className="pointer-events-none absolute end-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pe-11"
+                onChange={(event) => setPromotionQuery(event.target.value)}
+                placeholder="ابحث بالاسم، اسم المستخدم، أو رقم الهاتف"
+                value={promotionQuery}
+              />
+            </label>
+            <div className="max-h-64 space-y-2 overflow-y-auto rounded-xl border border-border bg-muted/20 p-2">
+              {members.isLoading ? (
+                <p className="p-5 text-center text-sm font-bold text-muted-foreground">
+                  جارٍ البحث عن اللاعبين...
+                </p>
+              ) : members.error ? (
+                <ErrorState message={members.error.message} />
+              ) : promotableMembers.length ? (
+                promotableMembers.map((member) => {
+                  const selected = promotionMember?.user.id === member.user.id;
+                  return (
+                    <button
+                      aria-pressed={selected}
+                      className={cn(
+                        'flex w-full items-center justify-between gap-3 rounded-lg border p-3 text-start transition',
+                        selected
+                          ? 'border-brand-accent bg-brand-accent/12 shadow-sm'
+                          : 'border-transparent bg-card hover:border-brand-accent/45',
+                      )}
+                      key={member.user.id}
+                      onClick={() => setPromotionMember(member)}
+                      type="button"
+                    >
+                      <span className="min-w-0">
+                        <strong className="block truncate text-sm">{member.user.fullName}</strong>
+                        <span className="mt-1 block truncate text-xs text-muted-foreground">
+                          @{member.user.username} · {member.user.phone}
+                        </span>
+                      </span>
+                      <span
+                        className={cn(
+                          'grid h-8 w-8 shrink-0 place-items-center rounded-full border',
+                          selected
+                            ? 'border-brand-accent bg-brand-accent text-black'
+                            : 'border-border text-muted-foreground',
+                        )}
+                      >
+                        <UserCheck className="h-4 w-4" />
+                      </span>
+                    </button>
+                  );
+                })
+              ) : (
+                <p className="p-5 text-center text-sm font-bold text-muted-foreground">
+                  لا يوجد لاعب مطابق. جرّب الاسم أو رقم الهاتف.
+                </p>
+              )}
+            </div>
+            {promotionMember ? (
+              <div className="rounded-lg border border-brand-accent/35 bg-brand-accent/[0.07] p-3 text-sm">
+                اللاعب المحدد: <strong>{promotionMember.user.fullName}</strong>
+              </div>
+            ) : null}
             <Button
-              className="gap-2"
-              disabled={!promotableMembers.length}
+              className="w-full gap-2"
+              disabled={!promotionMember}
               isLoading={promote.isPending}
               loadingText="جاري الترقية"
             >
@@ -1467,7 +1602,7 @@ export function AdminCoachesPage() {
             onSubmit={(event) => {
               event.preventDefault();
               const form = objectFromForm(event.currentTarget);
-              demote.mutate({ reason: String(form.reason), userId: demoteCoach.user.id });
+              demote.mutate({ reason: formText(form.reason), userId: demoteCoach.user.id });
             }}
           >
             <DetailRow label="المدرب" value={demoteCoach.user.fullName} />
@@ -1505,7 +1640,7 @@ export function AdminCoachesPage() {
               reviewProfile.mutate({
                 approve: profileReview.approve,
                 id: profileReview.request.id,
-                reason: String(form.get('reason') ?? ''),
+                reason: formText(form.get('reason')),
               });
             }}
           >
@@ -1647,70 +1782,76 @@ export function AdminMembershipsPage() {
                       التفاصيل
                     </Button>
                     {['ACTIVE', 'FROZEN'].includes(sub.status) ? (
-                    <Button
-                      onClick={() =>
-                        setSubscriptionAction({
-                          action: 'add-days',
-                          needsDays: true,
-                          subscription: sub,
-                        })
-                      }
-                      variant="secondary"
-                    >
-                      إضافة أيام
-                    </Button>
+                      <Button
+                        onClick={() =>
+                          setSubscriptionAction({
+                            action: 'add-days',
+                            needsDays: true,
+                            subscription: sub,
+                          })
+                        }
+                        variant="secondary"
+                      >
+                        إضافة أيام
+                      </Button>
                     ) : null}
                     {['ACTIVE', 'FROZEN'].includes(sub.status) ? (
-                    <Button
-                      onClick={() =>
-                        setSubscriptionAction({
-                          action: 'remove-days',
-                          needsDays: true,
-                          subscription: sub,
-                        })
-                      }
-                      variant="secondary"
-                    >
-                      حذف أيام
-                    </Button>
+                      <Button
+                        onClick={() =>
+                          setSubscriptionAction({
+                            action: 'remove-days',
+                            needsDays: true,
+                            subscription: sub,
+                          })
+                        }
+                        variant="secondary"
+                      >
+                        حذف أيام
+                      </Button>
                     ) : null}
                     {sub.status === 'ACTIVE' ? (
-                    <Button
-                      onClick={() => setSubscriptionAction({ action: 'freeze', subscription: sub })}
-                      variant="secondary"
-                    >
-                      تجميد
-                    </Button>
+                      <Button
+                        onClick={() =>
+                          setSubscriptionAction({ action: 'freeze', subscription: sub })
+                        }
+                        variant="secondary"
+                      >
+                        تجميد
+                      </Button>
                     ) : null}
                     {sub.status === 'FROZEN' ? (
-                    <Button
-                      onClick={() => setSubscriptionAction({ action: 'resume', subscription: sub })}
-                      variant="secondary"
-                    >
-                      استئناف
-                    </Button>
+                      <Button
+                        onClick={() =>
+                          setSubscriptionAction({ action: 'resume', subscription: sub })
+                        }
+                        variant="secondary"
+                      >
+                        استئناف
+                      </Button>
                     ) : null}
                     {['ACTIVE', 'FROZEN', 'EXPIRED'].includes(sub.status) ? (
-                    <Button
-                      onClick={() =>
-                        setSubscriptionAction({
-                          action: 'renew',
-                          needsDays: true,
-                          subscription: sub,
-                        })
-                      }
-                      variant="secondary"
-                    >
-                      تجديد
-                    </Button>
+                      <Button
+                        onClick={() =>
+                          setSubscriptionAction({
+                            action: 'renew',
+                            needsDays: true,
+                            subscription: sub,
+                          })
+                        }
+                        variant="secondary"
+                      >
+                        تجديد
+                      </Button>
                     ) : null}
                     {['ACTIVE', 'FROZEN', 'PENDING'].includes(sub.status) ? (
-                    <Button
-                      onClick={() => setSubscriptionAction({ action: 'expire', subscription: sub })}
-                      variant="danger"
-                    >
-                      إنهاء
-                    </Button>
+                      <Button
+                        onClick={() =>
+                          setSubscriptionAction({ action: 'expire', subscription: sub })
+                        }
+                        variant="danger"
+                      >
+                        إنهاء
+                      </Button>
                     ) : null}
                   </div>
                 </div>
@@ -1781,9 +1922,9 @@ export function AdminMembershipsPage() {
               mutateSub.mutate({
                 action: subscriptionAction.action,
                 body: {
-                  observerId: String(form.observerId),
-                  reason: String(form.reason),
-                  ...(subscriptionAction.needsDays ? { days: String(form.days) } : {}),
+                  observerId: formText(form.observerId),
+                  reason: formText(form.reason),
+                  ...(subscriptionAction.needsDays ? { days: formText(form.days) } : {}),
                 },
                 id: subscriptionAction.subscription.id,
               });
@@ -2426,14 +2567,14 @@ export function AdminExercisesPage() {
               update.mutate({
                 id: editingExercise.id,
                 payload: {
-                  categoryId: String(form.categoryId),
-                  descriptionAr: String(form.descriptionAr ?? ''),
-                  instructionsAr: String(form.instructionsAr ?? ''),
-                  isActive: String(form.isActive) === 'true',
-                  nameAr: String(form.nameAr),
-                  nameEn: String(form.nameEn ?? ''),
+                  categoryId: formText(form.categoryId),
+                  descriptionAr: formText(form.descriptionAr),
+                  instructionsAr: formText(form.instructionsAr),
+                  isActive: formText(form.isActive) === 'true',
+                  nameAr: formText(form.nameAr),
+                  nameEn: formText(form.nameEn),
                   trainingDay: Number(form.trainingDay),
-                  videoUrl: String(form.videoUrl ?? ''),
+                  videoUrl: formText(form.videoUrl),
                 },
               });
             }}
@@ -2814,7 +2955,6 @@ export function AdminAuditPage() {
   const deferredAuditQuery = useDeferredValue(auditQuery);
   const [auditPage, setAuditPage] = useState(1);
   const [auditAction, setAuditAction] = useState('ALL');
-  const [generalAuditPage, setGeneralAuditPage] = useState(1);
   const [selectedAudit, setSelectedAudit] = useState<MembershipAuditItem | null>(null);
   const audit = useQuery({
     queryFn: () =>
@@ -2827,17 +2967,6 @@ export function AdminAuditPage() {
         }),
       ),
     queryKey: ['membership-audit', auditAction, auditPage, deferredAuditQuery],
-  });
-  const generalAudit = useQuery({
-    queryFn: () =>
-      apiRequest<PaginatedResponse<GeneralAuditItem>>(
-        pagedPath('/admin/audit-log', {
-          page: generalAuditPage,
-          pageSize: ADMIN_PAGE_SIZE,
-          q: deferredAuditQuery,
-        }),
-      ),
-    queryKey: ['general-audit', generalAuditPage, deferredAuditQuery],
   });
   const visibleAudit = audit.data?.items ?? [];
   const actionOptions = [
@@ -2852,49 +2981,6 @@ export function AdminAuditPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        body="كل تعديل مالي أو زمني على الاشتراكات يظهر هنا مع السبب، المسؤول، والقيمة السابقة والجديدة."
-        icon={ShieldAlert}
-        title="سجل التدقيق"
-      />
-      <Card>
-        <CardTitle>سجل النظام الموحد</CardTitle>
-        <p className="mt-2 text-sm text-muted-foreground">
-          يشمل إلغاء الحضور، تغييرات الحسابات، كلمات المرور، الملفات، والاشتراكات.
-        </p>
-        <QueryState query={generalAudit}>
-          {(page) => (
-            <div className="mt-4 grid gap-2">
-              {page.items.map((item) => (
-                <div
-                  className="grid gap-2 rounded-lg border border-border p-3 sm:grid-cols-[1fr_auto]"
-                  key={item.id}
-                >
-                  <div>
-                    <p className="font-black">
-                      {item.action} · {item.entityType}
-                    </p>
-                    <p className="mt-1 text-xs font-bold text-muted-foreground">
-                      {item.actor?.fullName ?? 'عملية تلقائية'} ·{' '}
-                      {formatCompactDateTime(item.createdAt)}
-                    </p>
-                    {item.metadata?.reason ? (
-                      <p className="mt-2 text-sm">السبب: {String(item.metadata.reason)}</p>
-                    ) : null}
-                  </div>
-                  <span className="text-xs font-bold text-muted-foreground">
-                    {item.entityId ?? '-'}
-                  </span>
-                </div>
-              ))}
-              {!page.items.length ? <EmptyState title="لا توجد أحداث تدقيق مطابقة" /> : null}
-            </div>
-          )}
-        </QueryState>
-        {generalAudit.data ? (
-          <Pagination meta={generalAudit.data.meta} onPageChange={setGeneralAuditPage} />
-        ) : null}
-      </Card>
       <Card>
         <div className="grid gap-3 lg:grid-cols-[1fr_0.7fr_auto] lg:items-center">
           <div className="relative">

@@ -35,6 +35,10 @@ function subscriptionSnapshot(subscription: {
   };
 }
 
+export function computeSubscriptionChargeMinor(monthlyPriceMinor: number, days: number) {
+  return Math.max(0, Math.round((monthlyPriceMinor * days) / 30));
+}
+
 @Injectable()
 export class MembershipsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -177,6 +181,12 @@ export class MembershipsService {
         reason: dto.reason,
         subscriptionId: subscription.id,
       });
+      await this.recordAutomaticPayment(transaction, {
+        adminId: admin.id,
+        days,
+        reason: dto.reason,
+        subscriptionId: subscription.id,
+      });
       return subscription;
     });
   }
@@ -207,6 +217,7 @@ export class MembershipsService {
       startsAt: Date;
       status: SubscriptionStatus;
     }> = {};
+    let billableDays: number | null = null;
 
     if (action === MembershipAuditAction.ADD_DAYS) {
       if (!dto.days) throw new BadRequestException('days is required');
@@ -215,6 +226,7 @@ export class MembershipsService {
         subscription.status === SubscriptionStatus.FROZEN
           ? SubscriptionStatus.FROZEN
           : SubscriptionStatus.ACTIVE;
+      billableDays = dto.days;
     }
 
     if (action === MembershipAuditAction.REMOVE_DAYS) {
@@ -252,6 +264,7 @@ export class MembershipsService {
       data.planId = plan?.id ?? subscription.planId;
       data.startsAt = now;
       data.status = SubscriptionStatus.ACTIVE;
+      billableDays = days;
     }
 
     if (action === MembershipAuditAction.EXPIRE) {
@@ -276,6 +289,14 @@ export class MembershipsService {
         reason: dto.reason,
         subscriptionId: updated.id,
       });
+      if (billableDays) {
+        await this.recordAutomaticPayment(transaction, {
+          adminId: admin.id,
+          days: billableDays,
+          reason: dto.reason,
+          subscriptionId: updated.id,
+        });
+      }
       return updated;
     });
   }
@@ -316,16 +337,19 @@ export class MembershipsService {
     return paginated(items, total, query);
   }
 
-  private async writeMembershipAudit(transaction: Prisma.TransactionClient, input: {
-    action: MembershipAuditAction;
-    admin: AuthenticatedUser;
-    memberId: string;
-    newValue: object;
-    observer: { fullName: string; id: string };
-    previousValue: object;
-    reason: string;
-    subscriptionId: string;
-  }) {
+  private async writeMembershipAudit(
+    transaction: Prisma.TransactionClient,
+    input: {
+      action: MembershipAuditAction;
+      admin: AuthenticatedUser;
+      memberId: string;
+      newValue: object;
+      observer: { fullName: string; id: string };
+      previousValue: object;
+      reason: string;
+      subscriptionId: string;
+    },
+  ) {
     if (!input.reason.trim()) {
       throw new BadRequestException('Reason is required');
     }
@@ -361,6 +385,30 @@ export class MembershipsService {
     });
   }
 
+  private async recordAutomaticPayment(
+    transaction: Prisma.TransactionClient,
+    input: { adminId: string; days: number; reason: string; subscriptionId: string },
+  ) {
+    const settings = await transaction.gymSettings.findUnique({
+      where: { singletonKey: 'primary' },
+    });
+    const monthlyPriceMinor = settings?.monthlySubscriptionPriceMinor ?? 2500;
+    const amountMinor = computeSubscriptionChargeMinor(monthlyPriceMinor, input.days);
+
+    await transaction.payment.create({
+      data: {
+        amountMinor,
+        currency: settings?.membershipCurrency ?? 'USD',
+        method: 'CASH',
+        notes: `Automatic membership payment: ${input.days} days. ${input.reason}`,
+        paidAt: new Date(),
+        receivedById: input.adminId,
+        status: 'PAID',
+        subscriptionId: input.subscriptionId,
+      },
+    });
+  }
+
   private async requireActiveObserver(observerId: string) {
     const observer = await this.prisma.shiftObserver.findUnique({
       where: { id: observerId },
@@ -371,25 +419,14 @@ export class MembershipsService {
     return observer;
   }
 
-  private assertAllowedTransition(
-    status: SubscriptionStatus,
-    action: MembershipAuditAction,
-  ) {
+  private assertAllowedTransition(status: SubscriptionStatus, action: MembershipAuditAction) {
     const allowed: Record<MembershipAuditAction, SubscriptionStatus[]> = {
       ADD_DAYS: [SubscriptionStatus.ACTIVE, SubscriptionStatus.FROZEN],
       REMOVE_DAYS: [SubscriptionStatus.ACTIVE, SubscriptionStatus.FROZEN],
       FREEZE: [SubscriptionStatus.ACTIVE],
       RESUME: [SubscriptionStatus.FROZEN],
-      RENEW: [
-        SubscriptionStatus.ACTIVE,
-        SubscriptionStatus.FROZEN,
-        SubscriptionStatus.EXPIRED,
-      ],
-      EXPIRE: [
-        SubscriptionStatus.PENDING,
-        SubscriptionStatus.ACTIVE,
-        SubscriptionStatus.FROZEN,
-      ],
+      RENEW: [SubscriptionStatus.ACTIVE, SubscriptionStatus.FROZEN, SubscriptionStatus.EXPIRED],
+      EXPIRE: [SubscriptionStatus.PENDING, SubscriptionStatus.ACTIVE, SubscriptionStatus.FROZEN],
       CREATE: [],
     };
     if (!allowed[action].includes(status)) {

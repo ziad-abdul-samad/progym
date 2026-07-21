@@ -237,7 +237,7 @@ function compactFormPayload(form: HTMLFormElement) {
 }
 
 function normalizeRepsInput(value: FormDataEntryValue | null) {
-  return String(value ?? '')
+  return (typeof value === 'string' ? value : '')
     .replace(/[،，]/g, ',')
     .split(',')
     .map((part) => part.trim())
@@ -498,6 +498,35 @@ export function MemberProfilePage() {
                 'Submitted changes remain under review and will not affect your account until approved.',
               )}
             </p>
+            <div className="mt-5 flex flex-col gap-4 rounded-xl border border-border bg-muted/25 p-4 sm:flex-row sm:items-center">
+              <div className="relative h-44 w-full shrink-0 overflow-hidden rounded-xl border border-border bg-background sm:w-36">
+                {data.member.user.avatarUrl ? (
+                  <Image
+                    alt={text('صورتك الشخصية الحالية', 'Your current profile photo')}
+                    className="object-contain p-1"
+                    fill
+                    sizes="(max-width: 640px) 100vw, 144px"
+                    src={data.member.user.avatarUrl}
+                  />
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <Camera className="h-8 w-8" />
+                    <span className="text-xs font-black">
+                      {text('لا توجد صورة حالياً', 'No profile photo yet')}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div>
+                <p className="font-black">{text('الصورة الحالية', 'Current profile photo')}</p>
+                <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                  {text(
+                    'هذه هي الصورة المعتمدة التي تظهر للإدارة والمدرب. عند اختيار صورة جديدة ستبقى الحالية حتى موافقة الإدارة.',
+                    'This is the approved photo shown to the administration and coach. A new photo will replace it only after approval.',
+                  )}
+                </p>
+              </div>
+            </div>
             <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={submit}>
               <Input
                 defaultValue={data.member.user.fullName}
@@ -990,8 +1019,13 @@ function WorkoutLogButton({
               completed: true,
               exerciseId,
               isPersonalRecord: form.get('isPersonalRecord') === 'on',
-              load: String(form.get('load') ?? '').trim() || undefined,
-              notes: String(form.get('notes') ?? '').trim() || undefined,
+              load:
+                (typeof form.get('load') === 'string' ? (form.get('load') as string).trim() : '') ||
+                undefined,
+              notes:
+                (typeof form.get('notes') === 'string'
+                  ? (form.get('notes') as string).trim()
+                  : '') || undefined,
               planItemId,
               repsCompleted: normalizeRepsInput(form.get('repsCompleted')) || undefined,
               setsCompleted: Number(form.get('setsCompleted')),
@@ -1807,7 +1841,7 @@ export function MemberCalculatorsPage() {
                         },
                       ].map(({ calories, icon: Icon, label, value }) => {
                         const selected = calculator.data?.selectedMode === value;
-                        const ResultIcon = Icon as typeof Flame;
+                        const ResultIcon = Icon;
                         return (
                           <div
                             className={cn(
