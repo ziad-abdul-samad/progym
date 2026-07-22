@@ -5,6 +5,7 @@ import {
   Archive,
   Bell,
   BellRing,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -32,7 +33,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PublicLocale } from '@progym/shared';
 
 import { Button } from '@/components/ui/button';
@@ -214,8 +215,32 @@ function Sidebar({
   user: SessionUser;
   locale: PublicLocale;
 }) {
+  const navigationRef = useRef<HTMLElement>(null);
+  const [hasMoreNavigation, setHasMoreNavigation] = useState(false);
+
+  const updateNavigationOverflow = useCallback(() => {
+    const navigation = navigationRef.current;
+    if (!navigation) return;
+    const canScroll = navigation.scrollHeight > navigation.clientHeight + 4;
+    const reachedEnd =
+      navigation.scrollTop + navigation.clientHeight >= navigation.scrollHeight - 4;
+    setHasMoreNavigation(canScroll && !reachedEnd);
+  }, []);
+
+  useEffect(() => {
+    const navigation = navigationRef.current;
+    if (!navigation) return;
+    const frame = window.requestAnimationFrame(updateNavigationOverflow);
+    const observer = new ResizeObserver(updateNavigationOverflow);
+    observer.observe(navigation);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [collapsed, items.length, updateNavigationOverflow]);
+
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <Link
         className={cn(
           'flex items-center gap-3 rounded-md px-3 py-3 transition hover:bg-muted',
@@ -237,48 +262,87 @@ function Sidebar({
         ) : null}
       </Link>
 
-      <div className="mt-5 grid gap-1">
-        {items.map((item) => {
-          const active = pathname === item.href;
-          const badgeCount = item.badgeKey ? (badges?.[item.badgeKey] ?? 0) : 0;
-          const Icon = item.icon;
+      <div className="relative mt-5 min-h-0 flex-1">
+        <nav
+          aria-label={locale === 'en' ? 'Dashboard pages' : 'صفحات لوحة التحكم'}
+          className={cn(
+            'h-full overflow-y-auto overscroll-contain pe-1 [scrollbar-color:rgba(57,255,20,0.65)_transparent] [scrollbar-width:thin]',
+            hasMoreNavigation && 'pb-14',
+            collapsed && 'pe-0',
+          )}
+          onScroll={updateNavigationOverflow}
+          ref={navigationRef}
+        >
+          <div className="grid gap-1">
+            {items.map((item) => {
+              const active = pathname === item.href;
+              const badgeCount = item.badgeKey ? (badges?.[item.badgeKey] ?? 0) : 0;
+              const Icon = item.icon;
 
-          return (
-            <Link
-              className={cn(
-                'group relative flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-bold transition-colors duration-150',
-                active
-                  ? 'bg-black text-white shadow-sm hover:bg-black hover:text-white'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                collapsed ? 'justify-center px-2' : 'justify-between',
-              )}
-              href={item.href}
-              key={item.href}
-              onClick={() => onNavigate?.(item.href)}
-              title={collapsed ? item.label : undefined}
-            >
-              <span
-                className={cn('flex min-w-0 items-center gap-3', collapsed && 'justify-center')}
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                {!collapsed ? <span className="truncate">{item.label}</span> : null}
-              </span>
-              {badgeCount ? (
-                <span
+              return (
+                <Link
                   className={cn(
-                    'inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-black leading-none text-white shadow-sm',
-                    collapsed && 'absolute -end-0.5 -top-0.5 h-4 min-w-4 px-1 text-[9px]',
+                    'group relative flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-bold transition-colors duration-150',
+                    active
+                      ? 'bg-black text-white shadow-sm hover:bg-black hover:text-white'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    collapsed ? 'justify-center px-2' : 'justify-between',
                   )}
+                  href={item.href}
+                  key={item.href}
+                  onClick={() => onNavigate?.(item.href)}
+                  title={collapsed ? item.label : undefined}
                 >
-                  {badgeCount > 99 ? '99+' : badgeCount}
+                  <span
+                    className={cn('flex min-w-0 items-center gap-3', collapsed && 'justify-center')}
+                  >
+                    <Icon className="h-5 w-5 shrink-0" />
+                    {!collapsed ? <span className="truncate">{item.label}</span> : null}
+                  </span>
+                  {badgeCount ? (
+                    <span
+                      className={cn(
+                        'inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-black leading-none text-white shadow-sm',
+                        collapsed && 'absolute -end-0.5 -top-0.5 h-4 min-w-4 px-1 text-[9px]',
+                      )}
+                    >
+                      {badgeCount > 99 ? '99+' : badgeCount}
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+
+        <AnimatePresence initial={false}>
+          {hasMoreNavigation ? (
+            <motion.button
+              animate={{ opacity: 1, y: 0 }}
+              aria-label={locale === 'en' ? 'Show more dashboard pages' : 'إظهار صفحات إضافية'}
+              className="absolute inset-x-2 bottom-1 z-10 flex min-h-10 items-center justify-center gap-2 rounded-md border border-brand-accent/50 bg-background/95 px-3 text-xs font-black text-foreground shadow-[0_-10px_24px_rgba(0,0,0,0.12)] backdrop-blur"
+              exit={{ opacity: 0, y: 6 }}
+              initial={{ opacity: 0, y: 6 }}
+              onClick={() =>
+                navigationRef.current?.scrollBy({
+                  behavior: 'smooth',
+                  top: Math.max(160, navigationRef.current.clientHeight * 0.65),
+                })
+              }
+              type="button"
+            >
+              <ChevronDown className="h-4 w-4 animate-bounce text-green-700 dark:text-brand-accent" />
+              {!collapsed ? (
+                <span>
+                  {locale === 'en' ? 'More pages — scroll down' : 'صفحات أخرى — مرّر للأسفل'}
                 </span>
               ) : null}
-            </Link>
-          );
-        })}
+            </motion.button>
+          ) : null}
+        </AnimatePresence>
       </div>
 
-      <div className="sticky bottom-0 z-10 mt-auto rounded-md border border-border bg-background/95 p-3 shadow-[0_-12px_28px_rgba(0,0,0,0.08)] backdrop-blur">
+      <div className="relative z-10 mt-3 shrink-0 rounded-md border border-border bg-background p-3 shadow-[0_-8px_24px_rgba(0,0,0,0.08)]">
         {user.role === 'MEMBER' && user.assignedCoach ? (
           <div
             className={cn('mb-3 border-b border-border pb-3', collapsed && 'flex justify-center')}
@@ -869,7 +933,7 @@ export function DashboardShell({
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
+              <div className="min-h-0 flex-1 overflow-hidden pb-[env(safe-area-inset-bottom)]">
                 <Sidebar
                   badges={adminSidebarBadges}
                   collapsed={false}
