@@ -46,192 +46,228 @@ function money(valueMinor: number) {
   return `$${(valueMinor / 100).toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 0 })}`;
 }
 
-function card(label: string, value: string | number, note: string) {
-  return `<div class="card"><p>${escapeHtml(label)}</p><strong>${escapeHtml(value)}</strong><span>${escapeHtml(note)}</span></div>`;
+type ReportCard = { label: string; note: string; value: string | number };
+type ReportSection = { cards: ReportCard[]; title: string };
+
+function reportSections(report: GymReport) {
+  const chosen = new Set(report.metrics);
+  const first: ReportSection[] = [];
+  const second: ReportSection[] = [];
+
+  if (chosen.has('revenue')) {
+    first.push({
+      cards: [
+        {
+          label: 'إجمالي الإيراد',
+          note: `${report.revenue.paidPayments} دفعة مسجلة`,
+          value: money(report.revenue.totalMinor),
+        },
+        {
+          label: 'سعر الشهر',
+          note: 'السعر المعتمد حالياً',
+          value: money(report.revenue.monthlySubscriptionPriceMinor),
+        },
+        {
+          label: 'متوسط الدفعة',
+          note: 'ضمن الفترة المحددة',
+          value: money(
+            report.revenue.paidPayments
+              ? Math.round(report.revenue.totalMinor / report.revenue.paidPayments)
+              : 0,
+          ),
+        },
+      ],
+      title: 'الإيرادات والاشتراكات المالية',
+    });
+  }
+  if (chosen.has('members')) {
+    first.push({
+      cards: [
+        { label: 'إجمالي الأعضاء', note: 'كل الأعضاء المسجلين', value: report.members.total },
+        { label: 'أعضاء جدد', note: 'انضموا خلال هذه الفترة', value: report.members.new },
+        {
+          label: 'نسبة النمو',
+          note: 'من إجمالي الأعضاء',
+          value: report.members.total
+            ? `${Math.round((report.members.new / report.members.total) * 100)}%`
+            : '0%',
+        },
+      ],
+      title: 'الأعضاء',
+    });
+  }
+  if (chosen.has('subscriptions')) {
+    first.push({
+      cards: [
+        {
+          label: 'اشتراكات فعالة',
+          note: 'فعالة وقت إنشاء التقرير',
+          value: report.subscriptions.active,
+        },
+        {
+          label: 'اشتراكات بدأت',
+          note: 'بدأت ضمن الفترة',
+          value: report.subscriptions.started,
+        },
+        {
+          label: 'عمليات تجديد',
+          note: 'تمت ضمن الفترة',
+          value: report.subscriptions.renewed,
+        },
+      ],
+      title: 'الاشتراكات',
+    });
+  }
+  if (chosen.has('attendance')) {
+    second.push({
+      cards: [
+        {
+          label: 'إجمالي الزيارات',
+          note: 'كل عمليات الحضور الصحيحة',
+          value: report.attendance.visits,
+        },
+        {
+          label: 'أعضاء مختلفون',
+          note: 'عدد اللاعبين الزائرين',
+          value: report.attendance.uniqueMembers,
+        },
+        {
+          label: 'متوسط يومي',
+          note: 'زيارة في اليوم',
+          value: (report.attendance.visits / Math.max(report.attendance.byDay.length, 1)).toFixed(
+            1,
+          ),
+        },
+      ],
+      title: 'الحضور',
+    });
+  }
+  if (chosen.has('coaches')) {
+    second.push({
+      cards: [
+        { label: 'إجمالي المدربين', note: 'الحسابات المسجلة', value: report.coaches.total },
+        {
+          label: 'إسنادات فعالة',
+          note: 'لاعبون مرتبطون بمدربين',
+          value: report.coaches.activeAssignments,
+        },
+        {
+          label: 'متوسط اللاعبين',
+          note: 'لكل مدرب',
+          value: report.coaches.total
+            ? (report.coaches.activeAssignments / report.coaches.total).toFixed(1)
+            : '0',
+        },
+      ],
+      title: 'المدربون',
+    });
+  }
+  if (chosen.has('registrations')) {
+    second.push({
+      cards: [
+        { label: 'إجمالي الطلبات', note: 'ضمن الفترة', value: report.registrations.total },
+        {
+          label: 'طلبات مقبولة',
+          note: `${report.registrations.pending} بانتظار المراجعة`,
+          value: report.registrations.approved,
+        },
+        {
+          label: 'طلبات مرفوضة',
+          note: 'بعد مراجعة البيانات',
+          value: report.registrations.rejected,
+        },
+      ],
+      title: 'طلبات التسجيل',
+    });
+  }
+  return { first, second };
 }
 
-function section(title: string, cards: string) {
-  return `<section><h2>${escapeHtml(title)}</h2><div class="cards">${cards}</div></section>`;
+function sectionSvg(section: ReportSection, y: number) {
+  const cardWidth = 341;
+  const cardGap = 20;
+  const cards = section.cards
+    .map((card, index) => {
+      const x = 823 - index * (cardWidth + cardGap);
+      return `
+        <rect x="${x}" y="${y + 54}" width="${cardWidth}" height="165" fill="#ffffff" stroke="#dfe3dc" stroke-width="2" />
+        <text x="${x + cardWidth - 22}" y="${y + 91}" text-anchor="end" direction="rtl" font-size="19" font-weight="700" fill="#5d655d">${escapeHtml(card.label)}</text>
+        <text x="${x + cardWidth - 22}" y="${y + 145}" text-anchor="end" direction="ltr" font-size="40" font-weight="900" fill="#101510">${escapeHtml(card.value)}</text>
+        <text x="${x + cardWidth - 22}" y="${y + 194}" text-anchor="end" direction="rtl" font-size="16" fill="#7d847d">${escapeHtml(card.note)}</text>`;
+    })
+    .join('');
+  return `
+    <rect x="1080" y="${y}" width="8" height="35" fill="#39ff14" />
+    <text x="1062" y="${y + 27}" text-anchor="end" direction="rtl" font-size="29" font-weight="900" fill="#0b0d0b">${escapeHtml(section.title)}</text>
+    ${cards}`;
 }
 
-function pageShell(body: string, report: GymReport, page: number, logo: string) {
+function pageSvg(report: GymReport, page: number, sections: ReportSection[]) {
   const created = new Intl.DateTimeFormat('ar-SY', {
     dateStyle: 'long',
     timeStyle: 'short',
   }).format(new Date(report.generatedAt));
-  return `
-    <div xmlns="http://www.w3.org/1999/xhtml" class="page" dir="rtl">
-      <style>
-        *{box-sizing:border-box} .page{width:${WIDTH}px;height:${HEIGHT}px;background:#f5f6f2;color:#0b0d0b;font-family:Arial,"Segoe UI",sans-serif;padding:74px 76px 58px;position:relative;overflow:hidden}
-        header{height:245px;background:#080a08;color:white;padding:42px 48px;display:flex;align-items:center;justify-content:space-between;border-bottom:12px solid #39ff14}
-        header img{width:118px;height:118px;object-fit:cover;background:#000} header .title{text-align:right} header .eyebrow{color:#39ff14;font-size:20px;font-weight:800;letter-spacing:1px;margin:0 0 12px} h1{font-size:54px;line-height:1.35;margin:0;font-weight:900} header .range{margin-top:12px;color:#bec4be;font-size:22px}
-        main{padding-top:42px} section{margin-bottom:34px} h2{font-size:29px;margin:0 0 17px;border-right:8px solid #39ff14;padding-right:16px;line-height:1.45}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.card{background:#fff;border:2px solid #dfe3dc;padding:24px 22px;min-height:155px}.card p{font-size:19px;color:#5d655d;margin:0 0 14px;font-weight:700}.card strong{display:block;font-size:43px;line-height:1;color:#101510;direction:ltr;text-align:right}.card span{display:block;font-size:16px;color:#7d847d;margin-top:16px;line-height:1.5}
-        .note{padding:24px 28px;background:#e9ece6;border-right:9px solid #111;font-size:20px;line-height:1.8}.price{color:#188c08;font-weight:900}.table{width:100%;border-collapse:collapse;background:white}.table th,.table td{padding:16px 18px;border-bottom:2px solid #e8ebe5;text-align:right;font-size:18px}.table th{background:#111;color:#39ff14}.barrow{display:grid;grid-template-columns:130px 1fr 90px;align-items:center;gap:18px;margin:13px 0;font-size:17px}.track{height:19px;background:#dfe3dc;position:relative}.fill{position:absolute;inset-block:0;right:0;background:#39ff14;border-left:4px solid #111}
-        footer{position:absolute;bottom:44px;left:76px;right:76px;border-top:2px solid #cdd2ca;padding-top:16px;display:flex;justify-content:space-between;color:#727972;font-size:16px;direction:rtl}.page-no{direction:ltr}.decor{position:absolute;width:250px;height:250px;border:35px solid rgba(57,255,20,.12);border-radius:50%;left:-90px;top:145px}
-      </style>
-      <div class="decor"></div>
-      <header>
-        <div class="title"><p class="eyebrow">PRO GYM / تقرير الإدارة</p><h1>تقرير أداء النادي</h1><p class="range">من ${escapeHtml(report.range.from)} إلى ${escapeHtml(report.range.to)}</p></div>
-        <img src="${logo}" alt="Pro Gym" />
-      </header>
-      <main>${body}</main>
-      <footer><span>تم الإنشاء: ${escapeHtml(created)}</span><span class="page-no">PRO GYM — ${page}</span></footer>
-    </div>`;
+  const sectionMarkup = sections.length
+    ? sections.map((section, index) => sectionSvg(section, 345 + index * 260)).join('')
+    : '<text x="620" y="650" text-anchor="middle" direction="rtl" font-size="30" font-weight="700" fill="#727972">لا توجد إحصاءات مختارة لهذه الصفحة</text>';
+  const note =
+    page === 1
+      ? `<rect x="76" y="1175" width="1088" height="110" fill="#e9ece6" /><rect x="1155" y="1175" width="9" height="110" fill="#111111" /><text x="1128" y="1220" text-anchor="end" direction="rtl" font-size="20" font-weight="700" fill="#252a25">يعتمد حساب الإيرادات على سعر شهري قدره ${escapeHtml(money(report.revenue.monthlySubscriptionPriceMinor))}</text><text x="1128" y="1257" text-anchor="end" direction="rtl" font-size="20" fill="#4f574f">قيمة اشتراك شهرين: ${escapeHtml(money(report.revenue.monthlySubscriptionPriceMinor * 2))}</text>`
+      : '';
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">
+    <rect width="${WIDTH}" height="${HEIGHT}" fill="#f5f6f2" />
+    <circle cx="35" cy="250" r="150" fill="none" stroke="#39ff14" stroke-opacity="0.13" stroke-width="35" />
+    <rect x="76" y="74" width="1088" height="235" fill="#080a08" />
+    <rect x="76" y="297" width="1088" height="12" fill="#39ff14" />
+    <text x="1115" y="128" text-anchor="end" direction="rtl" font-family="Arial, Segoe UI, sans-serif" font-size="20" font-weight="800" fill="#39ff14">PRO GYM / تقرير الإدارة</text>
+    <text x="1115" y="200" text-anchor="end" direction="rtl" font-family="Arial, Segoe UI, sans-serif" font-size="54" font-weight="900" fill="#ffffff">تقرير أداء النادي</text>
+    <text x="1115" y="250" text-anchor="end" direction="rtl" font-family="Arial, Segoe UI, sans-serif" font-size="22" fill="#bec4be">من ${escapeHtml(report.range.from)} إلى ${escapeHtml(report.range.to)}</text>
+    <g font-family="Arial, Segoe UI, sans-serif">${sectionMarkup}${note}</g>
+    <line x1="76" y1="1644" x2="1164" y2="1644" stroke="#cdd2ca" stroke-width="2" />
+    <text x="1164" y="1682" text-anchor="end" direction="rtl" font-family="Arial, Segoe UI, sans-serif" font-size="16" fill="#727972">تم الإنشاء: ${escapeHtml(created)}</text>
+    <text x="76" y="1682" text-anchor="start" direction="ltr" font-family="Arial, Segoe UI, sans-serif" font-size="16" fill="#727972">PRO GYM — ${page}</text>
+  </svg>`;
 }
 
-function reportPages(report: GymReport, logo: string) {
-  const chosen = new Set(report.metrics);
-  const first: string[] = [];
-  if (chosen.has('revenue'))
-    first.push(
-      section(
-        'الإيرادات والاشتراكات المالية',
-        [
-          card(
-            'إجمالي الإيراد',
-            money(report.revenue.totalMinor),
-            `${report.revenue.paidPayments} دفعة مسجلة`,
-          ),
-          card(
-            'سعر الشهر',
-            money(report.revenue.monthlySubscriptionPriceMinor),
-            'السعر المعتمد حالياً',
-          ),
-          card(
-            'متوسط الدفعة',
-            money(
-              report.revenue.paidPayments
-                ? Math.round(report.revenue.totalMinor / report.revenue.paidPayments)
-                : 0,
-            ),
-            'ضمن الفترة المحددة',
-          ),
-        ].join(''),
-      ),
-    );
-  if (chosen.has('members'))
-    first.push(
-      section(
-        'الأعضاء',
-        [
-          card('إجمالي الأعضاء', report.members.total, 'كل الأعضاء المسجلين'),
-          card('أعضاء جدد', report.members.new, 'انضموا خلال هذه الفترة'),
-          card(
-            'نسبة النمو',
-            report.members.total
-              ? `${Math.round((report.members.new / report.members.total) * 100)}%`
-              : '0%',
-            'من إجمالي الأعضاء',
-          ),
-        ].join(''),
-      ),
-    );
-  if (chosen.has('subscriptions'))
-    first.push(
-      section(
-        'الاشتراكات',
-        [
-          card('اشتراكات فعالة', report.subscriptions.active, 'فعالة وقت إنشاء التقرير'),
-          card('اشتراكات بدأت', report.subscriptions.started, 'بدأت ضمن الفترة'),
-          card('عمليات تجديد', report.subscriptions.renewed, 'تمت ضمن الفترة'),
-        ].join(''),
-      ),
-    );
-  first.push(
-    `<div class="note">تُحسب الإيرادات تلقائياً على أساس سعر شهري قدره <span class="price">${money(report.revenue.monthlySubscriptionPriceMinor)}</span>. لذلك يُسجّل اشتراك الشهرين بقيمة <span class="price">${money(report.revenue.monthlySubscriptionPriceMinor * 2)}</span> تلقائياً.</div>`,
-  );
-
-  const second: string[] = [];
-  if (chosen.has('attendance'))
-    second.push(
-      section(
-        'الحضور',
-        [
-          card('إجمالي الزيارات', report.attendance.visits, 'كل عمليات الحضور الصحيحة'),
-          card('أعضاء مختلفون', report.attendance.uniqueMembers, 'عدد اللاعبين الزائرين'),
-          card(
-            'متوسط يومي',
-            (report.attendance.visits / Math.max(report.attendance.byDay.length, 1)).toFixed(1),
-            'زيارة في اليوم',
-          ),
-        ].join(''),
-      ),
-    );
-  if (chosen.has('coaches'))
-    second.push(
-      section(
-        'المدربون',
-        [
-          card('إجمالي المدربين', report.coaches.total, 'الحسابات المسجلة'),
-          card('إسنادات فعالة', report.coaches.activeAssignments, 'لاعبون مرتبطون بمدربين'),
-          card(
-            'متوسط اللاعبين',
-            report.coaches.total
-              ? (report.coaches.activeAssignments / report.coaches.total).toFixed(1)
-              : '0',
-            'لكل مدرب',
-          ),
-        ].join(''),
-      ),
-    );
-  if (chosen.has('registrations'))
-    second.push(
-      section(
-        'طلبات التسجيل',
-        [
-          card('إجمالي الطلبات', report.registrations.total, 'ضمن الفترة'),
-          card(
-            'طلبات مقبولة',
-            report.registrations.approved,
-            `${report.registrations.pending} بانتظار المراجعة`,
-          ),
-          card('طلبات مرفوضة', report.registrations.rejected, 'بعد مراجعة البيانات'),
-        ].join(''),
-      ),
-    );
-
-  const values = report.attendance.byDay;
-  if (chosen.has('attendance') && values.length) {
-    const max = Math.max(1, ...values.map((item) => item.value));
-    const sample =
-      values.length > 12
-        ? values.filter((_, index) => index % Math.ceil(values.length / 12) === 0).slice(-12)
-        : values;
-    second.push(
-      `<section><h2>حركة الحضور اليومية</h2>${sample.map((item) => `<div class="barrow"><span>${escapeHtml(item.date)}</span><div class="track"><div class="fill" style="width:${Math.round((item.value / max) * 100)}%"></div></div><strong>${item.value}</strong></div>`).join('')}</section>`,
-    );
-  }
-  if (!second.length)
-    second.push('<div class="note">لم يتم اختيار إحصاءات إضافية لهذه الصفحة.</div>');
-  return [pageShell(first.join(''), report, 1, logo), pageShell(second.join(''), report, 2, logo)];
+function reportPages(report: GymReport) {
+  const sections = reportSections(report);
+  return [pageSvg(report, 1, sections.first), pageSvg(report, 2, sections.second)];
 }
 
-async function fileAsDataUrl(url: string) {
+async function loadLogo(url: string) {
   const response = await fetch(url);
   if (!response.ok) throw new Error('تعذر تحميل شعار النادي');
   const blob = await response.blob();
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error ?? new Error('تعذر قراءة شعار النادي'));
-    reader.onload = () => {
-      if (typeof reader.result === 'string') resolve(reader.result);
-      else reject(new Error('تنسيق شعار النادي غير مدعوم'));
-    };
-    reader.readAsDataURL(blob);
-  });
+  return createImageBitmap(blob);
 }
 
-async function renderPage(html: string) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}"><foreignObject width="100%" height="100%">${html}</foreignObject></svg>`;
+async function renderPage(svg: string, logo: ImageBitmap) {
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
   try {
     const image = new Image();
-    image.src = url;
-    await image.decode();
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error('تعذر رسم صفحة التقرير'));
+      image.src = url;
+    });
     const canvas = document.createElement('canvas');
     canvas.width = WIDTH;
     canvas.height = HEIGHT;
-    canvas.getContext('2d')?.drawImage(image, 0, 0);
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('المتصفح لا يدعم تجهيز ملف التقرير');
+    context.drawImage(image, 0, 0);
+    const logoSize = 128;
+    const scale = Math.min(logoSize / logo.width, logoSize / logo.height);
+    const logoWidth = logo.width * scale;
+    const logoHeight = logo.height * scale;
+    context.drawImage(
+      logo,
+      104 + (logoSize - logoWidth) / 2,
+      119 + (logoSize - logoHeight) / 2,
+      logoWidth,
+      logoHeight,
+    );
     const blob = await new Promise<Blob>((resolve, reject) =>
       canvas.toBlob(
         (value) => (value ? resolve(value) : reject(new Error('تعذر تجهيز صفحة التقرير'))),
@@ -326,13 +362,21 @@ function createPdf(images: Uint8Array[]) {
 
 export async function downloadArabicGymReport(report: GymReport) {
   await document.fonts.ready;
-  const logo = await fileAsDataUrl('/images/gym/log_bw.jpeg');
-  const pages = reportPages(report, logo);
-  const images = await Promise.all(pages.map(renderPage));
+  const logo = await loadLogo('/images/gym/log_bw.jpeg');
+  const pages = reportPages(report);
+  let images: Uint8Array[];
+  try {
+    images = await Promise.all(pages.map((page) => renderPage(page, logo)));
+  } finally {
+    logo.close();
+  }
   const url = URL.createObjectURL(createPdf(images));
   const link = document.createElement('a');
   link.href = url;
   link.download = `progym-report-${report.range.from}-${report.range.to}.pdf`;
+  link.style.display = 'none';
+  document.body.append(link);
   link.click();
+  link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }

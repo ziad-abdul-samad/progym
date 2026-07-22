@@ -175,18 +175,23 @@ export function AdminReportsPage() {
           </div>
         </div>
         <div className="mt-5 flex max-w-lg flex-col gap-3 sm:flex-row">
-          <label className="relative flex-1">
+          <label className="min-w-0 flex-1">
             <span className="sr-only">السعر بالدولار</span>
-            <Input
-              dir="ltr"
-              inputMode="decimal"
-              min="0"
-              onChange={(event) => setPrice(event.target.value)}
-              step="0.01"
-              type="number"
-              value={price}
-            />
-            <DollarSign className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto]" dir="ltr">
+              <Input
+                className="min-w-0 rounded-e-none border-e-0 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                dir="ltr"
+                inputMode="decimal"
+                min="0"
+                onChange={(event) => setPrice(event.target.value)}
+                step="0.01"
+                type="number"
+                value={price}
+              />
+              <span className="grid min-h-11 min-w-16 shrink-0 place-items-center rounded-e-md border border-input bg-muted/45 px-3 text-sm font-black text-muted-foreground">
+                USD
+              </span>
+            </div>
           </label>
           <Button
             disabled={!Number.isFinite(Number(price)) || Number(price) < 0}
@@ -203,7 +208,7 @@ export function AdminReportsPage() {
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <div className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5 text-brand-accent" />
             <h2 className="font-black">الفترة الزمنية</h2>
@@ -232,10 +237,11 @@ export function AdminReportsPage() {
               </button>
             ))}
           </div>
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <label className="space-y-2 text-sm font-bold">
+          <div className="mt-5 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
+            <label className="min-w-0 overflow-hidden space-y-2 text-sm font-bold">
               من تاريخ
               <Input
+                className="block w-0 min-w-full max-w-full appearance-none overflow-hidden [inline-size:0] [min-inline-size:100%]"
                 max={to}
                 onChange={(event) => {
                   setFrom(event.target.value);
@@ -245,9 +251,10 @@ export function AdminReportsPage() {
                 value={from}
               />
             </label>
-            <label className="space-y-2 text-sm font-bold">
+            <label className="min-w-0 overflow-hidden space-y-2 text-sm font-bold">
               إلى تاريخ
               <Input
+                className="block w-0 min-w-full max-w-full appearance-none overflow-hidden [inline-size:0] [min-inline-size:100%]"
                 min={from}
                 onChange={(event) => {
                   setTo(event.target.value);

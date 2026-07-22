@@ -20,7 +20,7 @@ export function Button({
   return (
     <button
       className={cn(
-        'inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2.5 text-sm font-black transition duration-300 disabled:pointer-events-none disabled:opacity-50',
+        'inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2.5 text-sm font-black transition-[color,background-color,border-color,box-shadow,transform,opacity] duration-300 disabled:pointer-events-none disabled:translate-y-0 disabled:opacity-50',
         variant === 'primary' &&
           'bg-foreground text-background shadow-sm hover:-translate-y-0.5 hover:bg-brand-accent hover:text-black',
         variant === 'secondary' &&
@@ -29,11 +29,18 @@ export function Button({
         variant === 'ghost' && 'bg-transparent text-foreground hover:bg-muted',
         className,
       )}
+      aria-busy={isLoading || undefined}
       {...props}
       disabled={props.disabled || isLoading}
     >
-      {isLoading ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : null}
-      {isLoading && loadingText ? loadingText : children}
+      {isLoading ? (
+        <span className="inline-flex min-w-0 items-center justify-center gap-2" role="status">
+          <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin" />
+          {loadingText ? <span>{loadingText}</span> : null}
+        </span>
+      ) : (
+        children
+      )}
     </button>
   );
 }
