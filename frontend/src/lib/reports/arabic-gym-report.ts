@@ -32,18 +32,29 @@ export type GymReport = {
 
 const WIDTH = 1240;
 const HEIGHT = 1754;
+const PAGE_MARGIN = 64;
+const CONTENT_WIDTH = WIDTH - PAGE_MARGIN * 2;
+const FONT_FAMILY = 'Tahoma, Arial, "Segoe UI", sans-serif';
 const encoder = new TextEncoder();
 
-function escapeHtml(value: string | number) {
-  return String(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
-}
+const palette = {
+  accent: '#39ff14',
+  accentDark: '#188c08',
+  background: '#f4f5f1',
+  border: '#d9ddd5',
+  card: '#ffffff',
+  ink: '#101510',
+  muted: '#667066',
+  mutedBackground: '#e8ebe4',
+  surfaceDark: '#080a08',
+  white: '#ffffff',
+};
 
 function money(valueMinor: number) {
-  return `$${(valueMinor / 100).toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 0 })}`;
+  return `$${(valueMinor / 100).toLocaleString('en-US', {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+  })}`;
 }
 
 type ReportCard = { label: string; note: string; value: string | number };
@@ -63,7 +74,7 @@ function reportSections(report: GymReport) {
           value: money(report.revenue.totalMinor),
         },
         {
-          label: 'سعر الشهر',
+          label: 'سعر الاشتراك الشهري',
           note: 'السعر المعتمد حالياً',
           value: money(report.revenue.monthlySubscriptionPriceMinor),
         },
@@ -80,6 +91,7 @@ function reportSections(report: GymReport) {
       title: 'الإيرادات والاشتراكات المالية',
     });
   }
+
   if (chosen.has('members')) {
     first.push({
       cards: [
@@ -96,6 +108,7 @@ function reportSections(report: GymReport) {
       title: 'الأعضاء',
     });
   }
+
   if (chosen.has('subscriptions')) {
     first.push({
       cards: [
@@ -118,6 +131,7 @@ function reportSections(report: GymReport) {
       title: 'الاشتراكات',
     });
   }
+
   if (chosen.has('attendance')) {
     second.push({
       cards: [
@@ -142,6 +156,7 @@ function reportSections(report: GymReport) {
       title: 'الحضور',
     });
   }
+
   if (chosen.has('coaches')) {
     second.push({
       cards: [
@@ -162,6 +177,7 @@ function reportSections(report: GymReport) {
       title: 'المدربون',
     });
   }
+
   if (chosen.has('registrations')) {
     second.push({
       cards: [
@@ -180,105 +196,368 @@ function reportSections(report: GymReport) {
       title: 'طلبات التسجيل',
     });
   }
+
   return { first, second };
 }
 
-function sectionSvg(section: ReportSection, y: number) {
-  const cardWidth = 341;
-  const cardGap = 20;
-  const cards = section.cards
-    .map((card, index) => {
-      const x = 823 - index * (cardWidth + cardGap);
-      return `
-        <rect x="${x}" y="${y + 54}" width="${cardWidth}" height="165" fill="#ffffff" stroke="#dfe3dc" stroke-width="2" />
-        <text x="${x + cardWidth - 22}" y="${y + 91}" text-anchor="end" direction="rtl" font-size="19" font-weight="700" fill="#5d655d">${escapeHtml(card.label)}</text>
-        <text x="${x + cardWidth - 22}" y="${y + 145}" text-anchor="end" direction="ltr" font-size="40" font-weight="900" fill="#101510">${escapeHtml(card.value)}</text>
-        <text x="${x + cardWidth - 22}" y="${y + 194}" text-anchor="end" direction="rtl" font-size="16" fill="#7d847d">${escapeHtml(card.note)}</text>`;
-    })
-    .join('');
-  return `
-    <rect x="1080" y="${y}" width="8" height="35" fill="#39ff14" />
-    <text x="1062" y="${y + 27}" text-anchor="end" direction="rtl" font-size="29" font-weight="900" fill="#0b0d0b">${escapeHtml(section.title)}</text>
-    ${cards}`;
+function roundedRect(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  const safeRadius = Math.min(radius, width / 2, height / 2);
+  context.beginPath();
+  context.moveTo(x + safeRadius, y);
+  context.lineTo(x + width - safeRadius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+  context.lineTo(x + width, y + height - safeRadius);
+  context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+  context.lineTo(x + safeRadius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+  context.lineTo(x, y + safeRadius);
+  context.quadraticCurveTo(x, y, x + safeRadius, y);
+  context.closePath();
 }
 
-function pageSvg(report: GymReport, page: number, sections: ReportSection[]) {
+type TextOptions = {
+  align?: CanvasTextAlign;
+  color?: string;
+  direction?: 'ltr' | 'rtl';
+  fontSize: number;
+  fontWeight?: number;
+  maxWidth?: number;
+};
+
+function drawText(
+  context: CanvasRenderingContext2D,
+  value: string | number,
+  x: number,
+  y: number,
+  {
+    align = 'right',
+    color = palette.ink,
+    direction = 'rtl',
+    fontSize,
+    fontWeight = 500,
+    maxWidth,
+  }: TextOptions,
+) {
+  context.save();
+  context.direction = direction;
+  context.textAlign = align;
+  context.textBaseline = 'alphabetic';
+  context.fillStyle = color;
+  context.font = `${fontWeight} ${fontSize}px ${FONT_FAMILY}`;
+  context.fillText(String(value), x, y, maxWidth);
+  context.restore();
+}
+
+function wrappedLines(
+  context: CanvasRenderingContext2D,
+  value: string,
+  maxWidth: number,
+  maxLines: number,
+) {
+  const words = value.trim().split(/\s+/);
+  const lines: string[] = [];
+  let current = '';
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (current && context.measureText(candidate).width > maxWidth) {
+      lines.push(current);
+      current = word;
+      if (lines.length === maxLines - 1) break;
+    } else {
+      current = candidate;
+    }
+  }
+
+  if (current && lines.length < maxLines) lines.push(current);
+  return lines;
+}
+
+function drawWrappedText(
+  context: CanvasRenderingContext2D,
+  value: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+  options: TextOptions,
+  maxLines = 2,
+) {
+  context.save();
+  context.font = `${options.fontWeight ?? 500} ${options.fontSize}px ${FONT_FAMILY}`;
+  const lines = wrappedLines(context, value, maxWidth, maxLines);
+  context.restore();
+  lines.forEach((line, index) => drawText(context, line, x, y + index * lineHeight, options));
+}
+
+function drawLogo(context: CanvasRenderingContext2D, logo: ImageBitmap) {
+  const frameX = 92;
+  const frameY = 104;
+  const frameSize = 150;
+  roundedRect(context, frameX, frameY, frameSize, frameSize, 16);
+  context.fillStyle = '#000000';
+  context.fill();
+
+  const innerSize = 126;
+  const scale = Math.min(innerSize / logo.width, innerSize / logo.height);
+  const logoWidth = logo.width * scale;
+  const logoHeight = logo.height * scale;
+  context.drawImage(
+    logo,
+    frameX + (frameSize - logoWidth) / 2,
+    frameY + (frameSize - logoHeight) / 2,
+    logoWidth,
+    logoHeight,
+  );
+}
+
+function drawHeader(context: CanvasRenderingContext2D, report: GymReport, logo: ImageBitmap) {
+  roundedRect(context, PAGE_MARGIN, 64, CONTENT_WIDTH, 270, 22);
+  context.fillStyle = palette.surfaceDark;
+  context.fill();
+
+  context.fillStyle = palette.accent;
+  context.fillRect(PAGE_MARGIN, 318, CONTENT_WIDTH, 16);
+  drawLogo(context, logo);
+
+  drawText(context, 'تقرير الإدارة', WIDTH - 104, 126, {
+    color: palette.accent,
+    fontSize: 23,
+    fontWeight: 800,
+  });
+  drawText(context, 'تقرير أداء النادي', WIDTH - 104, 212, {
+    color: palette.white,
+    fontSize: 55,
+    fontWeight: 900,
+    maxWidth: 760,
+  });
+  drawText(context, `الفترة من ${report.range.from} إلى ${report.range.to}`, WIDTH - 104, 277, {
+    color: '#c6ccc5',
+    fontSize: 24,
+    fontWeight: 600,
+    maxWidth: 760,
+  });
+
+  drawText(context, 'PRO GYM', 260, 292, {
+    align: 'left',
+    color: palette.white,
+    direction: 'ltr',
+    fontSize: 19,
+    fontWeight: 900,
+  });
+}
+
+function drawCard(
+  context: CanvasRenderingContext2D,
+  card: ReportCard,
+  x: number,
+  y: number,
+  width: number,
+) {
+  roundedRect(context, x, y, width, 196, 16);
+  context.fillStyle = palette.card;
+  context.fill();
+  context.strokeStyle = palette.border;
+  context.lineWidth = 2;
+  context.stroke();
+
+  context.fillStyle = palette.accent;
+  context.fillRect(x + width - 8, y + 22, 8, 46);
+  const textRight = x + width - 25;
+  const textWidth = width - 50;
+
+  drawWrappedText(context, card.label, textRight, y + 46, textWidth, 27, {
+    color: palette.muted,
+    fontSize: 20,
+    fontWeight: 800,
+  });
+  drawText(context, card.value, textRight, y + 124, {
+    color: palette.ink,
+    direction: 'ltr',
+    fontSize: 44,
+    fontWeight: 900,
+    maxWidth: textWidth,
+  });
+  drawWrappedText(context, card.note, textRight, y + 166, textWidth, 22, {
+    color: '#7b837a',
+    fontSize: 16,
+    fontWeight: 600,
+  });
+}
+
+function drawSection(
+  context: CanvasRenderingContext2D,
+  section: ReportSection,
+  y: number,
+  sectionNumber: number,
+) {
+  drawText(context, String(sectionNumber).padStart(2, '0'), PAGE_MARGIN, y + 27, {
+    align: 'left',
+    color: '#9da49b',
+    direction: 'ltr',
+    fontSize: 18,
+    fontWeight: 800,
+  });
+  context.fillStyle = palette.accent;
+  context.fillRect(WIDTH - PAGE_MARGIN - 9, y, 9, 39);
+  drawText(context, section.title, WIDTH - PAGE_MARGIN - 27, y + 30, {
+    fontSize: 29,
+    fontWeight: 900,
+    maxWidth: 900,
+  });
+
+  const gap = 18;
+  const cardWidth = (CONTENT_WIDTH - gap * 2) / 3;
+  section.cards.forEach((card, index) => {
+    const x = PAGE_MARGIN + (2 - index) * (cardWidth + gap);
+    drawCard(context, card, x, y + 58, cardWidth);
+  });
+}
+
+function drawInsight(context: CanvasRenderingContext2D, report: GymReport, page: number) {
+  const y = 1355;
+  roundedRect(context, PAGE_MARGIN, y, CONTENT_WIDTH, 150, 18);
+  context.fillStyle = palette.mutedBackground;
+  context.fill();
+  context.fillStyle = page === 1 ? palette.ink : palette.accentDark;
+  context.fillRect(WIDTH - PAGE_MARGIN - 10, y, 10, 150);
+
+  if (page === 1) {
+    drawText(context, 'ملاحظة الإيرادات', WIDTH - PAGE_MARGIN - 35, y + 43, {
+      fontSize: 21,
+      fontWeight: 900,
+    });
+    drawText(
+      context,
+      `سعر الاشتراك الشهري المعتمد هو ${money(report.revenue.monthlySubscriptionPriceMinor)}`,
+      WIDTH - PAGE_MARGIN - 35,
+      y + 87,
+      { color: palette.muted, fontSize: 20, fontWeight: 700, maxWidth: 950 },
+    );
+    drawText(
+      context,
+      `اشتراك شهرين يُحتسب تلقائياً بقيمة ${money(report.revenue.monthlySubscriptionPriceMinor * 2)}`,
+      WIDTH - PAGE_MARGIN - 35,
+      y + 124,
+      { color: palette.muted, fontSize: 20, fontWeight: 700, maxWidth: 950 },
+    );
+  } else {
+    drawText(context, 'ملخص تشغيلي', WIDTH - PAGE_MARGIN - 35, y + 43, {
+      fontSize: 21,
+      fontWeight: 900,
+    });
+    drawText(
+      context,
+      `سجّل النادي ${report.attendance.visits} زيارة من ${report.attendance.uniqueMembers} لاعباً مختلفاً خلال الفترة المحددة.`,
+      WIDTH - PAGE_MARGIN - 35,
+      y + 91,
+      { color: palette.muted, fontSize: 21, fontWeight: 700, maxWidth: 980 },
+    );
+  }
+}
+
+function drawFooter(context: CanvasRenderingContext2D, report: GymReport, page: number) {
   const created = new Intl.DateTimeFormat('ar-SY', {
     dateStyle: 'long',
     timeStyle: 'short',
   }).format(new Date(report.generatedAt));
-  const sectionMarkup = sections.length
-    ? sections.map((section, index) => sectionSvg(section, 345 + index * 260)).join('')
-    : '<text x="620" y="650" text-anchor="middle" direction="rtl" font-size="30" font-weight="700" fill="#727972">لا توجد إحصاءات مختارة لهذه الصفحة</text>';
-  const note =
-    page === 1
-      ? `<rect x="76" y="1175" width="1088" height="110" fill="#e9ece6" /><rect x="1155" y="1175" width="9" height="110" fill="#111111" /><text x="1128" y="1220" text-anchor="end" direction="rtl" font-size="20" font-weight="700" fill="#252a25">يعتمد حساب الإيرادات على سعر شهري قدره ${escapeHtml(money(report.revenue.monthlySubscriptionPriceMinor))}</text><text x="1128" y="1257" text-anchor="end" direction="rtl" font-size="20" fill="#4f574f">قيمة اشتراك شهرين: ${escapeHtml(money(report.revenue.monthlySubscriptionPriceMinor * 2))}</text>`
-      : '';
+  context.strokeStyle = '#cbd0c8';
+  context.lineWidth = 2;
+  context.beginPath();
+  context.moveTo(PAGE_MARGIN, 1635);
+  context.lineTo(WIDTH - PAGE_MARGIN, 1635);
+  context.stroke();
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">
-    <rect width="${WIDTH}" height="${HEIGHT}" fill="#f5f6f2" />
-    <circle cx="35" cy="250" r="150" fill="none" stroke="#39ff14" stroke-opacity="0.13" stroke-width="35" />
-    <rect x="76" y="74" width="1088" height="235" fill="#080a08" />
-    <rect x="76" y="297" width="1088" height="12" fill="#39ff14" />
-    <text x="1115" y="128" text-anchor="end" direction="rtl" font-family="Arial, Segoe UI, sans-serif" font-size="20" font-weight="800" fill="#39ff14">PRO GYM / تقرير الإدارة</text>
-    <text x="1115" y="200" text-anchor="end" direction="rtl" font-family="Arial, Segoe UI, sans-serif" font-size="54" font-weight="900" fill="#ffffff">تقرير أداء النادي</text>
-    <text x="1115" y="250" text-anchor="end" direction="rtl" font-family="Arial, Segoe UI, sans-serif" font-size="22" fill="#bec4be">من ${escapeHtml(report.range.from)} إلى ${escapeHtml(report.range.to)}</text>
-    <g font-family="Arial, Segoe UI, sans-serif">${sectionMarkup}${note}</g>
-    <line x1="76" y1="1644" x2="1164" y2="1644" stroke="#cdd2ca" stroke-width="2" />
-    <text x="1164" y="1682" text-anchor="end" direction="rtl" font-family="Arial, Segoe UI, sans-serif" font-size="16" fill="#727972">تم الإنشاء: ${escapeHtml(created)}</text>
-    <text x="76" y="1682" text-anchor="start" direction="ltr" font-family="Arial, Segoe UI, sans-serif" font-size="16" fill="#727972">PRO GYM — ${page}</text>
-  </svg>`;
+  drawText(context, `تم إنشاء التقرير: ${created}`, WIDTH - PAGE_MARGIN, 1681, {
+    color: palette.muted,
+    fontSize: 16,
+    fontWeight: 600,
+  });
+  drawText(context, `PRO GYM  —  ${page} / 2`, PAGE_MARGIN, 1681, {
+    align: 'left',
+    color: palette.muted,
+    direction: 'ltr',
+    fontSize: 16,
+    fontWeight: 700,
+  });
 }
 
-function reportPages(report: GymReport) {
-  const sections = reportSections(report);
-  return [pageSvg(report, 1, sections.first), pageSvg(report, 2, sections.second)];
+function drawReportPage(
+  report: GymReport,
+  logo: ImageBitmap,
+  sections: ReportSection[],
+  page: number,
+) {
+  const canvas = document.createElement('canvas');
+  canvas.width = WIDTH;
+  canvas.height = HEIGHT;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('المتصفح لا يدعم تجهيز ملف التقرير');
+
+  context.fillStyle = palette.background;
+  context.fillRect(0, 0, WIDTH, HEIGHT);
+  context.save();
+  context.globalAlpha = 0.12;
+  context.strokeStyle = palette.accent;
+  context.lineWidth = 34;
+  context.beginPath();
+  context.arc(24, 225, 150, 0, Math.PI * 2);
+  context.stroke();
+  context.restore();
+
+  drawHeader(context, report, logo);
+  drawText(
+    context,
+    page === 1 ? 'الملخص المالي والعضويات' : 'الحضور والتشغيل',
+    WIDTH - PAGE_MARGIN,
+    390,
+    {
+      color: palette.muted,
+      fontSize: 18,
+      fontWeight: 800,
+    },
+  );
+
+  if (sections.length) {
+    sections.forEach((section, index) =>
+      drawSection(context, section, 430 + index * 292, index + 1),
+    );
+  } else {
+    drawText(context, 'لا توجد إحصاءات مختارة لهذه الصفحة', WIDTH / 2, 760, {
+      align: 'center',
+      color: palette.muted,
+      fontSize: 30,
+      fontWeight: 800,
+    });
+  }
+
+  drawInsight(context, report, page);
+  drawFooter(context, report, page);
+  return canvas;
 }
 
 async function loadLogo(url: string) {
   const response = await fetch(url);
   if (!response.ok) throw new Error('تعذر تحميل شعار النادي');
-  const blob = await response.blob();
-  return createImageBitmap(blob);
+  return createImageBitmap(await response.blob());
 }
 
-async function renderPage(svg: string, logo: ImageBitmap) {
-  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
-  try {
-    const image = new Image();
-    await new Promise<void>((resolve, reject) => {
-      image.onload = () => resolve();
-      image.onerror = () => reject(new Error('تعذر رسم صفحة التقرير'));
-      image.src = url;
-    });
-    const canvas = document.createElement('canvas');
-    canvas.width = WIDTH;
-    canvas.height = HEIGHT;
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('المتصفح لا يدعم تجهيز ملف التقرير');
-    context.drawImage(image, 0, 0);
-    const logoSize = 128;
-    const scale = Math.min(logoSize / logo.width, logoSize / logo.height);
-    const logoWidth = logo.width * scale;
-    const logoHeight = logo.height * scale;
-    context.drawImage(
-      logo,
-      104 + (logoSize - logoWidth) / 2,
-      119 + (logoSize - logoHeight) / 2,
-      logoWidth,
-      logoHeight,
-    );
-    const blob = await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob(
-        (value) => (value ? resolve(value) : reject(new Error('تعذر تجهيز صفحة التقرير'))),
-        'image/jpeg',
-        0.9,
-      ),
-    );
-    return new Uint8Array(await blob.arrayBuffer());
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+async function canvasAsJpeg(canvas: HTMLCanvasElement) {
+  const blob = await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob(
+      (value) => (value ? resolve(value) : reject(new Error('تعذر تجهيز صفحة التقرير'))),
+      'image/jpeg',
+      0.94,
+    ),
+  );
+  return new Uint8Array(await blob.arrayBuffer());
 }
 
 function concat(parts: Uint8Array[]) {
@@ -302,6 +581,7 @@ function createPdf(images: Uint8Array[]) {
       `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${images.length} >>`,
     ),
   );
+
   images.forEach((jpeg, index) => {
     const pageId = 3 + index * 3;
     const imageId = pageId + 1;
@@ -333,7 +613,7 @@ function createPdf(images: Uint8Array[]) {
     );
   });
 
-  const parts: Uint8Array[] = [encoder.encode('%PDF-1.4\n%âãÏÓ\n')];
+  const parts: Uint8Array[] = [encoder.encode('%PDF-1.4\n%PROGYM\n')];
   const offsets = [0];
   let length = parts[0]!.length;
   for (let id = 1; id <= objectCount; id += 1) {
@@ -346,6 +626,7 @@ function createPdf(images: Uint8Array[]) {
     parts.push(part);
     length += part.length;
   }
+
   const xrefOffset = length;
   const xref = `xref\n0 ${objectCount + 1}\n0000000000 65535 f \n${offsets
     .slice(1)
@@ -363,13 +644,18 @@ function createPdf(images: Uint8Array[]) {
 export async function downloadArabicGymReport(report: GymReport) {
   await document.fonts.ready;
   const logo = await loadLogo('/images/gym/log_bw.jpeg');
-  const pages = reportPages(report);
+  const sections = reportSections(report);
   let images: Uint8Array[];
+
   try {
-    images = await Promise.all(pages.map((page) => renderPage(page, logo)));
+    images = await Promise.all([
+      canvasAsJpeg(drawReportPage(report, logo, sections.first, 1)),
+      canvasAsJpeg(drawReportPage(report, logo, sections.second, 2)),
+    ]);
   } finally {
     logo.close();
   }
+
   const url = URL.createObjectURL(createPdf(images));
   const link = document.createElement('a');
   link.href = url;

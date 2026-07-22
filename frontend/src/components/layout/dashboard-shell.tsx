@@ -850,7 +850,7 @@ export function DashboardShell({
             <motion.aside
               animate={{ x: 0 }}
               className={cn(
-                'fixed inset-y-0 z-50 flex w-[20rem] max-w-[86vw] flex-col overflow-hidden bg-background p-3 shadow-2xl lg:hidden',
+                'fixed inset-y-0 z-50 flex w-[20rem] max-w-[86vw] flex-col overflow-hidden bg-background px-3 pb-0 pt-3 shadow-2xl lg:hidden',
                 locale === 'ar'
                   ? 'right-0 border-l border-border'
                   : 'left-0 border-r border-border',
@@ -869,7 +869,7 @@ export function DashboardShell({
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
                 <Sidebar
                   badges={adminSidebarBadges}
                   collapsed={false}
