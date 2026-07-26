@@ -28,6 +28,7 @@ import type {
   FoodAnalysisDto,
   UpdateMemberProfileDto,
 } from './dto/members.dto';
+import { NutritionAiQuotaService } from './nutrition-ai-quota.service';
 import { NutritionAiService } from './nutrition-ai.service';
 
 @Injectable()
@@ -36,6 +37,7 @@ export class MembersService {
     private readonly memberships: MembershipsService,
     private readonly notifications: NotificationsService,
     private readonly nutritionAi: NutritionAiService,
+    private readonly nutritionAiQuota: NutritionAiQuotaService,
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
   ) {}
@@ -392,18 +394,31 @@ export class MembersService {
       where: { id: memberId },
     });
     const age = ageFromDateOfBirth(member.dateOfBirth);
+    const reservedAt = new Date();
+    const usage = await this.nutritionAiQuota.reserve(user.id, reservedAt);
 
-    return this.nutritionAi.analyze(
-      dto.message.trim(),
-      {
-        age,
-        fitnessGoal: member.fitnessGoal,
-        gender: member.gender,
-        heightCm: Number(member.heightCm),
-        weightKg: Number(member.currentWeightKg),
-      },
-      dto.history ?? [],
-    );
+    try {
+      const analysis = await this.nutritionAi.analyze(
+        dto.message.trim(),
+        {
+          age,
+          fitnessGoal: member.fitnessGoal,
+          gender: member.gender,
+          heightCm: Number(member.heightCm),
+          weightKg: Number(member.currentWeightKg),
+        },
+        dto.history ?? [],
+      );
+      return { ...analysis, usage };
+    } catch (error) {
+      await this.nutritionAiQuota.release(user.id, reservedAt).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async nutritionAiUsage(user: AuthenticatedUser) {
+    await this.requireActiveMember(user);
+    return this.nutritionAiQuota.getUsage(user.id);
   }
 
   private requireMember(user: AuthenticatedUser): string {

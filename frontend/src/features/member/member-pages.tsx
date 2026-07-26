@@ -27,6 +27,7 @@ import {
   Upload,
   Weight,
   Wheat,
+  Wifi,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
@@ -1588,6 +1589,13 @@ export function MemberCalculatorsPage() {
     source: 'GEMINI';
     totals: { calories: number; carbsG: number; fatG: number; proteinG: number };
   };
+  type NutritionChatUsage = {
+    limit: number;
+    remaining: number;
+    resetsAt: string;
+    used: number;
+  };
+  type NutritionChatResult = FoodAnalysis & { usage: NutritionChatUsage };
   type ChatMessage =
     | { id: string; role: 'assistant' | 'user'; text: string }
     | { analysis: FoodAnalysis; id: string; role: 'analysis' };
@@ -1605,6 +1613,11 @@ export function MemberCalculatorsPage() {
       ),
     },
   ]);
+  const queryClient = useQueryClient();
+  const nutritionChatUsage = useQuery({
+    queryFn: () => apiRequest<NutritionChatUsage>('/members/nutrition-chat/usage'),
+    queryKey: ['member', 'nutrition-chat', 'usage'],
+  });
   const calculator = useMutation({
     mutationFn: (payload: { activityMultiplier: number; mode: CalculatorMode }) =>
       apiRequest<CalculatorResult>('/members/calculators', {
@@ -1617,17 +1630,24 @@ export function MemberCalculatorsPage() {
       history: Array<{ content: string; role: 'assistant' | 'user' }>;
       message: string;
     }) =>
-      apiRequest<FoodAnalysis>('/members/nutrition-chat', {
+      apiRequest<NutritionChatResult>('/members/nutrition-chat', {
         body: jsonBody(payload),
         method: 'POST',
       }),
-    onSuccess: (analysis) => {
+    onError: () => {
+      void nutritionChatUsage.refetch();
+    },
+    onSuccess: (result) => {
+      const { usage, ...analysis } = result;
+      queryClient.setQueryData(['member', 'nutrition-chat', 'usage'], usage);
       setChatMessages((current) => [
         ...current,
         { analysis, id: `analysis-${Date.now()}`, role: 'analysis' },
       ]);
     },
   });
+  const messagesRemaining = nutritionChatUsage.data?.remaining ?? 2;
+  const dailyLimitReached = nutritionChatUsage.data?.remaining === 0;
 
   const modes: Array<{
     body: string;
@@ -1665,7 +1685,7 @@ export function MemberCalculatorsPage() {
 
   function sendFoodMessage(message = foodMessage) {
     const cleanMessage = message.trim();
-    if (cleanMessage.length < 3 || nutritionChat.isPending) return;
+    if (cleanMessage.length < 3 || nutritionChat.isPending || dailyLimitReached) return;
     const history = chatMessages
       .filter((item) => item.id !== 'welcome')
       .map((item) =>
@@ -1954,7 +1974,7 @@ export function MemberCalculatorsPage() {
               </div>
               <span className="flex items-center gap-2 rounded-full bg-brand-accent/15 px-3 py-1 text-xs font-black text-brand-accent">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-brand-accent" />
-                AI
+                AI · {messagesRemaining}/2
               </span>
             </div>
 
@@ -1998,6 +2018,28 @@ export function MemberCalculatorsPage() {
               </div>
 
               <div className="border-t border-border p-4">
+                <div className="mb-3 rounded-lg border border-amber-400/35 bg-amber-400/10 px-3 py-2.5">
+                  <p className="flex items-start gap-2 text-xs font-bold leading-5 text-foreground">
+                    <Wifi className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                    <span>
+                      {text(
+                        'شغّل الـ VPN قبل إرسال رسالتك إلى مساعد الذكاء الاصطناعي.',
+                        'Turn on your VPN before sending a message to the AI assistant.',
+                      )}
+                    </span>
+                  </p>
+                  <p className="mt-1 ps-6 text-[11px] font-semibold leading-5 text-muted-foreground">
+                    {dailyLimitReached
+                      ? text(
+                          'لقد استخدمت رسالتي اليوم. يتجدد الحد غداً.',
+                          'You have used both messages today. Your limit resets tomorrow.',
+                        )
+                      : text(
+                          `يمكنك إرسال رسالتين فقط يومياً. المتبقي اليوم: ${messagesRemaining}.`,
+                          `You can send only two messages per day. Remaining today: ${messagesRemaining}.`,
+                        )}
+                  </p>
+                </div>
                 <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
                   {[
                     text('200 غرام دجاج و150 غرام رز', '200 g chicken and 150 g rice'),
@@ -2011,7 +2053,8 @@ export function MemberCalculatorsPage() {
                     ),
                   ].map((example) => (
                     <button
-                      className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-xs font-bold transition hover:border-brand-accent"
+                      className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-xs font-bold transition hover:border-brand-accent disabled:cursor-not-allowed disabled:opacity-45"
+                      disabled={dailyLimitReached || nutritionChat.isPending}
                       key={example}
                       onClick={() => sendFoodMessage(example)}
                       type="button"
@@ -2030,6 +2073,7 @@ export function MemberCalculatorsPage() {
                   <Textarea
                     aria-label={text('اكتب ما أكلته', 'Enter what you ate')}
                     className="min-h-12 resize-none"
+                    disabled={dailyLimitReached}
                     maxLength={500}
                     onChange={(event) => setFoodMessage(event.target.value)}
                     placeholder={text(
@@ -2041,7 +2085,7 @@ export function MemberCalculatorsPage() {
                   <Button
                     aria-label={text('إرسال للتحليل', 'Send for analysis')}
                     className="h-12 min-h-12 w-12 shrink-0 p-0"
-                    disabled={foodMessage.trim().length < 3}
+                    disabled={dailyLimitReached || foodMessage.trim().length < 3}
                     isLoading={nutritionChat.isPending}
                   >
                     <Send className="h-5 w-5 rotate-180" />

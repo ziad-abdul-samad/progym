@@ -1,20 +1,42 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { FileVisibility } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { mkdir, unlink, writeFile } from 'fs/promises';
-import { join } from 'path';
+import { isAbsolute, join, relative, resolve } from 'path';
 import sharp from 'sharp';
 
 import { PrismaService } from '../prisma/prisma.service';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const STORAGE_MODES = new Set(['database', 'filesystem', 'hybrid']);
+
+type StorageMode = 'database' | 'filesystem' | 'hybrid';
 
 @Injectable()
 export class StorageService {
-  private readonly uploadRoot = join(process.cwd(), 'uploads');
+  private readonly mode: StorageMode;
+  private readonly uploadRoot: string;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {
+    const configuredMode = this.config.get<string>('FILE_STORAGE_MODE')?.trim().toLowerCase();
+    this.mode = STORAGE_MODES.has(configuredMode ?? '')
+      ? (configuredMode as StorageMode)
+      : 'hybrid';
+
+    const configuredRoot = this.config.get<string>('UPLOAD_ROOT')?.trim();
+    this.uploadRoot = resolve(
+      configuredRoot
+        ? isAbsolute(configuredRoot)
+          ? configuredRoot
+          : join(process.cwd(), configuredRoot)
+        : join(process.cwd(), 'uploads'),
+    );
+  }
 
   async saveImage(
     file: Express.Multer.File | undefined,
@@ -62,39 +84,60 @@ export class StorageService {
     const filename = `${randomUUID()}.jpg`;
     const storageKey = `${folder}/${filename}`;
     const absoluteFolder = join(this.uploadRoot, folder);
+    const shouldWriteFile = this.mode !== 'database';
+    const shouldStoreBlob = this.mode !== 'filesystem';
 
-    await mkdir(absoluteFolder, { recursive: true });
-    await writeFile(join(absoluteFolder, filename), safeBuffer);
+    if (shouldWriteFile) {
+      await mkdir(absoluteFolder, { recursive: true });
+      await writeFile(join(absoluteFolder, filename), safeBuffer);
+    }
 
-    return this.prisma.fileAsset.create({
-      data: {
-        byteSize: safeBuffer.byteLength,
-        blob: {
-          create: {
-            data: Uint8Array.from(safeBuffer),
-          },
+    try {
+      return await this.prisma.fileAsset.create({
+        data: {
+          byteSize: safeBuffer.byteLength,
+          blob: shouldStoreBlob
+            ? {
+                create: {
+                  data: Uint8Array.from(safeBuffer),
+                },
+              }
+            : undefined,
+          mimeType: 'image/jpeg',
+          originalName: file.originalname,
+          ownerUserId,
+          storageKey,
+          storageProvider: this.mode,
+          visibility,
         },
-        mimeType: 'image/jpeg',
-        originalName: file.originalname,
-        ownerUserId,
-        storageKey,
-        visibility,
-      },
-    });
+      });
+    } catch (error) {
+      if (shouldWriteFile) {
+        await unlink(this.getAbsolutePath(storageKey)).catch(() => undefined);
+      }
+      throw error;
+    }
   }
 
   getAbsolutePath(storageKey: string): string {
-    return join(this.uploadRoot, storageKey);
+    const absolutePath = resolve(this.uploadRoot, storageKey);
+    const relativePath = relative(this.uploadRoot, absolutePath);
+    if (relativePath.startsWith('..') || isAbsolute(relativePath)) {
+      throw new BadRequestException('Invalid storage path');
+    }
+    return absolutePath;
   }
 
   async deleteAsset(id: string): Promise<void> {
     const asset = await this.prisma.fileAsset.findUnique({ where: { id } });
     if (!asset) return;
 
-    try {
-      await unlink(this.getAbsolutePath(asset.storageKey));
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    if (asset.storageProvider !== 'database') {
+      try {
+        await unlink(this.getAbsolutePath(asset.storageKey));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
     }
 
     await this.prisma.fileAsset.delete({ where: { id } });

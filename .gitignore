@@ -17,6 +17,8 @@ test-results/
 # Runtime
 *.log
 *.pid
+uploads/
+backend/uploads/
 
 # Environment
 .env

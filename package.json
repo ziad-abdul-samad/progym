@@ -13,6 +13,10 @@
     "dev": "turbo dev",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "hostinger:build:backend": "pnpm --filter @progym/shared build && pnpm --filter @progym/backend db:generate && pnpm --filter @progym/backend build",
+    "hostinger:build:frontend": "pnpm --filter @progym/shared build && pnpm --filter @progym/frontend build",
+    "hostinger:start:backend": "pnpm --filter @progym/backend exec prisma migrate deploy && pnpm --filter @progym/backend start",
+    "hostinger:start:frontend": "pnpm --filter @progym/frontend start",
     "lint": "turbo lint",
     "test": "turbo test",
     "typecheck": "turbo typecheck"

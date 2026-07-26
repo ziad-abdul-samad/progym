@@ -101,4 +101,9 @@ export class MembersController {
   async analyzeFood(@CurrentUser() user: AuthenticatedUser, @Body() dto: FoodAnalysisDto) {
     return { data: await this.members.analyzeFood(user, dto) };
   }
+
+  @Get('nutrition-chat/usage')
+  async nutritionAiUsage(@CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.members.nutritionAiUsage(user) };
+  }
 }
