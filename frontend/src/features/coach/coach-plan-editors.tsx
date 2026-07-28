@@ -588,7 +588,7 @@ export function NutritionPlanEditor({
                 <Input
                   className="border-white/20 bg-white/10 text-white placeholder:text-white/45"
                   onChange={(event) => updateMeal(meal.id, 'timing', event.target.value)}
-                  placeholder="التوقيت، مثال: 08:00 صباحاً"
+                  placeholder="التوقيت، مثال: 8:00 AM"
                   value={meal.timing}
                 />
               </div>

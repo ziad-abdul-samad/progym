@@ -45,7 +45,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { apiRequest, jsonBody } from '@/lib/api/client';
 import { brand } from '@/lib/public/content';
 import { useAuth, type SessionUser } from '@/lib/auth/use-auth';
-import { cn, formatCompactDateTime } from '@/lib/utils';
+import { cn, formatCompactDateTime, formatShiftTime } from '@/lib/utils';
 import { ReceptionEventCenter } from '@/features/admin/reception-event-center';
 import { MemberLocaleProvider } from '@/features/member/member-locale';
 
@@ -98,12 +98,14 @@ const navItems: Record<SessionUser['role'], NavItem[]> = {
       label: 'طلبات التسجيل',
     },
     { href: '/ar/dashboard/admin/memberships', icon: WalletCards, label: 'الاشتراكات' },
+    { href: '/ar/dashboard/admin/coaches', icon: UserCog, label: 'المدربون' },
     {
       badgeKey: 'attendance',
       href: '/ar/dashboard/admin/attendance',
       icon: Activity,
       label: 'الحضور',
     },
+    { href: '/ar/dashboard/admin/exercises', icon: Dumbbell, label: 'التمارين' },
   ],
   COACH: [
     { href: '/ar/dashboard/coach', icon: Gauge, label: 'لوحة المدرب' },
@@ -412,7 +414,8 @@ function Sidebar({
               collapsed && 'sr-only',
             )}
           >
-            {user.shiftObserver.shiftStart} — {user.shiftObserver.shiftEnd}
+            {formatShiftTime(user.shiftObserver.shiftStart)} —{' '}
+            {formatShiftTime(user.shiftObserver.shiftEnd)}
           </p>
         ) : null}
         {collapsed ? <UserCog className="mx-auto h-5 w-5 text-muted-foreground" /> : null}

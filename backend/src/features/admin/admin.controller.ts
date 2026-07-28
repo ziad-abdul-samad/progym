@@ -70,25 +70,21 @@ export class AdminController {
   }
 
   @Get('coaches/subscription-events')
-  @Protected(UserRole.ADMIN)
   async coachSubscriptionEvents() {
     return { data: await this.adminService.coachSubscriptionEvents() };
   }
 
   @Get('coaches')
-  @Protected(UserRole.ADMIN)
   async coaches(@Query() query: PaginationDto) {
     return { data: await this.adminService.coaches(query) };
   }
 
   @Post('coaches/promote/:userId')
-  @Protected(UserRole.ADMIN)
   async promote(@Param('userId') userId: string, @CurrentUser() admin: AuthenticatedUser) {
     return { data: await this.adminService.promoteMemberToCoach(userId, admin) };
   }
 
   @Post('coaches/demote/:userId')
-  @Protected(UserRole.ADMIN)
   async demote(
     @Param('userId') userId: string,
     @Body() dto: DemoteCoachDto,
@@ -98,13 +94,11 @@ export class AdminController {
   }
 
   @Post('coaches/assign-client')
-  @Protected(UserRole.ADMIN)
   async assign(@Body() dto: AssignClientDto, @CurrentUser() admin: AuthenticatedUser) {
     return { data: await this.adminService.assignClient(dto, admin) };
   }
 
   @Get('coaches/profile-change-requests')
-  @Protected(UserRole.ADMIN)
   async coachProfileChangeRequests() {
     return { data: await this.adminService.coachProfileChangeRequests() };
   }
@@ -135,7 +129,6 @@ export class AdminController {
   }
 
   @Post('coaches/profile-change-requests/:id/approve')
-  @Protected(UserRole.ADMIN)
   async approveCoachProfileChange(
     @Param('id') id: string,
     @Body() dto: ReviewCoachProfileChangeDto,
@@ -145,7 +138,6 @@ export class AdminController {
   }
 
   @Post('coaches/profile-change-requests/:id/reject')
-  @Protected(UserRole.ADMIN)
   async rejectCoachProfileChange(
     @Param('id') id: string,
     @Body() dto: ReviewCoachProfileChangeDto,

@@ -25,13 +25,13 @@ export class ExercisesController {
   }
 
   @Post('categories/defaults')
-  @Protected(UserRole.ADMIN)
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async defaults() {
     return { data: await this.exercises.seedDefaultCategories() };
   }
 
   @Post('categories')
-  @Protected(UserRole.ADMIN)
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async createCategory(@Body() dto: CreateExerciseCategoryDto) {
     return { data: await this.exercises.createCategory(dto) };
   }
@@ -44,25 +44,25 @@ export class ExercisesController {
   }
 
   @Get('admin')
-  @Protected(UserRole.ADMIN)
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async adminList(@Query() query: PaginationDto) {
     return { data: await this.exercises.adminList(query) };
   }
 
   @Post()
-  @Protected(UserRole.ADMIN)
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async create(@Body() dto: CreateExerciseDto) {
     return { data: await this.exercises.create(dto) };
   }
 
   @Patch(':id')
-  @Protected(UserRole.ADMIN)
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async update(@Param('id') id: string, @Body() dto: Partial<CreateExerciseDto>) {
     return { data: await this.exercises.update(id, dto) };
   }
 
   @Delete(':id')
-  @Protected(UserRole.ADMIN)
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async delete(@Param('id') id: string) {
     return { data: await this.exercises.delete(id) };
   }

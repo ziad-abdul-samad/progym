@@ -47,7 +47,7 @@ import { DashboardLoader, EmptyState, ErrorState } from '@/components/ui/state';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { useToast } from '@/components/ui/toast';
 import { apiRequest, jsonBody } from '@/lib/api/client';
-import { cn, formatCompactDate, formatCompactDateTime } from '@/lib/utils';
+import { cn, formatCompactDate, formatCompactDateTime, formatShiftTime } from '@/lib/utils';
 
 type Member = {
   assignments?: Array<{ coach: { user: { fullName: string } } }>;
@@ -2744,9 +2744,9 @@ export function AdminObserversPage() {
         <Card>
           <CardTitle>ثلاثة حسابات ثابتة وآمنة</CardTitle>
           <div className="mt-4 space-y-3 text-sm font-bold leading-7 text-muted-foreground">
-            <p>الوردية الأولى: من 07:00 حتى 14:00</p>
-            <p>الوردية الثانية: من 14:00 حتى 19:00</p>
-            <p>الوردية الثالثة: من 19:00 حتى 00:00</p>
+            <p>الوردية الأولى: من 7:00 AM حتى 2:00 PM</p>
+            <p>الوردية الثانية: من 2:00 PM حتى 7:00 PM</p>
+            <p>الوردية الثالثة: من 7:00 PM حتى 12:00 AM</p>
           </div>
           <p className="mt-4 rounded-lg border border-brand-accent/30 bg-brand-accent/10 p-3 text-xs font-black leading-6 text-foreground">
             كلمات المرور تُحفظ في إعدادات الخادم ولا تظهر داخل لوحة التحكم.
@@ -2788,7 +2788,8 @@ export function AdminObserversPage() {
                           @{observer.user.username}
                         </p>
                         <p className="mt-1 text-xs font-bold text-green-700 dark:text-brand-accent">
-                          الوردية: {observer.shiftStart ?? '—'} — {observer.shiftEnd ?? '—'}
+                          الوردية: {formatShiftTime(observer.shiftStart)} —{' '}
+                          {formatShiftTime(observer.shiftEnd)}
                         </p>
                         <p className="mt-1 text-xs font-semibold text-muted-foreground">
                           آخر دخول:{' '}
