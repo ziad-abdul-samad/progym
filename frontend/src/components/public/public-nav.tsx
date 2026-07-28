@@ -1,7 +1,16 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowUpRight, LogIn, LogOut, Menu, UserRound, X } from 'lucide-react';
+import {
+  ArrowUpRight,
+  LayoutDashboard,
+  LogIn,
+  LogOut,
+  Menu,
+  Sparkles,
+  UserRound,
+  X,
+} from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -19,6 +28,9 @@ const navCopy = {
     contact: 'تواصل',
     dashboard: 'لوحة التحكم',
     features: 'المميزات',
+    dashboardHintBody: 'اضغط على زر الترحيب للوصول إلى لوحة التحكم الخاصة بك.',
+    dashboardHintClose: 'إغلاق التلميح',
+    dashboardHintTitle: 'لوحتك من هنا',
     home: 'الرئيسية',
     login: 'دخول',
     logout: 'تسجيل الخروج',
@@ -38,6 +50,9 @@ const navCopy = {
     contact: 'Contact',
     dashboard: 'Dashboard',
     features: 'Features',
+    dashboardHintBody: 'Tap your greeting button to open your personal dashboard.',
+    dashboardHintClose: 'Close dashboard hint',
+    dashboardHintTitle: 'Your dashboard is here',
     home: 'Home',
     login: 'Login',
     logout: 'Log out',
@@ -74,6 +89,7 @@ function dashboardPath(user: SessionUser, locale: PublicLocale) {
 
 export function PublicNav({ locale }: { locale: PublicLocale }) {
   const [open, setOpen] = useState(false);
+  const [showDashboardHint, setShowDashboardHint] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [logoutConfirming, setLogoutConfirming] = useState(false);
   const auth = useAuth();
@@ -127,6 +143,17 @@ export function PublicNav({ locale }: { locale: PublicLocale }) {
     };
   }, [logoutOpen]);
 
+  useEffect(() => {
+    if (!user?.id || pathname !== `/${locale}`) {
+      setShowDashboardHint(false);
+      return;
+    }
+
+    setShowDashboardHint(true);
+    const timeout = window.setTimeout(() => setShowDashboardHint(false), 3_000);
+    return () => window.clearTimeout(timeout);
+  }, [locale, pathname, user?.id]);
+
   return (
     <header className="fixed inset-x-0 top-0 z-[70] text-white">
       <nav className="relative z-[72] flex h-[4.75rem] w-full items-center justify-between gap-2 border-b border-white/14 bg-black/55 px-3 backdrop-blur-xl sm:px-5 md:px-8 lg:px-10">
@@ -176,17 +203,59 @@ export function PublicNav({ locale }: { locale: PublicLocale }) {
             {otherLocale}
           </Link>
           {user ? (
-            <button
-              className="group flex h-10 min-w-0 max-w-[8.8rem] items-center gap-1.5 bg-[#39ff14] px-2.5 text-[0.58rem] font-black text-black transition hover:bg-white sm:max-w-[12rem] sm:px-3 md:h-auto md:max-w-none md:gap-3 md:px-4 md:py-3 md:text-[0.62rem]"
-              onClick={() => {
-                setLogoutConfirming(false);
-                setLogoutOpen(true);
-              }}
-              type="button"
-            >
-              <UserRound className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{accountGreeting(user, locale)}</span>
-            </button>
+            <div className="relative min-w-0">
+              <button
+                aria-describedby={showDashboardHint ? 'public-dashboard-hint' : undefined}
+                className="group flex h-10 min-w-0 max-w-[8.8rem] items-center gap-1.5 bg-[#39ff14] px-2.5 text-[0.58rem] font-black text-black transition hover:bg-white sm:max-w-[12rem] sm:px-3 md:h-auto md:max-w-none md:gap-3 md:px-4 md:py-3 md:text-[0.62rem]"
+                onClick={() => {
+                  setShowDashboardHint(false);
+                  setLogoutConfirming(false);
+                  setLogoutOpen(true);
+                }}
+                type="button"
+              >
+                <UserRound className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{accountGreeting(user, locale)}</span>
+              </button>
+
+              <AnimatePresence>
+                {showDashboardHint ? (
+                  <motion.aside
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    className="fixed inset-x-3 top-[5.35rem] z-[76] border border-[#39ff14]/45 bg-[#090c09] p-3.5 text-start text-white shadow-[0_18px_55px_rgba(0,0,0,0.58),0_0_30px_rgba(57,255,20,0.12)] sm:absolute sm:inset-x-auto sm:end-0 sm:top-full sm:mt-3 sm:w-72"
+                    exit={{ opacity: 0, scale: 0.96, y: -6 }}
+                    id="public-dashboard-hint"
+                    initial={{ opacity: 0, scale: 0.96, y: -6 }}
+                    role="status"
+                    transition={{ duration: 0.22, ease: 'easeOut' }}
+                  >
+                    <span className="absolute -top-2 end-7 hidden h-4 w-4 rotate-45 border-s border-t border-[#39ff14]/45 bg-[#090c09] sm:block" />
+                    <div className="flex items-start gap-3">
+                      <span className="relative flex h-9 w-9 shrink-0 items-center justify-center bg-[#39ff14] text-black">
+                        <LayoutDashboard className="h-4 w-4" />
+                        <Sparkles className="absolute -end-1.5 -top-1.5 h-3.5 w-3.5 rounded-full bg-white p-0.5 text-black" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-black text-[#39ff14]">
+                          {content.dashboardHintTitle}
+                        </p>
+                        <p className="mt-1 text-[0.68rem] font-bold leading-5 text-white/65">
+                          {content.dashboardHintBody}
+                        </p>
+                      </div>
+                      <button
+                        aria-label={content.dashboardHintClose}
+                        className="-me-1 -mt-1 flex h-7 w-7 shrink-0 items-center justify-center text-white/45 transition hover:bg-white/10 hover:text-white"
+                        onClick={() => setShowDashboardHint(false)}
+                        type="button"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </motion.aside>
+                ) : null}
+              </AnimatePresence>
+            </div>
           ) : (
             <Link
               className="group flex h-10 items-center gap-1.5 bg-[#39ff14] px-2.5 text-[0.58rem] font-black text-black transition hover:bg-white sm:px-3 md:h-auto md:gap-3 md:px-4 md:py-3 md:text-[0.62rem]"
