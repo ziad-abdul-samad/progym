@@ -3,6 +3,11 @@ import { JwtService } from '@nestjs/jwt';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import type { AuthenticatedRequest } from '../types/authenticated-user';
+import {
+  AUTH_SCOPE_HEADER,
+  authScopeFromHeader,
+  scopedAuthCookieName,
+} from '../utils/auth-scope.util';
 
 interface AccessTokenPayload {
   sub: string;
@@ -28,7 +33,10 @@ export class JwtAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const token = request.cookies?.access_token ?? getBearerToken(request.headers.authorization);
+    const scope = authScopeFromHeader(request.headers[AUTH_SCOPE_HEADER]);
+    const token =
+      request.cookies?.[scopedAuthCookieName('access_token', scope)] ??
+      getBearerToken(request.headers.authorization);
 
     if (!token) {
       throw new UnauthorizedException('Authentication is required');

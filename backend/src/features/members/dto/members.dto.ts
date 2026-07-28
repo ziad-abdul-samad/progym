@@ -1,7 +1,5 @@
 import { Type } from 'class-transformer';
 import {
-  ArrayMaxSize,
-  IsArray,
   IsBoolean,
   IsDateString,
   IsIn,
@@ -12,7 +10,6 @@ import {
   Min,
   MinLength,
   IsInt,
-  ValidateNested,
 } from 'class-validator';
 
 export class UpdateMemberProfileDto {
@@ -54,23 +51,20 @@ export class FoodAnalysisDto {
   @MinLength(3)
   @MaxLength(500)
   message!: string;
-
-  @IsOptional()
-  @IsArray()
-  @ArrayMaxSize(8)
-  @ValidateNested({ each: true })
-  @Type(() => NutritionChatHistoryDto)
-  history?: NutritionChatHistoryDto[];
 }
 
-export class NutritionChatHistoryDto {
-  @IsIn(['assistant', 'user'])
-  role!: 'assistant' | 'user';
-
+export class NutritionChatHistoryQueryDto {
+  @IsOptional()
   @IsString()
-  @MinLength(1)
-  @MaxLength(600)
-  content!: string;
+  @MaxLength(64)
+  cursor?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(6)
+  @Max(30)
+  pageSize: number = 12;
 }
 
 export class CreateWorkoutLogDto {

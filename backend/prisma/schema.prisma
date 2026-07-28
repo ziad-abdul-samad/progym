@@ -185,6 +185,11 @@ enum AuditAction {
   MEMBERSHIP_CHANGE
 }
 
+enum NutritionAiMessageRole {
+  USER
+  ASSISTANT
+}
+
 model User {
   id           String     @id @default(cuid())
   role         UserRole   @default(MEMBER)
@@ -219,6 +224,7 @@ model User {
   refreshSessions         RefreshSession[]
   securityAnswers         SecurityAnswer[]
   nutritionAiDailyUsage   NutritionAiDailyUsage[]
+  nutritionAiMessages     NutritionAiMessage[]
   shiftObserver           ShiftObserver?
 
   @@index([role, status])
@@ -265,6 +271,18 @@ model NutritionAiDailyUsage {
 
   @@unique([userId, usageDate])
   @@index([usageDate])
+}
+
+model NutritionAiMessage {
+  id        String                 @id @default(cuid())
+  userId    String
+  role      NutritionAiMessageRole
+  content   Json
+  createdAt DateTime               @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt, id])
 }
 
 model MemberProfile {

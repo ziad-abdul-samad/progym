@@ -1,6 +1,12 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  type InfiniteData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import {
   Activity,
   Beef,
@@ -31,7 +37,7 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -1595,25 +1601,39 @@ export function MemberCalculatorsPage() {
     resetsAt: string;
     used: number;
   };
-  type NutritionChatResult = FoodAnalysis & { usage: NutritionChatUsage };
+  type NutritionChatResult = FoodAnalysis & {
+    messages: ChatMessage[];
+    usage: NutritionChatUsage;
+  };
   type ChatMessage =
-    | { id: string; role: 'assistant' | 'user'; text: string }
-    | { analysis: FoodAnalysis; id: string; role: 'analysis' };
+    | { createdAt?: string; id: string; role: 'assistant' | 'user'; text: string }
+    | { analysis: FoodAnalysis; createdAt: string; id: string; role: 'analysis' };
+  type NutritionChatHistoryPage = {
+    items: ChatMessage[];
+    nextCursor: string | null;
+  };
 
   const [mode, setMode] = useState<CalculatorMode>('maintenance');
   const [activityMultiplier, setActivityMultiplier] = useState(1.45);
   const [foodMessage, setFoodMessage] = useState('');
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      text: text(
-        'اكتب وجبتك بالكميات أو اسألني عن التغذية. سأجيب حسب وزنك وطولك وعمرك وهدفك الحالي.',
-        'Enter your meal with quantities or ask a nutrition question. I will answer using your weight, height, age, and current goal.',
-      ),
-    },
-  ]);
+  const [pendingChatMessage, setPendingChatMessage] = useState<ChatMessage | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const didInitialChatScrollRef = useRef(false);
+  const loadingOlderMessagesRef = useRef(false);
   const queryClient = useQueryClient();
+  const nutritionChatHistoryKey = ['member', 'nutrition-chat', 'history'] as const;
+  const nutritionChatHistory = useInfiniteQuery({
+    getNextPageParam: (lastPage: NutritionChatHistoryPage) => lastPage.nextCursor ?? undefined,
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) => {
+      const search = new URLSearchParams({ pageSize: '12' });
+      if (pageParam) search.set('cursor', pageParam);
+      return apiRequest<NutritionChatHistoryPage>(
+        `/members/nutrition-chat/history?${search.toString()}`,
+      );
+    },
+    queryKey: nutritionChatHistoryKey,
+  });
   const nutritionChatUsage = useQuery({
     queryFn: () => apiRequest<NutritionChatUsage>('/members/nutrition-chat/usage'),
     queryKey: ['member', 'nutrition-chat', 'usage'],
@@ -1626,28 +1646,97 @@ export function MemberCalculatorsPage() {
       }),
   });
   const nutritionChat = useMutation({
-    mutationFn: (payload: {
-      history: Array<{ content: string; role: 'assistant' | 'user' }>;
-      message: string;
-    }) =>
+    mutationFn: (payload: { message: string }) =>
       apiRequest<NutritionChatResult>('/members/nutrition-chat', {
         body: jsonBody(payload),
         method: 'POST',
       }),
-    onError: () => {
+    onError: (_error, variables) => {
+      setFoodMessage((current) => current || variables.message);
+      setPendingChatMessage(null);
       void nutritionChatUsage.refetch();
     },
     onSuccess: (result) => {
-      const { usage, ...analysis } = result;
+      const { messages, usage } = result;
       queryClient.setQueryData(['member', 'nutrition-chat', 'usage'], usage);
-      setChatMessages((current) => [
-        ...current,
-        { analysis, id: `analysis-${Date.now()}`, role: 'analysis' },
-      ]);
+      queryClient.setQueryData<InfiniteData<NutritionChatHistoryPage>>(
+        nutritionChatHistoryKey,
+        (current) => {
+          if (!current) {
+            return {
+              pageParams: [null],
+              pages: [{ items: messages, nextCursor: null }],
+            };
+          }
+          const existingIds = new Set(
+            current.pages.flatMap((page) => page.items.map(({ id }) => id)),
+          );
+          const newMessages = messages.filter(({ id }) => !existingIds.has(id));
+          return {
+            ...current,
+            pages: current.pages.map((page, index) =>
+              index === 0 ? { ...page, items: [...page.items, ...newMessages] } : page,
+            ),
+          };
+        },
+      );
+      setPendingChatMessage(null);
+      window.requestAnimationFrame(() => {
+        if (chatScrollRef.current) {
+          chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+        }
+      });
     },
   });
+  const storedChatMessages = useMemo(
+    () =>
+      nutritionChatHistory.data
+        ? [...nutritionChatHistory.data.pages]
+            .reverse()
+            .flatMap((page: NutritionChatHistoryPage) => page.items)
+        : [],
+    [nutritionChatHistory.data],
+  );
+  const visibleChatMessages = pendingChatMessage
+    ? [...storedChatMessages, pendingChatMessage]
+    : storedChatMessages;
   const messagesRemaining = nutritionChatUsage.data?.remaining ?? 2;
   const dailyLimitReached = nutritionChatUsage.data?.remaining === 0;
+
+  useEffect(() => {
+    if (!nutritionChatHistory.isSuccess || didInitialChatScrollRef.current) return;
+    didInitialChatScrollRef.current = true;
+    window.requestAnimationFrame(() => {
+      if (chatScrollRef.current) {
+        chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+      }
+    });
+  }, [nutritionChatHistory.isSuccess]);
+
+  async function loadOlderChatMessages() {
+    const container = chatScrollRef.current;
+    if (
+      !container ||
+      !nutritionChatHistory.hasNextPage ||
+      nutritionChatHistory.isFetchingNextPage ||
+      loadingOlderMessagesRef.current
+    ) {
+      return;
+    }
+    loadingOlderMessagesRef.current = true;
+    const previousHeight = container.scrollHeight;
+    const previousTop = container.scrollTop;
+    try {
+      await nutritionChatHistory.fetchNextPage();
+      window.requestAnimationFrame(() => {
+        if (!chatScrollRef.current) return;
+        chatScrollRef.current.scrollTop =
+          previousTop + chatScrollRef.current.scrollHeight - previousHeight;
+      });
+    } finally {
+      loadingOlderMessagesRef.current = false;
+    }
+  }
 
   const modes: Array<{
     body: string;
@@ -1685,21 +1774,27 @@ export function MemberCalculatorsPage() {
 
   function sendFoodMessage(message = foodMessage) {
     const cleanMessage = message.trim();
-    if (cleanMessage.length < 3 || nutritionChat.isPending || dailyLimitReached) return;
-    const history = chatMessages
-      .filter((item) => item.id !== 'welcome')
-      .map((item) =>
-        item.role === 'analysis'
-          ? { content: item.analysis.replyAr, role: 'assistant' as const }
-          : { content: item.text, role: item.role },
-      )
-      .slice(-8);
-    setChatMessages((current) => [
-      ...current,
-      { id: `user-${Date.now()}`, role: 'user', text: cleanMessage },
-    ]);
+    if (
+      cleanMessage.length < 3 ||
+      nutritionChat.isPending ||
+      !nutritionChatHistory.isSuccess ||
+      dailyLimitReached
+    ) {
+      return;
+    }
+    setPendingChatMessage({
+      createdAt: new Date().toISOString(),
+      id: `pending-user-${Date.now()}`,
+      role: 'user',
+      text: cleanMessage,
+    });
     setFoodMessage('');
-    nutritionChat.mutate({ history, message: cleanMessage });
+    window.requestAnimationFrame(() => {
+      if (chatScrollRef.current) {
+        chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+      }
+    });
+    nutritionChat.mutate({ message: cleanMessage });
   }
 
   return (
@@ -1979,27 +2074,77 @@ export function MemberCalculatorsPage() {
             </div>
 
             <div className="flex h-[34rem] flex-col">
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-                <>
-                  {chatMessages.map((message) =>
-                    message.role === 'analysis' ? (
-                      <FoodAnalysisMessage analysis={message.analysis} key={message.id} />
-                    ) : (
-                      <div
-                        className={cn(
-                          'calculator-message',
-                          'max-w-[88%] rounded-lg px-4 py-3 text-sm font-semibold leading-7',
-                          message.role === 'user'
-                            ? 'ms-auto bg-foreground text-background'
-                            : 'me-auto border border-border bg-muted/40',
-                        )}
-                        key={message.id}
-                      >
-                        {message.text}
-                      </div>
-                    ),
-                  )}
-                </>
+              <div
+                className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4"
+                onScroll={(event) => {
+                  if (event.currentTarget.scrollTop <= 36) void loadOlderChatMessages();
+                }}
+                ref={chatScrollRef}
+              >
+                {nutritionChatHistory.hasNextPage ? (
+                  <div className="flex justify-center pb-1">
+                    <button
+                      className="rounded-full border border-border bg-muted/30 px-3 py-1.5 text-[11px] font-black text-muted-foreground transition hover:border-brand-accent hover:text-foreground disabled:opacity-55"
+                      disabled={nutritionChatHistory.isFetchingNextPage}
+                      onClick={() => void loadOlderChatMessages()}
+                      type="button"
+                    >
+                      {nutritionChatHistory.isFetchingNextPage
+                        ? text('تحميل الرسائل الأقدم...', 'Loading older messages...')
+                        : text('عرض الرسائل الأقدم', 'Show older messages')}
+                    </button>
+                  </div>
+                ) : null}
+                {nutritionChatHistory.isPending ? (
+                  <div className="flex justify-center py-8">
+                    <span className="h-6 w-6 animate-spin rounded-full border-2 border-brand-accent border-t-transparent" />
+                  </div>
+                ) : null}
+                {nutritionChatHistory.error ? (
+                  <ErrorState message={nutritionChatHistory.error.message} />
+                ) : null}
+                {nutritionChatHistory.isSuccess && visibleChatMessages.length === 0 ? (
+                  <div className="calculator-message me-auto max-w-[88%] rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm font-semibold leading-7">
+                    {text(
+                      'اكتب وجبتك بالكميات أو اسألني عن التغذية. سأجيب حسب وزنك وطولك وعمرك وهدفك الحالي.',
+                      'Enter your meal with quantities or ask a nutrition question. I will answer using your weight, height, age, and current goal.',
+                    )}
+                  </div>
+                ) : null}
+                {visibleChatMessages.map((message) =>
+                  message.role === 'analysis' ? (
+                    <FoodAnalysisMessage
+                      analysis={message.analysis}
+                      createdAt={message.createdAt}
+                      key={message.id}
+                    />
+                  ) : (
+                    <div
+                      className={cn(
+                        'calculator-message',
+                        'max-w-[88%] rounded-lg px-4 py-3 text-sm font-semibold leading-7',
+                        message.role === 'user'
+                          ? 'ms-auto bg-foreground text-background'
+                          : 'me-auto border border-border bg-muted/40',
+                      )}
+                      key={message.id}
+                    >
+                      <p>{message.text}</p>
+                      {message.createdAt ? (
+                        <time
+                          className={cn(
+                            'mt-1.5 block text-[10px] font-bold leading-none opacity-55',
+                            message.role === 'user' ? 'text-background' : 'text-muted-foreground',
+                          )}
+                          dateTime={message.createdAt}
+                          dir="ltr"
+                        >
+                          {formatCompactDateTime(message.createdAt)}
+                        </time>
+                      ) : null}
+                    </div>
+                  ),
+                )}
                 {nutritionChat.isPending ? (
                   <div className="calculator-message me-auto flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-4 py-3">
                     {[0, 1, 2].map((dot) => (
@@ -2054,7 +2199,11 @@ export function MemberCalculatorsPage() {
                   ].map((example) => (
                     <button
                       className="shrink-0 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-xs font-bold transition hover:border-brand-accent disabled:cursor-not-allowed disabled:opacity-45"
-                      disabled={dailyLimitReached || nutritionChat.isPending}
+                      disabled={
+                        dailyLimitReached ||
+                        nutritionChat.isPending ||
+                        !nutritionChatHistory.isSuccess
+                      }
                       key={example}
                       onClick={() => sendFoodMessage(example)}
                       type="button"
@@ -2085,7 +2234,11 @@ export function MemberCalculatorsPage() {
                   <Button
                     aria-label={text('إرسال للتحليل', 'Send for analysis')}
                     className="h-12 min-h-12 w-12 shrink-0 p-0"
-                    disabled={dailyLimitReached || foodMessage.trim().length < 3}
+                    disabled={
+                      dailyLimitReached ||
+                      !nutritionChatHistory.isSuccess ||
+                      foodMessage.trim().length < 3
+                    }
                     isLoading={nutritionChat.isPending}
                   >
                     <Send className="h-5 w-5 rotate-180" />
@@ -2132,6 +2285,7 @@ function MacroResult({
 
 function FoodAnalysisMessage({
   analysis,
+  createdAt,
 }: {
   analysis: {
     confidence: 'HIGH' | 'LOW' | 'MEDIUM';
@@ -2149,6 +2303,7 @@ function FoodAnalysisMessage({
     source: 'GEMINI';
     totals: { calories: number; carbsG: number; fatG: number; proteinG: number };
   };
+  createdAt: string;
 }) {
   const { text } = useMemberLocale();
   return (
@@ -2160,14 +2315,23 @@ function FoodAnalysisMessage({
             {text('مساعد Pro Gym AI', 'Pro Gym AI assistant')}
           </span>
         </div>
-        <span className="text-[10px] font-black text-muted-foreground">
-          {text('ثقة', 'Confidence')}{' '}
-          {analysis.confidence === 'HIGH'
-            ? text('مرتفعة', 'high')
-            : analysis.confidence === 'MEDIUM'
-              ? text('متوسطة', 'medium')
-              : text('منخفضة', 'low')}
-        </span>
+        <div className="text-end">
+          <span className="block text-[10px] font-black text-muted-foreground">
+            {text('ثقة', 'Confidence')}{' '}
+            {analysis.confidence === 'HIGH'
+              ? text('مرتفعة', 'high')
+              : analysis.confidence === 'MEDIUM'
+                ? text('متوسطة', 'medium')
+                : text('منخفضة', 'low')}
+          </span>
+          <time
+            className="mt-1 block text-[10px] font-bold text-muted-foreground/70"
+            dateTime={createdAt}
+            dir="ltr"
+          >
+            {formatCompactDateTime(createdAt)}
+          </time>
+        </div>
       </div>
       <div className="space-y-3 p-4">
         <p className="text-sm font-semibold leading-6">{analysis.replyAr}</p>

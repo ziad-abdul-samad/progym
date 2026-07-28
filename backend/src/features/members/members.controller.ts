@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -19,6 +20,7 @@ import {
   CalculatorDto,
   CreateWorkoutLogDto,
   FoodAnalysisDto,
+  NutritionChatHistoryQueryDto,
   UpdateMemberProfileDto,
 } from './dto/members.dto';
 import { MembersService } from './members.service';
@@ -74,10 +76,7 @@ export class MembersController {
   }
 
   @Post('workout-logs')
-  async createWorkoutLog(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: CreateWorkoutLogDto,
-  ) {
+  async createWorkoutLog(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateWorkoutLogDto) {
     return { data: await this.members.createWorkoutLog(user, dto) };
   }
 
@@ -105,5 +104,13 @@ export class MembersController {
   @Get('nutrition-chat/usage')
   async nutritionAiUsage(@CurrentUser() user: AuthenticatedUser) {
     return { data: await this.members.nutritionAiUsage(user) };
+  }
+
+  @Get('nutrition-chat/history')
+  async nutritionAiHistory(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: NutritionChatHistoryQueryDto,
+  ) {
+    return { data: await this.members.nutritionAiHistory(user, query) };
   }
 }

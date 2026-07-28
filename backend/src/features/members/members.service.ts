@@ -12,6 +12,8 @@ import {
   CoachRequestType,
   CoachSubscriptionAction,
   NotificationType,
+  NutritionAiMessageRole,
+  Prisma,
   UserRole,
   WorkoutLogSource,
 } from '@prisma/client';
@@ -26,10 +28,26 @@ import type {
   CalculatorDto,
   CreateWorkoutLogDto,
   FoodAnalysisDto,
+  NutritionChatHistoryQueryDto,
   UpdateMemberProfileDto,
 } from './dto/members.dto';
 import { NutritionAiQuotaService } from './nutrition-ai-quota.service';
 import { NutritionAiService } from './nutrition-ai.service';
+
+function jsonObject(value: Prisma.JsonValue): Record<string, Prisma.JsonValue> | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, Prisma.JsonValue>)
+    : undefined;
+}
+
+type NutritionChatMessageView =
+  | { createdAt: Date; id: string; role: 'user'; text: string }
+  | {
+      analysis: Record<string, Prisma.JsonValue>;
+      createdAt: Date;
+      id: string;
+      role: 'analysis';
+    };
 
 @Injectable()
 export class MembersService {
@@ -81,9 +99,7 @@ export class MembersService {
     const remainingDays = assignment?.coachingEndsAt
       ? Math.max(
           0,
-          Math.ceil(
-            (assignment.coachingEndsAt.getTime() - coachingEffectiveNow) / 86_400_000,
-          ),
+          Math.ceil((assignment.coachingEndsAt.getTime() - coachingEffectiveNow) / 86_400_000),
         )
       : 0;
 
@@ -395,11 +411,34 @@ export class MembersService {
     });
     const age = ageFromDateOfBirth(member.dateOfBirth);
     const reservedAt = new Date();
+    const recentMessages = await this.prisma.nutritionAiMessage.findMany({
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 8,
+      where: { userId: user.id },
+    });
+    const history = recentMessages
+      .reverse()
+      .flatMap((message): Array<{ content: string; role: 'assistant' | 'user' }> => {
+        const content = jsonObject(message.content);
+        const text =
+          message.role === NutritionAiMessageRole.USER ? content?.text : content?.replyAr;
+        if (typeof text !== 'string' || !text.trim()) return [];
+        return [
+          {
+            content: text,
+            role:
+              message.role === NutritionAiMessageRole.USER
+                ? ('user' as const)
+                : ('assistant' as const),
+          },
+        ];
+      });
     const usage = await this.nutritionAiQuota.reserve(user.id, reservedAt);
 
     try {
+      const cleanMessage = dto.message.trim();
       const analysis = await this.nutritionAi.analyze(
-        dto.message.trim(),
+        cleanMessage,
         {
           age,
           fitnessGoal: member.fitnessGoal,
@@ -407,9 +446,46 @@ export class MembersService {
           heightCm: Number(member.heightCm),
           weightKg: Number(member.currentWeightKg),
         },
-        dto.history ?? [],
+        history,
       );
-      return { ...analysis, usage };
+      const userCreatedAt = new Date();
+      const assistantCreatedAt = new Date(userCreatedAt.getTime() + 1);
+      const [userMessage, assistantMessage] = await this.prisma.$transaction([
+        this.prisma.nutritionAiMessage.create({
+          data: {
+            content: { text: cleanMessage },
+            createdAt: userCreatedAt,
+            role: NutritionAiMessageRole.USER,
+            userId: user.id,
+          },
+        }),
+        this.prisma.nutritionAiMessage.create({
+          data: {
+            content: analysis,
+            createdAt: assistantCreatedAt,
+            role: NutritionAiMessageRole.ASSISTANT,
+            userId: user.id,
+          },
+        }),
+      ]);
+      return {
+        ...analysis,
+        messages: [
+          {
+            createdAt: userMessage.createdAt,
+            id: userMessage.id,
+            role: 'user' as const,
+            text: cleanMessage,
+          },
+          {
+            analysis,
+            createdAt: assistantMessage.createdAt,
+            id: assistantMessage.id,
+            role: 'analysis' as const,
+          },
+        ],
+        usage,
+      };
     } catch (error) {
       await this.nutritionAiQuota.release(user.id, reservedAt).catch(() => undefined);
       throw error;
@@ -419,6 +495,50 @@ export class MembersService {
   async nutritionAiUsage(user: AuthenticatedUser) {
     await this.requireActiveMember(user);
     return this.nutritionAiQuota.getUsage(user.id);
+  }
+
+  async nutritionAiHistory(user: AuthenticatedUser, query: NutritionChatHistoryQueryDto) {
+    await this.requireActiveMember(user);
+    const pageSize = query.pageSize ?? 12;
+    const rows = await this.prisma.nutritionAiMessage.findMany({
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: pageSize + 1,
+      where: { userId: user.id },
+    });
+    const hasMore = rows.length > pageSize;
+    const page = rows.slice(0, pageSize);
+    const nextCursor = hasMore ? (page.at(-1)?.id ?? null) : null;
+    const items = [...page].reverse().flatMap<NutritionChatMessageView>((message) => {
+      const content = jsonObject(message.content);
+      if (message.role === NutritionAiMessageRole.USER) {
+        return typeof content?.text === 'string'
+          ? [
+              {
+                createdAt: message.createdAt,
+                id: message.id,
+                role: 'user' as const,
+                text: content.text,
+              },
+            ]
+          : [];
+      }
+      return typeof content?.replyAr === 'string'
+        ? [
+            {
+              analysis: content,
+              createdAt: message.createdAt,
+              id: message.id,
+              role: 'analysis' as const,
+            },
+          ]
+        : [];
+    });
+
+    return {
+      items,
+      nextCursor,
+    };
   }
 
   private requireMember(user: AuthenticatedUser): string {

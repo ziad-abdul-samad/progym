@@ -12,6 +12,7 @@ import type { PublicLocale } from '@progym/shared';
 
 import { useAuth, type SessionUser } from '@/lib/auth/use-auth';
 import { apiRequest, jsonBody } from '@/lib/api/client';
+import { cn } from '@/lib/utils';
 
 const navCopy = {
   ar: {
@@ -194,10 +195,28 @@ export function PublicNav({ locale }: { locale: PublicLocale }) {
             {otherLocale}
           </Link>
           {user ? (
-            <div className="relative min-w-0">
+            <div className={cn('relative min-w-0', showDashboardHint && 'z-[78]')}>
+              <AnimatePresence>
+                {showDashboardHint ? (
+                  <motion.button
+                    animate={{ opacity: 1 }}
+                    aria-label={content.dashboardHintClose}
+                    className="fixed inset-0 z-0 cursor-default bg-black/55 backdrop-blur-[3px]"
+                    exit={{ opacity: 0 }}
+                    initial={{ opacity: 0 }}
+                    onClick={() => setShowDashboardHint(false)}
+                    transition={{ duration: 0.25 }}
+                    type="button"
+                  />
+                ) : null}
+              </AnimatePresence>
               <button
                 aria-describedby={showDashboardHint ? 'public-dashboard-hint' : undefined}
-                className="group flex h-10 min-w-0 max-w-[8.8rem] items-center gap-1.5 bg-[#39ff14] px-2.5 text-[0.58rem] font-black text-black transition hover:bg-white sm:max-w-[12rem] sm:px-3 md:h-auto md:max-w-none md:gap-3 md:px-4 md:py-3 md:text-[0.62rem]"
+                className={cn(
+                  'group relative z-10 flex h-10 min-w-0 max-w-[8.8rem] items-center gap-1.5 bg-[#39ff14] px-2.5 text-[0.58rem] font-black text-black transition hover:bg-white sm:max-w-[12rem] sm:px-3 md:h-auto md:max-w-none md:gap-3 md:px-4 md:py-3 md:text-[0.62rem]',
+                  showDashboardHint &&
+                    'scale-[1.04] ring-4 ring-white/75 shadow-[0_0_0_8px_rgba(57,255,20,0.16),0_0_38px_rgba(57,255,20,0.72)]',
+                )}
                 onClick={() => {
                   setShowDashboardHint(false);
                   setLogoutConfirming(false);
@@ -213,12 +232,13 @@ export function PublicNav({ locale }: { locale: PublicLocale }) {
                 {showDashboardHint ? (
                   <motion.aside
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    className="fixed inset-x-3 top-[5.35rem] z-[76] border border-[#39ff14]/45 bg-[#090c09] p-3.5 text-start text-white shadow-[0_18px_55px_rgba(0,0,0,0.58),0_0_30px_rgba(57,255,20,0.12)] sm:absolute sm:inset-x-auto sm:end-0 sm:top-full sm:mt-3 sm:w-72"
-                    exit={{ opacity: 0, scale: 0.96, y: -6 }}
+                    className="fixed inset-x-3 top-[5.35rem] z-10 border border-[#39ff14]/45 bg-[#090c09] p-3.5 text-start text-white shadow-[0_18px_55px_rgba(0,0,0,0.58),0_0_30px_rgba(57,255,20,0.12)] sm:absolute sm:inset-x-auto sm:end-0 sm:top-full sm:mt-3 sm:w-72"
+                    exit={{ opacity: 0, scale: 0.45, y: -12 }}
                     id="public-dashboard-hint"
-                    initial={{ opacity: 0, scale: 0.96, y: -6 }}
+                    initial={{ opacity: 0, scale: 0.45, y: -12 }}
                     role="status"
-                    transition={{ duration: 0.22, ease: 'easeOut' }}
+                    style={{ transformOrigin: locale === 'ar' ? 'top right' : 'top left' }}
+                    transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
                   >
                     <span className="absolute -top-2 end-7 hidden h-4 w-4 rotate-45 border-s border-t border-[#39ff14]/45 bg-[#090c09] sm:block" />
                     <div className="flex items-start gap-3">
