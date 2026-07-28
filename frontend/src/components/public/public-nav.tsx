@@ -147,11 +147,24 @@ export function PublicNav({ locale }: { locale: PublicLocale }) {
   }, [locale, pathname, user?.id]);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-[70] text-white">
-      <nav className="relative z-[72] flex h-[4.75rem] w-full items-center justify-between gap-2 border-b border-white/14 bg-black/55 px-3 backdrop-blur-xl sm:px-5 md:px-8 lg:px-10">
+    <header
+      className={cn(
+        'fixed inset-x-0 top-0 text-white',
+        showDashboardHint ? 'z-[75]' : 'z-[70]',
+      )}
+    >
+      <nav
+        className={cn(
+          'relative z-[72] flex h-[4.75rem] w-full items-center justify-between gap-2 border-b border-white/14 bg-black/55 px-3 backdrop-blur-xl sm:px-5 md:px-8 lg:px-10',
+          showDashboardHint && 'pointer-events-none',
+        )}
+      >
         <Link
           aria-label="Pro Gym"
-          className="group flex shrink-0 items-center gap-3"
+          className={cn(
+            'group flex shrink-0 items-center gap-3 transition duration-300',
+            showDashboardHint && 'blur-[3px] opacity-40',
+          )}
           href={`/${locale}`}
         >
           <span className="relative h-11 w-9 overflow-hidden bg-black">
@@ -169,7 +182,12 @@ export function PublicNav({ locale }: { locale: PublicLocale }) {
           </span>
         </Link>
 
-        <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-2 lg:flex">
+        <div
+          className={cn(
+            'absolute left-1/2 hidden -translate-x-1/2 items-center gap-2 transition duration-300 lg:flex',
+            showDashboardHint && 'blur-[3px] opacity-40',
+          )}
+        >
           {links.map((link) => (
             <Link
               aria-current={isActive(link.href) ? 'page' : undefined}
@@ -189,27 +207,21 @@ export function PublicNav({ locale }: { locale: PublicLocale }) {
         <div className="flex min-w-0 items-center gap-1.5 sm:gap-2 lg:gap-3">
           <Link
             aria-label={otherLocale === 'ar' ? 'العربية' : 'English'}
-            className="flex h-10 min-w-9 items-center justify-center border border-white/12 bg-white/[0.035] px-1.5 text-[0.55rem] font-black uppercase tracking-[0.1em] text-white/55 transition hover:border-[#39ff14] hover:text-[#39ff14] sm:min-w-10 sm:px-2 sm:text-[0.58rem]"
+            className={cn(
+              'flex h-10 min-w-9 items-center justify-center border border-white/12 bg-white/[0.035] px-1.5 text-[0.55rem] font-black uppercase tracking-[0.1em] text-white/55 transition hover:border-[#39ff14] hover:text-[#39ff14] sm:min-w-10 sm:px-2 sm:text-[0.58rem]',
+              showDashboardHint && 'blur-[3px] opacity-40',
+            )}
             href={switchedPath}
           >
             {otherLocale}
           </Link>
           {user ? (
-            <div className={cn('relative min-w-0', showDashboardHint && 'z-[78]')}>
-              <AnimatePresence>
-                {showDashboardHint ? (
-                  <motion.button
-                    animate={{ opacity: 1 }}
-                    aria-label={content.dashboardHintClose}
-                    className="fixed inset-0 z-0 cursor-default bg-black/55 backdrop-blur-[3px]"
-                    exit={{ opacity: 0 }}
-                    initial={{ opacity: 0 }}
-                    onClick={() => setShowDashboardHint(false)}
-                    transition={{ duration: 0.25 }}
-                    type="button"
-                  />
-                ) : null}
-              </AnimatePresence>
+            <div
+              className={cn(
+                'relative min-w-0',
+                showDashboardHint && 'pointer-events-auto z-[78]',
+              )}
+            >
               <button
                 aria-describedby={showDashboardHint ? 'public-dashboard-hint' : undefined}
                 className={cn(
@@ -286,7 +298,10 @@ export function PublicNav({ locale }: { locale: PublicLocale }) {
           <button
             aria-expanded={open}
             aria-label={content.menu}
-            className="flex h-10 shrink-0 items-center gap-2 border border-white/14 bg-black/35 px-3 text-[0.58rem] font-black uppercase tracking-[0.12em] transition hover:border-[#39ff14]/55 hover:text-[#39ff14] sm:h-11 sm:px-4 sm:text-[0.62rem]"
+            className={cn(
+              'flex h-10 shrink-0 items-center gap-2 border border-white/14 bg-black/35 px-3 text-[0.58rem] font-black uppercase tracking-[0.12em] transition hover:border-[#39ff14]/55 hover:text-[#39ff14] sm:h-11 sm:px-4 sm:text-[0.62rem]',
+              showDashboardHint && 'blur-[3px] opacity-40',
+            )}
             onClick={() => setOpen((value) => !value)}
             type="button"
           >
@@ -363,6 +378,26 @@ export function PublicNav({ locale }: { locale: PublicLocale }) {
           </motion.div>
         ) : null}
       </AnimatePresence>
+
+      {typeof document !== 'undefined'
+        ? createPortal(
+            <AnimatePresence>
+              {showDashboardHint ? (
+                <motion.button
+                  animate={{ opacity: 1 }}
+                  aria-label={content.dashboardHintClose}
+                  className="fixed inset-0 z-[74] cursor-default bg-black/55 backdrop-blur-[5px]"
+                  exit={{ opacity: 0 }}
+                  initial={{ opacity: 0 }}
+                  onClick={() => setShowDashboardHint(false)}
+                  transition={{ duration: 0.25 }}
+                  type="button"
+                />
+              ) : null}
+            </AnimatePresence>,
+            document.body,
+          )
+        : null}
 
       {typeof document !== 'undefined' && logoutOpen && user
         ? createPortal(
