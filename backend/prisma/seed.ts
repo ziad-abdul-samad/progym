@@ -40,9 +40,11 @@ const uploadRoot = join(process.cwd(), 'uploads');
 const observerAccounts = [
   {
     fullName: 'مراقب الفترة الأولى',
+    fallbackPasswordHash:
+      '$argon2id$v=19$m=65536,t=3,p=4$IIj8qM/5Oyd/s7ZpTzBiqg$ARjiKKtrVaqAmSbds5vInef7NnqxyU4WsxPbIwROk8M',
     legacyName: 'Morning Shift Observer',
     notes: 'الوردية الأولى: من 7 صباحاً حتى 2 ظهراً',
-    password: process.env.SEED_OBSERVER_1_PASSWORD ?? 'Observer1@2026',
+    password: process.env.SEED_OBSERVER_1_PASSWORD,
     phone: '+963900000301',
     shiftEnd: '14:00',
     shiftStart: '07:00',
@@ -50,9 +52,11 @@ const observerAccounts = [
   },
   {
     fullName: 'مراقب الفترة الثانية',
+    fallbackPasswordHash:
+      '$argon2id$v=19$m=65536,t=3,p=4$AQEcu6n3faND9toTeSHnNg$fcnPbsdCc6X9qeSXl1Nv+36IECVtSfedORUqxKvwPEQ',
     legacyName: 'Evening Shift Observer',
     notes: 'الوردية الثانية: من 2 ظهراً حتى 7 مساءً',
-    password: process.env.SEED_OBSERVER_2_PASSWORD ?? 'Observer2@2026',
+    password: process.env.SEED_OBSERVER_2_PASSWORD,
     phone: '+963900000302',
     shiftEnd: '19:00',
     shiftStart: '14:00',
@@ -60,9 +64,11 @@ const observerAccounts = [
   },
   {
     fullName: 'مراقب الفترة الثالثة',
+    fallbackPasswordHash:
+      '$argon2id$v=19$m=65536,t=3,p=4$PH1l+ZMlnCDR0q2exhUhQQ$HQPoxcKRgdbcwlEwobLAJyGGAHIjUAr4TC1G50yp1nA',
     legacyName: 'Weekend Shift Observer',
     notes: 'الوردية الثالثة: من 7 مساءً حتى 12 ليلاً',
-    password: process.env.SEED_OBSERVER_3_PASSWORD ?? 'Observer3@2026',
+    password: process.env.SEED_OBSERVER_3_PASSWORD,
     phone: '+963900000303',
     shiftEnd: '00:00',
     shiftStart: '19:00',
@@ -586,10 +592,13 @@ async function seedDemoUsers() {
 
 async function seedObservers() {
   for (const account of observerAccounts) {
+    const passwordHash = account.password
+      ? await hashPassword(account.password)
+      : account.fallbackPasswordHash;
     const user = await prisma.user.upsert({
       create: {
         fullName: account.fullName,
-        passwordHash: await hashPassword(account.password),
+        passwordHash,
         phone: account.phone,
         role: UserRole.OBSERVER,
         status: UserStatus.ACTIVE,
@@ -597,7 +606,7 @@ async function seedObservers() {
       },
       update: {
         fullName: account.fullName,
-        passwordHash: await hashPassword(account.password),
+        passwordHash,
         phone: account.phone,
         role: UserRole.OBSERVER,
         status: UserStatus.ACTIVE,
