@@ -67,7 +67,7 @@ function accountGreeting(user: SessionUser, locale: PublicLocale) {
 }
 
 function dashboardPath(user: SessionUser, locale: PublicLocale) {
-  if (user.role === 'ADMIN') return '/ar/dashboard/admin';
+  if (user.role === 'ADMIN' || user.role === 'OBSERVER') return '/ar/dashboard/admin';
   if (user.role === 'COACH') return '/ar/dashboard/coach';
   return `/${locale}/dashboard/member`;
 }

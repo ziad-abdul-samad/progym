@@ -18,7 +18,7 @@ export class AttendanceController {
   constructor(private readonly attendance: AttendanceService) {}
 
   @Post('qr')
-  @Protected(UserRole.ADMIN)
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async createQr(@Body() dto: CreateAttendanceQrDto, @CurrentUser() admin: AuthenticatedUser) {
     return { data: await this.attendance.createQr(admin, dto.expiresInMinutes) };
   }
@@ -36,16 +36,13 @@ export class AttendanceController {
   }
 
   @Post('manual')
-  @Protected(UserRole.ADMIN)
-  async manual(
-    @Body() dto: ManualAttendanceDto,
-    @CurrentUser() admin: AuthenticatedUser,
-  ) {
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
+  async manual(@Body() dto: ManualAttendanceDto, @CurrentUser() admin: AuthenticatedUser) {
     return { data: await this.attendance.manualRecord(admin, dto.memberId, dto.notes) };
   }
 
   @Get('recent')
-  @Protected(UserRole.ADMIN)
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async recent() {
     return { data: await this.attendance.recentCheckIns() };
   }
@@ -57,13 +54,13 @@ export class AttendanceController {
   }
 
   @Get()
-  @Protected(UserRole.ADMIN)
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async adminList(@Query() query: PaginationDto) {
     return { data: await this.attendance.adminList(query) };
   }
 
   @Patch(':id/void')
-  @Protected(UserRole.ADMIN)
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async voidRecord(
     @Param('id') id: string,
     @Body() dto: VoidAttendanceDto,

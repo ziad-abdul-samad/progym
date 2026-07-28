@@ -69,7 +69,7 @@ type Member = {
     fullName: string;
     id: string;
     phone: string;
-    role: 'MEMBER' | 'COACH' | 'ADMIN';
+    role: 'MEMBER' | 'COACH' | 'ADMIN' | 'OBSERVER';
     status: string;
     username: string;
   };
@@ -146,7 +146,11 @@ type ShiftObserver = {
   notes?: string | null;
   phone?: string | null;
   status: string;
+  shiftEnd?: string | null;
+  shiftStart?: string | null;
   updatedAt: string;
+  user?: { lastLoginAt: string | null; username: string } | null;
+  userId?: string | null;
 };
 
 type Subscription = {
@@ -169,6 +173,20 @@ type MembershipAuditItem = {
   observer?: ShiftObserver | null;
   previousValue: Record<string, unknown>;
   reason: string;
+};
+
+type GeneralAuditItem = {
+  action: string;
+  actor: {
+    fullName: string;
+    role: 'ADMIN' | 'COACH' | 'MEMBER' | 'OBSERVER';
+    username: string;
+  } | null;
+  createdAt: string;
+  entityId: string | null;
+  entityType: string;
+  id: string;
+  metadata: Record<string, unknown> | null;
 };
 
 type AdminExercise = {
@@ -2687,14 +2705,6 @@ export function AdminObserversPage() {
       ),
     queryKey: ['shift-observer-activity', selectedObserver?.id],
   });
-  const create = useMutation({
-    mutationFn: (payload: Record<string, FormDataEntryValue>) =>
-      apiRequest('/admin/observers', { body: jsonBody(payload), method: 'POST' }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['shift-observers'] });
-      push({ title: 'تمت إضافة المراقب', tone: 'success' });
-    },
-  });
   const status = useMutation({
     mutationFn: ({ action, id }: { action: 'activate' | 'deactivate'; id: string }) =>
       apiRequest(`/admin/observers/${id}/${action}`, { body: jsonBody({}), method: 'PATCH' }),
@@ -2726,28 +2736,21 @@ export function AdminObserversPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        body="المراقب هو موظف الشفت الذي يسجل سبب تعديل الاشتراك أمام المالك. ليس دوراً جديداً في النظام، لكنه يظهر في سجل التدقيق ونشاط الشفت."
+        body="لكل وردية حساب مراقب مستقل بصلاحيات تشغيلية محددة. كل تسجيل دخول أو تعديل أو اعتماد يُحفظ باسم صاحب الحساب ليتمكن المالك من مراجعة النشاط بالكامل."
         icon={ClipboardList}
-        title="إدارة المراقبين"
+        title="حسابات المراقبين والورديات"
       />
       <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
         <Card>
-          <CardTitle>إضافة مراقب شفت</CardTitle>
-          <form
-            className="mt-4 grid gap-3"
-            onSubmit={(event) => {
-              event.preventDefault();
-              create.mutate(objectFromForm(event.currentTarget));
-              event.currentTarget.reset();
-            }}
-          >
-            <Input name="fullName" placeholder="اسم المراقب" required />
-            <Input name="phone" placeholder="الهاتف" />
-            <Textarea name="notes" placeholder="ملاحظات أو الشفت المعتاد" />
-            <Button isLoading={create.isPending} loadingText="جاري الإضافة">
-              إضافة مراقب
-            </Button>
-          </form>
+          <CardTitle>ثلاثة حسابات ثابتة وآمنة</CardTitle>
+          <div className="mt-4 space-y-3 text-sm font-bold leading-7 text-muted-foreground">
+            <p>الوردية الأولى: من 07:00 حتى 14:00</p>
+            <p>الوردية الثانية: من 14:00 حتى 19:00</p>
+            <p>الوردية الثالثة: من 19:00 حتى 00:00</p>
+          </div>
+          <p className="mt-4 rounded-lg border border-brand-accent/30 bg-brand-accent/10 p-3 text-xs font-black leading-6 text-foreground">
+            كلمات المرور تُحفظ في إعدادات الخادم ولا تظهر داخل لوحة التحكم.
+          </p>
         </Card>
         <Card>
           <CardTitle>بحث سريع</CardTitle>
@@ -2779,6 +2782,22 @@ export function AdminObserversPage() {
                     <p className="mt-1 text-sm font-semibold text-muted-foreground">
                       {observer.phone ?? 'لا يوجد هاتف'}
                     </p>
+                    {observer.user ? (
+                      <>
+                        <p className="mt-2 text-sm font-black text-foreground" dir="ltr">
+                          @{observer.user.username}
+                        </p>
+                        <p className="mt-1 text-xs font-bold text-green-700 dark:text-brand-accent">
+                          الوردية: {observer.shiftStart ?? '—'} — {observer.shiftEnd ?? '—'}
+                        </p>
+                        <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                          آخر دخول:{' '}
+                          {observer.user.lastLoginAt
+                            ? formatCompactDateTime(observer.user.lastLoginAt)
+                            : 'لم يسجل الدخول بعد'}
+                        </p>
+                      </>
+                    ) : null}
                     <p className="mt-3 text-xs font-bold text-muted-foreground">
                       {observer._count?.membershipAuditLogs ?? 0} عملية مسجلة
                     </p>
@@ -2805,9 +2824,11 @@ export function AdminObserversPage() {
                   >
                     {observer.status === 'ACTIVE' ? 'تعطيل' : 'تفعيل'}
                   </Button>
-                  <Button onClick={() => setDeletingObserver(observer)} variant="danger">
-                    حذف
-                  </Button>
+                  {!observer.userId ? (
+                    <Button onClick={() => setDeletingObserver(observer)} variant="danger">
+                      حذف
+                    </Button>
+                  ) : null}
                 </div>
               </Card>
             ))}
@@ -2950,7 +2971,7 @@ export function AdminPhotosPage() {
   );
 }
 
-export function AdminAuditPage() {
+function MembershipAuditHistory() {
   const [auditQuery, setAuditQuery] = useState('');
   const deferredAuditQuery = useDeferredValue(auditQuery);
   const [auditPage, setAuditPage] = useState(1);
@@ -3091,6 +3112,194 @@ export function AdminAuditPage() {
                 </div>
               </Card>
             </div>
+          </div>
+        ) : null}
+      </Dialog>
+    </div>
+  );
+}
+
+function generalAuditActionLabel(action: string) {
+  return (
+    {
+      ATTENDANCE: 'تسجيل أو تعديل حضور',
+      CREATE: 'إنشاء',
+      DELETE: 'حذف',
+      LOGIN: 'تسجيل دخول',
+      LOGOUT: 'تسجيل خروج',
+      MEMBERSHIP_CHANGE: 'تعديل اشتراك',
+      PASSWORD_RESET: 'إعادة تعيين كلمة مرور',
+      PAYMENT: 'عملية دفع',
+      QR_SCAN: 'مسح QR',
+      ROLE_CHANGE: 'تغيير صلاحية',
+      UPDATE: 'تعديل',
+    }[action] ?? action
+  );
+}
+
+export function AdminAuditPage() {
+  const [auditQuery, setAuditQuery] = useState('');
+  const deferredAuditQuery = useDeferredValue(auditQuery);
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditAction, setAuditAction] = useState('ALL');
+  const [actorRole, setActorRole] = useState('ALL');
+  const [selectedAudit, setSelectedAudit] = useState<GeneralAuditItem | null>(null);
+  const [showMembershipHistory, setShowMembershipHistory] = useState(false);
+  const audit = useQuery({
+    queryFn: () =>
+      apiRequest<PaginatedResponse<GeneralAuditItem>>(
+        pagedPath('/admin/audit-log', {
+          action: auditAction,
+          page: auditPage,
+          pageSize: ADMIN_PAGE_SIZE,
+          q: deferredAuditQuery,
+          status: actorRole,
+        }),
+      ),
+    queryKey: ['general-audit', actorRole, auditAction, auditPage, deferredAuditQuery],
+  });
+
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        body="يسجل النظام اسم الحساب الذي نفذ كل عملية ووقتها وتفاصيلها. استخدم فلتر المراقبين لمراجعة أعمال كل وردية بشكل مباشر."
+        icon={ShieldAlert}
+        title="سجل نشاط الإدارة والمراقبين"
+      />
+      <Card>
+        <div className="grid gap-3 lg:grid-cols-[1fr_0.65fr_0.65fr_auto] lg:items-center">
+          <div className="relative">
+            <Search className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pe-10"
+              onChange={(event) => {
+                setAuditQuery(event.target.value);
+                setAuditPage(1);
+              }}
+              placeholder="ابحث باسم المسؤول أو نوع العملية"
+              value={auditQuery}
+            />
+          </div>
+          <SelectField
+            name="auditActorRole"
+            onChange={(event) => {
+              setActorRole(event.target.value);
+              setAuditPage(1);
+            }}
+            value={actorRole}
+          >
+            <option value="ALL">كل الحسابات</option>
+            <option value="OBSERVER">المراقبون فقط</option>
+            <option value="ADMIN">المالك فقط</option>
+          </SelectField>
+          <SelectField
+            name="generalAuditAction"
+            onChange={(event) => {
+              setAuditAction(event.target.value);
+              setAuditPage(1);
+            }}
+            value={auditAction}
+          >
+            <option value="ALL">كل العمليات</option>
+            {[
+              'LOGIN',
+              'LOGOUT',
+              'CREATE',
+              'UPDATE',
+              'DELETE',
+              'ATTENDANCE',
+              'MEMBERSHIP_CHANGE',
+              'PASSWORD_RESET',
+              'ROLE_CHANGE',
+            ].map((action) => (
+              <option key={action} value={action}>
+                {generalAuditActionLabel(action)}
+              </option>
+            ))}
+          </SelectField>
+          <div className="rounded-lg border border-border bg-muted/35 px-3 py-2 text-sm font-black text-muted-foreground">
+            {audit.data?.meta.total ?? 0} عملية
+          </div>
+        </div>
+      </Card>
+
+      <QueryState query={audit}>
+        {(page) => (
+          <div className="grid gap-3">
+            {page.items.map((item) => (
+              <Card className="transition hover:border-brand-accent/45" key={item.id}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-foreground px-3 py-1 text-xs font-black text-background">
+                        {generalAuditActionLabel(item.action)}
+                      </span>
+                      <span className="font-black">
+                        {item.actor?.fullName ?? 'عملية آلية من النظام'}
+                      </span>
+                      {item.actor ? <StatusBadge status={item.actor.role} /> : null}
+                    </div>
+                    <p className="mt-3 text-sm font-bold text-muted-foreground">
+                      {item.entityType}
+                      {item.actor?.username ? ` · @${item.actor.username}` : ''}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                      {formatCompactDateTime(item.createdAt)}
+                    </p>
+                  </div>
+                  <Button onClick={() => setSelectedAudit(item)} variant="secondary">
+                    <Eye className="h-4 w-4" />
+                    التفاصيل
+                  </Button>
+                </div>
+              </Card>
+            ))}
+            {!page.items.length ? <EmptyState title="لا توجد عمليات مطابقة" /> : null}
+          </div>
+        )}
+      </QueryState>
+      {audit.data ? <Pagination meta={audit.data.meta} onPageChange={setAuditPage} /> : null}
+
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <CardTitle>السجل التفصيلي لتعديلات الاشتراكات</CardTitle>
+            <p className="mt-2 text-sm font-semibold text-muted-foreground">
+              يعرض القيم قبل وبعد التعديل والسبب ومراقب الوردية.
+            </p>
+          </div>
+          <Button onClick={() => setShowMembershipHistory((value) => !value)} variant="secondary">
+            {showMembershipHistory ? 'إخفاء السجل التفصيلي' : 'فتح السجل التفصيلي'}
+          </Button>
+        </div>
+      </Card>
+      {showMembershipHistory ? <MembershipAuditHistory /> : null}
+
+      <Dialog
+        description="التفاصيل الفنية المحفوظة مع العملية لمساعدة المالك في مراجعة ما حدث."
+        onClose={() => setSelectedAudit(null)}
+        open={Boolean(selectedAudit)}
+        title={selectedAudit ? generalAuditActionLabel(selectedAudit.action) : 'تفاصيل العملية'}
+      >
+        {selectedAudit ? (
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <DetailRow
+                label="المسؤول"
+                value={selectedAudit.actor?.fullName ?? 'عملية آلية من النظام'}
+              />
+              <DetailRow label="اسم المستخدم" value={selectedAudit.actor?.username ?? '—'} />
+              <DetailRow label="نوع العنصر" value={selectedAudit.entityType} />
+              <DetailRow label="التاريخ" value={formatCompactDateTime(selectedAudit.createdAt)} />
+            </div>
+            <Card>
+              <CardTitle>بيانات العملية</CardTitle>
+              <div className="mt-4">
+                <JsonPreview
+                  value={selectedAudit.metadata ?? { message: 'لا توجد بيانات إضافية' }}
+                />
+              </div>
+            </Card>
           </div>
         ) : null}
       </Dialog>

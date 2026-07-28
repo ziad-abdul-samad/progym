@@ -10,6 +10,7 @@ enum UserRole {
   MEMBER
   COACH
   ADMIN
+  OBSERVER
 }
 
 enum UserStatus {
@@ -218,6 +219,7 @@ model User {
   refreshSessions         RefreshSession[]
   securityAnswers         SecurityAnswer[]
   nutritionAiDailyUsage   NutritionAiDailyUsage[]
+  shiftObserver           ShiftObserver?
 
   @@index([role, status])
   @@index([createdAt])
@@ -440,16 +442,20 @@ model MembershipAuditLog {
 }
 
 model ShiftObserver {
-  id        String         @id @default(cuid())
-  fullName  String
-  phone     String?
-  notes     String?
-  status    ObserverStatus @default(ACTIVE)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id         String         @id @default(cuid())
+  userId     String?        @unique
+  fullName   String
+  phone      String?
+  notes      String?
+  shiftStart String?
+  shiftEnd   String?
+  status     ObserverStatus @default(ACTIVE)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
 
   membershipAuditLogs  MembershipAuditLog[]
   registrationRequests RegistrationRequest[]
+  user                 User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([status, fullName])
   @@index([createdAt])

@@ -36,13 +36,13 @@ export class MembershipsController {
   }
 
   @Get('subscriptions')
-  @Protected(UserRole.ADMIN)
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async listSubscriptions(@Query() query: PaginationDto) {
     return { data: await this.memberships.listSubscriptions(query) };
   }
 
   @Post('subscriptions')
-  @Protected(UserRole.ADMIN)
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async createSubscription(
     @Body() dto: CreateSubscriptionDto,
     @CurrentUser() admin: AuthenticatedUser,
@@ -51,7 +51,7 @@ export class MembershipsController {
   }
 
   @Patch('subscriptions/:id/add-days')
-  @Protected(UserRole.ADMIN)
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async addDays(
     @Param('id') id: string,
     @Body() dto: MembershipMutationDto,
@@ -68,7 +68,7 @@ export class MembershipsController {
   }
 
   @Patch('subscriptions/:id/remove-days')
-  @Protected(UserRole.ADMIN)
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async removeDays(
     @Param('id') id: string,
     @Body() dto: MembershipMutationDto,
@@ -85,7 +85,7 @@ export class MembershipsController {
   }
 
   @Patch('subscriptions/:id/freeze')
-  @Protected(UserRole.ADMIN)
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async freeze(
     @Param('id') id: string,
     @Body() dto: MembershipMutationDto,
@@ -97,7 +97,7 @@ export class MembershipsController {
   }
 
   @Patch('subscriptions/:id/resume')
-  @Protected(UserRole.ADMIN)
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async resume(
     @Param('id') id: string,
     @Body() dto: MembershipMutationDto,
@@ -109,7 +109,7 @@ export class MembershipsController {
   }
 
   @Patch('subscriptions/:id/renew')
-  @Protected(UserRole.ADMIN)
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async renew(
     @Param('id') id: string,
     @Body() dto: MembershipMutationDto,
@@ -121,7 +121,7 @@ export class MembershipsController {
   }
 
   @Patch('subscriptions/:id/expire')
-  @Protected(UserRole.ADMIN)
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async expire(
     @Param('id') id: string,
     @Body() dto: MembershipMutationDto,

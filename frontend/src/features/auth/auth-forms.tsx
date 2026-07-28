@@ -33,7 +33,7 @@ type RegistrationStatus = {
 };
 
 function dashboardPath(user: SessionUser, locale: PublicLocale = 'ar'): string {
-  if (user.role === 'ADMIN') return '/ar/dashboard/admin';
+  if (user.role === 'ADMIN' || user.role === 'OBSERVER') return '/ar/dashboard/admin';
   if (user.role === 'COACH') return '/ar/dashboard/coach';
   return `/${locale}/dashboard/member`;
 }

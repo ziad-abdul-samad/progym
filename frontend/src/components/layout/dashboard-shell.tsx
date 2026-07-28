@@ -88,6 +88,23 @@ const navItems: Record<SessionUser['role'], NavItem[]> = {
     { href: '/ar/dashboard/admin/exercises', icon: Dumbbell, label: 'التمارين' },
     { href: '/ar/dashboard/admin/audit', icon: Shield, label: 'التدقيق' },
   ],
+  OBSERVER: [
+    { href: '/ar/dashboard/admin', icon: Gauge, label: 'لوحة التشغيل' },
+    { badgeKey: 'members', href: '/ar/dashboard/admin/members', icon: Users, label: 'الأعضاء' },
+    {
+      badgeKey: 'registrations',
+      href: '/ar/dashboard/admin/registrations',
+      icon: UserRoundCheck,
+      label: 'طلبات التسجيل',
+    },
+    { href: '/ar/dashboard/admin/memberships', icon: WalletCards, label: 'الاشتراكات' },
+    {
+      badgeKey: 'attendance',
+      href: '/ar/dashboard/admin/attendance',
+      icon: Activity,
+      label: 'الحضور',
+    },
+  ],
   COACH: [
     { href: '/ar/dashboard/coach', icon: Gauge, label: 'لوحة المدرب' },
     { href: '/ar/dashboard/coach/clients', icon: Users, label: 'العملاء' },
@@ -116,6 +133,7 @@ const roleLabel: Record<SessionUser['role'], string> = {
   ADMIN: 'مدير النظام',
   COACH: 'مدرب',
   MEMBER: 'عضو',
+  OBSERVER: 'مراقب الوردية',
 };
 
 const memberNavEnglish = [
@@ -146,7 +164,7 @@ function localizedRoleLabel(role: SessionUser['role'], locale: PublicLocale): st
 }
 
 function homeForRole(role: SessionUser['role'], locale: PublicLocale = 'ar'): string {
-  if (role === 'ADMIN') return '/ar/dashboard/admin';
+  if (role === 'ADMIN' || role === 'OBSERVER') return '/ar/dashboard/admin';
   if (role === 'COACH') return '/ar/dashboard/coach';
   return `/${locale}/dashboard/member`;
 }
@@ -387,6 +405,16 @@ function Sidebar({
         <p className={cn('text-xs font-semibold text-muted-foreground', collapsed && 'sr-only')}>
           {localizedRoleLabel(user.role, locale)}
         </p>
+        {user.role === 'OBSERVER' && user.shiftObserver ? (
+          <p
+            className={cn(
+              'mt-1 text-xs font-black text-green-700 dark:text-brand-accent',
+              collapsed && 'sr-only',
+            )}
+          >
+            {user.shiftObserver.shiftStart} — {user.shiftObserver.shiftEnd}
+          </p>
+        ) : null}
         {collapsed ? <UserCog className="mx-auto h-5 w-5 text-muted-foreground" /> : null}
         <button
           className={cn(
@@ -568,9 +596,10 @@ export function DashboardShell({
     },
   });
   const [adminSidebarSeenAt, setAdminSidebarSeenAt] = useState(defaultAdminSidebarSeenAt);
-  const activeAdminBadgeKey = auth.data?.role === 'ADMIN' ? adminBadgeKeyForPath(pathname) : null;
+  const isAdminWorkspace = auth.data?.role === 'ADMIN' || auth.data?.role === 'OBSERVER';
+  const activeAdminBadgeKey = isAdminWorkspace ? adminBadgeKeyForPath(pathname) : null;
   const adminSidebarBadgeSource = useQuery({
-    enabled: auth.data?.role === 'ADMIN',
+    enabled: isAdminWorkspace,
     queryFn: async (): Promise<AdminSidebarBadgeSource> => {
       const [members, profileChanges, registrations, attendance] = await Promise.all([
         apiRequest<PaginatedResponse<{ createdAt?: string; joinedAt?: string }>>(
@@ -595,7 +624,7 @@ export function DashboardShell({
     refetchInterval: 15_000,
   });
   const adminSidebarBadges = useMemo<Partial<Record<AdminSidebarBadgeKey, number>>>(() => {
-    if (auth.data?.role !== 'ADMIN' || !adminSidebarBadgeSource.data) return {};
+    if (!isAdminWorkspace || !adminSidebarBadgeSource.data) return {};
     return {
       attendance: countNewerThan(
         adminSidebarBadgeSource.data.attendance,
@@ -621,7 +650,7 @@ export function DashboardShell({
         'createdAt',
       ),
     };
-  }, [adminSidebarBadgeSource.data, adminSidebarSeenAt, auth.data?.role]);
+  }, [adminSidebarBadgeSource.data, adminSidebarSeenAt, isAdminWorkspace]);
 
   useEffect(() => {
     const stored = window.localStorage.getItem('progym-sidebar-collapsed');
@@ -651,6 +680,14 @@ export function DashboardShell({
         return;
       }
       const expected = homeForRole(auth.data.role, locale);
+      if (
+        auth.data.role === 'OBSERVER' &&
+        pathname !== `/${locale}/dashboard` &&
+        !navItems.OBSERVER.some((item) => item.href === pathname)
+      ) {
+        router.replace(expected);
+        return;
+      }
       const roleSegment = expected.split('/').at(-1);
       if (!pathname.includes(`/dashboard/${roleSegment}`) && pathname !== `/${locale}/dashboard`) {
         router.replace(expected);
@@ -707,7 +744,7 @@ export function DashboardShell({
 
   return (
     <div className={cn('min-h-screen bg-background text-foreground lg:grid', sidebarWidth)}>
-      {user.role === 'ADMIN' ? <ReceptionEventCenter /> : null}
+      {user.role === 'ADMIN' || user.role === 'OBSERVER' ? <ReceptionEventCenter /> : null}
       <aside className="relative hidden h-screen p-3 lg:sticky lg:top-0 lg:block">
         <Card className="h-full border-border/80 bg-card/92 p-2 shadow-sm backdrop-blur">
           <Sidebar

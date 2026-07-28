@@ -31,8 +31,20 @@ services:
         value: admin
       - key: SEED_ADMIN_PASSWORD
         sync: false
+      - key: SEED_OBSERVER_1_USERNAME
+        value: observer.1
+      - key: SEED_OBSERVER_1_PASSWORD
+        sync: false
+      - key: SEED_OBSERVER_2_USERNAME
+        value: observer.2
+      - key: SEED_OBSERVER_2_PASSWORD
+        sync: false
+      - key: SEED_OBSERVER_3_USERNAME
+        value: observer.3
+      - key: SEED_OBSERVER_3_PASSWORD
+        sync: false
       - key: SEED_DEMO_DATA
-        value: "false"
+        value: 'false'
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL

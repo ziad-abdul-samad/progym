@@ -21,7 +21,7 @@ import {
 } from './dto/admin.dto';
 
 @Controller('admin')
-@Protected(UserRole.ADMIN)
+@Protected(UserRole.ADMIN, UserRole.OBSERVER)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
@@ -31,6 +31,7 @@ export class AdminController {
   }
 
   @Get('audit-log')
+  @Protected(UserRole.ADMIN)
   async auditLog(@Query() query: PaginationDto) {
     return { data: await this.adminService.auditLog(query) };
   }
@@ -69,21 +70,25 @@ export class AdminController {
   }
 
   @Get('coaches/subscription-events')
+  @Protected(UserRole.ADMIN)
   async coachSubscriptionEvents() {
     return { data: await this.adminService.coachSubscriptionEvents() };
   }
 
   @Get('coaches')
+  @Protected(UserRole.ADMIN)
   async coaches(@Query() query: PaginationDto) {
     return { data: await this.adminService.coaches(query) };
   }
 
   @Post('coaches/promote/:userId')
+  @Protected(UserRole.ADMIN)
   async promote(@Param('userId') userId: string, @CurrentUser() admin: AuthenticatedUser) {
     return { data: await this.adminService.promoteMemberToCoach(userId, admin) };
   }
 
   @Post('coaches/demote/:userId')
+  @Protected(UserRole.ADMIN)
   async demote(
     @Param('userId') userId: string,
     @Body() dto: DemoteCoachDto,
@@ -93,11 +98,13 @@ export class AdminController {
   }
 
   @Post('coaches/assign-client')
+  @Protected(UserRole.ADMIN)
   async assign(@Body() dto: AssignClientDto, @CurrentUser() admin: AuthenticatedUser) {
     return { data: await this.adminService.assignClient(dto, admin) };
   }
 
   @Get('coaches/profile-change-requests')
+  @Protected(UserRole.ADMIN)
   async coachProfileChangeRequests() {
     return { data: await this.adminService.coachProfileChangeRequests() };
   }
@@ -128,6 +135,7 @@ export class AdminController {
   }
 
   @Post('coaches/profile-change-requests/:id/approve')
+  @Protected(UserRole.ADMIN)
   async approveCoachProfileChange(
     @Param('id') id: string,
     @Body() dto: ReviewCoachProfileChangeDto,
@@ -137,6 +145,7 @@ export class AdminController {
   }
 
   @Post('coaches/profile-change-requests/:id/reject')
+  @Protected(UserRole.ADMIN)
   async rejectCoachProfileChange(
     @Param('id') id: string,
     @Body() dto: ReviewCoachProfileChangeDto,
@@ -154,8 +163,8 @@ export class AdminController {
   }
 
   @Get('observers')
-  async observers(@Query() query: PaginationDto) {
-    return { data: await this.adminService.observers(query) };
+  async observers(@Query() query: PaginationDto, @CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.adminService.observers(query, user) };
   }
 
   @Get('reception-feed')
@@ -178,11 +187,13 @@ export class AdminController {
   }
 
   @Post('observers')
+  @Protected(UserRole.ADMIN)
   async createObserver(@Body() dto: CreateObserverDto, @CurrentUser() admin: AuthenticatedUser) {
     return { data: await this.adminService.createObserver(dto, admin) };
   }
 
   @Patch('observers/:id')
+  @Protected(UserRole.ADMIN)
   async updateObserver(
     @Param('id') id: string,
     @Body() dto: UpdateObserverDto,
@@ -192,26 +203,31 @@ export class AdminController {
   }
 
   @Patch('observers/:id/activate')
+  @Protected(UserRole.ADMIN)
   async activateObserver(@Param('id') id: string, @CurrentUser() admin: AuthenticatedUser) {
     return { data: await this.adminService.setObserverActive(id, true, admin) };
   }
 
   @Patch('observers/:id/deactivate')
+  @Protected(UserRole.ADMIN)
   async deactivateObserver(@Param('id') id: string, @CurrentUser() admin: AuthenticatedUser) {
     return { data: await this.adminService.setObserverActive(id, false, admin) };
   }
 
   @Delete('observers/:id')
+  @Protected(UserRole.ADMIN)
   async deleteObserver(@Param('id') id: string, @CurrentUser() admin: AuthenticatedUser) {
     return { data: await this.adminService.deleteObserver(id, admin) };
   }
 
   @Get('observers/:id/activity')
+  @Protected(UserRole.ADMIN)
   async observerActivity(@Param('id') id: string) {
     return { data: await this.adminService.observerActivity(id) };
   }
 
   @Post('notifications')
+  @Protected(UserRole.ADMIN)
   async notify(@Body() dto: AdminNotificationDto, @CurrentUser() admin: AuthenticatedUser) {
     return { data: await this.adminService.notify(dto, admin) };
   }

@@ -37,6 +37,38 @@ const demoPassword = process.env.SEED_DEMO_PASSWORD ?? 'Demo@123456';
 const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? 'Admin@123456';
 const seedDemoData = process.env.SEED_DEMO_DATA !== 'false';
 const uploadRoot = join(process.cwd(), 'uploads');
+const observerAccounts = [
+  {
+    fullName: 'مراقب الفترة الأولى',
+    legacyName: 'Morning Shift Observer',
+    notes: 'الوردية الأولى: من 7 صباحاً حتى 2 ظهراً',
+    password: process.env.SEED_OBSERVER_1_PASSWORD ?? 'Observer1@2026',
+    phone: '+963900000301',
+    shiftEnd: '14:00',
+    shiftStart: '07:00',
+    username: process.env.SEED_OBSERVER_1_USERNAME ?? 'observer.1',
+  },
+  {
+    fullName: 'مراقب الفترة الثانية',
+    legacyName: 'Evening Shift Observer',
+    notes: 'الوردية الثانية: من 2 ظهراً حتى 7 مساءً',
+    password: process.env.SEED_OBSERVER_2_PASSWORD ?? 'Observer2@2026',
+    phone: '+963900000302',
+    shiftEnd: '19:00',
+    shiftStart: '14:00',
+    username: process.env.SEED_OBSERVER_2_USERNAME ?? 'observer.2',
+  },
+  {
+    fullName: 'مراقب الفترة الثالثة',
+    legacyName: 'Weekend Shift Observer',
+    notes: 'الوردية الثالثة: من 7 مساءً حتى 12 ليلاً',
+    password: process.env.SEED_OBSERVER_3_PASSWORD ?? 'Observer3@2026',
+    phone: '+963900000303',
+    shiftEnd: '00:00',
+    shiftStart: '19:00',
+    username: process.env.SEED_OBSERVER_3_USERNAME ?? 'observer.3',
+  },
+] as const;
 
 function addDays(date: Date, days: number) {
   return new Date(date.getTime() + days * dayMs);
@@ -553,37 +585,50 @@ async function seedDemoUsers() {
 }
 
 async function seedObservers() {
-  const observers = [
-    {
-      fullName: 'Morning Shift Observer',
-      notes: 'Responsible for morning reception membership changes and check-ins.',
-      phone: '+963900000301',
-    },
-    {
-      fullName: 'Evening Shift Observer',
-      notes: 'Responsible for evening reception membership changes and check-ins.',
-      phone: '+963900000302',
-    },
-    {
-      fullName: 'Weekend Shift Observer',
-      notes: 'Responsible for weekend membership updates and owner handover notes.',
-      phone: '+963900000303',
-    },
-  ];
-
-  for (const observer of observers) {
-    const existing = await prisma.shiftObserver.findFirst({
-      where: { fullName: observer.fullName },
+  for (const account of observerAccounts) {
+    const user = await prisma.user.upsert({
+      create: {
+        fullName: account.fullName,
+        passwordHash: await hashPassword(account.password),
+        phone: account.phone,
+        role: UserRole.OBSERVER,
+        status: UserStatus.ACTIVE,
+        username: account.username,
+      },
+      update: {
+        fullName: account.fullName,
+        passwordHash: await hashPassword(account.password),
+        phone: account.phone,
+        role: UserRole.OBSERVER,
+        status: UserStatus.ACTIVE,
+      },
+      where: { username: account.username },
     });
+
+    const existing = await prisma.shiftObserver.findFirst({
+      where: {
+        OR: [{ userId: user.id }, { fullName: account.fullName }, { fullName: account.legacyName }],
+      },
+    });
+
+    const observerData = {
+      fullName: account.fullName,
+      notes: account.notes,
+      phone: account.phone,
+      shiftEnd: account.shiftEnd,
+      shiftStart: account.shiftStart,
+      status: ObserverStatus.ACTIVE,
+      userId: user.id,
+    };
 
     if (existing) {
       await prisma.shiftObserver.update({
-        data: { ...observer, status: ObserverStatus.ACTIVE },
+        data: observerData,
         where: { id: existing.id },
       });
     } else {
       await prisma.shiftObserver.create({
-        data: { ...observer, status: ObserverStatus.ACTIVE },
+        data: observerData,
       });
     }
   }
@@ -1034,9 +1079,9 @@ async function seedOperationalData(adminId: string, adminName: string) {
 
 async function main() {
   const admin = await seedBaseData();
+  await seedObservers();
   if (seedDemoData) {
     await seedDemoUsers();
-    await seedObservers();
     await cleanupDemoData();
     await seedOperationalData(admin.id, admin.fullName);
   }
@@ -1044,6 +1089,9 @@ async function main() {
   console.log('Seed complete.');
   console.log(`Admin username: ${admin.username}`);
   console.log(`Admin password: ${adminPassword}`);
+  console.log(
+    `Observer usernames: ${observerAccounts.map((account) => account.username).join(', ')}`,
+  );
   if (seedDemoData) {
     console.log(`Demo member password: ${demoPassword}`);
     console.log('Demo users: coach.omar, coach.karim, ahmad, mohammad, sami, hadi, yazan, firas');

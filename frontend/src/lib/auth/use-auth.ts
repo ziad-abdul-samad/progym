@@ -26,7 +26,12 @@ export type SessionUser = {
     type: string;
     coach?: { user?: { fullName?: string } };
   } | null;
-  role: 'MEMBER' | 'COACH' | 'ADMIN';
+  role: 'MEMBER' | 'COACH' | 'ADMIN' | 'OBSERVER';
+  shiftObserver: {
+    id: string;
+    shiftEnd: string | null;
+    shiftStart: string | null;
+  } | null;
   status: string;
   username: string;
 };

@@ -34,4 +34,5 @@ Thumbs.db
 
 # Local source photography (optimized copies live in frontend/public)
 new images/
+instagram-content/
 .local-postgres/

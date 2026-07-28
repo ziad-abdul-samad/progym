@@ -78,8 +78,9 @@ export class CreateSubscriptionDto {
   @IsString()
   memberId!: string;
 
+  @IsOptional()
   @IsString()
-  observerId!: string;
+  observerId?: string;
 
   @IsOptional()
   @IsString()
@@ -101,8 +102,9 @@ export class MembershipMutationDto {
   @IsNotEmpty()
   reason!: string;
 
+  @IsOptional()
   @IsString()
-  observerId!: string;
+  observerId?: string;
 
   @IsOptional()
   @Type(() => Number)

@@ -57,6 +57,7 @@ export class JwtAuthGuard implements CanActivate {
         status: true,
         memberProfile: { select: { id: true } },
         coachProfile: { select: { id: true } },
+        shiftObserver: { select: { id: true } },
       },
       where: { id: payload.sub },
     });
@@ -72,6 +73,7 @@ export class JwtAuthGuard implements CanActivate {
       role: user.role,
       memberProfileId: user.memberProfile?.id,
       coachProfileId: user.coachProfile?.id,
+      shiftObserverId: user.shiftObserver?.id,
     };
 
     return true;

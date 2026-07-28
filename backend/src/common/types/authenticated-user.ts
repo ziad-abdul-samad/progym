@@ -7,6 +7,7 @@ export interface AuthenticatedUser {
   role: UserRole;
   memberProfileId?: string;
   coachProfileId?: string;
+  shiftObserverId?: string;
 }
 
 export interface AuthenticatedRequest {

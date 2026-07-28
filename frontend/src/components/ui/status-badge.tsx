@@ -15,6 +15,7 @@ export function StatusBadge({ status }: { status: string }) {
         FROZEN: 'Frozen',
         INACTIVE: 'Inactive',
         MEMBER: 'Player',
+        OBSERVER: 'Observer',
         NONE: 'No subscription',
         PAUSED: 'Paused',
         PENDING: 'Pending',
@@ -41,6 +42,8 @@ export function StatusBadge({ status }: { status: string }) {
         'border-slate-500/25 bg-slate-100 text-slate-700 dark:bg-slate-500/15 dark:text-slate-200',
       MEMBER:
         'border-indigo-500/25 bg-indigo-50 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-200',
+      OBSERVER:
+        'border-orange-500/25 bg-orange-50 text-orange-800 dark:bg-orange-500/15 dark:text-orange-200',
       NONE: 'border-slate-500/25 bg-slate-100 text-slate-700 dark:bg-slate-500/15 dark:text-slate-200',
       PAUSED:
         'border-amber-500/25 bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200',

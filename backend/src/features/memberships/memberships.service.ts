@@ -5,6 +5,7 @@ import {
   ObserverStatus,
   Prisma,
   SubscriptionStatus,
+  UserRole,
 } from '@prisma/client';
 
 import type { PaginationDto } from '../../common/dto/pagination.dto';
@@ -117,8 +118,27 @@ export class MembershipsService {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.subscription.findMany({
         include: {
-          member: { include: { user: true } },
-          plan: true,
+          member: {
+            include: {
+              user: {
+                select: {
+                  avatarUrl: true,
+                  fullName: true,
+                  id: true,
+                  phone: true,
+                  username: true,
+                },
+              },
+            },
+          },
+          plan: {
+            select: {
+              durationDays: true,
+              id: true,
+              nameAr: true,
+              nameEn: true,
+            },
+          },
         },
         orderBy: { updatedAt: 'desc' },
         where,
@@ -159,7 +179,7 @@ export class MembershipsService {
     }
 
     const now = new Date();
-    const observer = await this.requireActiveObserver(dto.observerId);
+    const observer = await this.requireActiveObserver(dto.observerId, admin);
     return this.prisma.$transaction(async (transaction) => {
       const subscription = await transaction.subscription.create({
         data: {
@@ -273,7 +293,7 @@ export class MembershipsService {
       data.status = SubscriptionStatus.EXPIRED;
     }
 
-    const observer = await this.requireActiveObserver(dto.observerId);
+    const observer = await this.requireActiveObserver(dto.observerId, admin);
     return this.prisma.$transaction(async (transaction) => {
       const updated = await transaction.subscription.update({
         data,
@@ -409,7 +429,15 @@ export class MembershipsService {
     });
   }
 
-  private async requireActiveObserver(observerId: string) {
+  private async requireActiveObserver(
+    requestedObserverId: string | undefined,
+    admin: AuthenticatedUser,
+  ) {
+    const observerId =
+      admin.role === UserRole.OBSERVER ? admin.shiftObserverId : requestedObserverId;
+    if (!observerId) {
+      throw new BadRequestException('Active shift observer is required');
+    }
     const observer = await this.prisma.shiftObserver.findUnique({
       where: { id: observerId },
     });

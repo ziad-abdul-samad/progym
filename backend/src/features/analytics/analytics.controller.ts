@@ -8,21 +8,23 @@ import { AnalyticsService } from './analytics.service';
 import { ReportQueryDto, UpdateReportSettingsDto } from './dto/reports.dto';
 
 @Controller('analytics')
-@Protected(UserRole.ADMIN)
 export class AnalyticsController {
   constructor(private readonly analytics: AnalyticsService) {}
 
   @Get('overview')
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async overview() {
     return { data: await this.analytics.overview() };
   }
 
   @Get('report-settings')
+  @Protected(UserRole.ADMIN)
   async reportSettings() {
     return { data: await this.analytics.reportSettings() };
   }
 
   @Patch('report-settings')
+  @Protected(UserRole.ADMIN)
   async updateReportSettings(
     @Body() dto: UpdateReportSettingsDto,
     @CurrentUser() admin: AuthenticatedUser,
@@ -33,6 +35,7 @@ export class AnalyticsController {
   }
 
   @Get('report')
+  @Protected(UserRole.ADMIN)
   async report(@Query() query: ReportQueryDto) {
     return { data: await this.analytics.report(query) };
   }

@@ -58,7 +58,8 @@ export class FilesController {
     }
 
     const ownsFile = file.ownerUserId === user.id;
-    const isAdminNonProgressFile = user.role === UserRole.ADMIN && !file.progressPhoto;
+    const isAdminNonProgressFile =
+      (user.role === UserRole.ADMIN || user.role === UserRole.OBSERVER) && !file.progressPhoto;
     const isPublic = file.visibility === FileVisibility.PUBLIC;
     const isAssignedCoachAvatar =
       user.role === UserRole.COACH &&

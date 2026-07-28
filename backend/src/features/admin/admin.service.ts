@@ -46,6 +46,21 @@ import type {
   ReviewRegistrationRequestDto,
 } from './dto/admin.dto';
 
+const safeUserSelect = {
+  avatarUrl: true,
+  createdAt: true,
+  email: true,
+  fullName: true,
+  id: true,
+  lastLoginAt: true,
+  locale: true,
+  phone: true,
+  role: true,
+  status: true,
+  updatedAt: true,
+  username: true,
+} satisfies Prisma.UserSelect;
+
 @Injectable()
 export class AdminService {
   constructor(
@@ -84,10 +99,10 @@ export class AdminService {
         include: {
           assignments: {
             where: { status: 'ACTIVE' },
-            include: { coach: { include: { user: true } } },
+            include: { coach: { include: { user: { select: safeUserSelect } } } },
           },
           subscriptions: { orderBy: { endsAt: 'desc' }, take: 1 },
-          user: true,
+          user: { select: safeUserSelect },
         },
         orderBy: { joinedAt: 'desc' },
         where,
@@ -141,18 +156,22 @@ export class AdminService {
   }
 
   async auditLog(query: PaginationDto) {
-    const where: Prisma.AuditLogWhereInput = query.q
-      ? {
-          OR: [
-            { entityType: { contains: query.q, mode: 'insensitive' } },
-            { actor: { fullName: { contains: query.q, mode: 'insensitive' } } },
-            { actor: { username: { contains: query.q, mode: 'insensitive' } } },
-          ],
-        }
-      : {};
+    const where: Prisma.AuditLogWhereInput = {
+      ...(query.action ? { action: query.action as AuditAction } : {}),
+      ...(query.status ? { actor: { role: query.status as UserRole } } : {}),
+      ...(query.q
+        ? {
+            OR: [
+              { entityType: { contains: query.q, mode: 'insensitive' } },
+              { actor: { fullName: { contains: query.q, mode: 'insensitive' } } },
+              { actor: { username: { contains: query.q, mode: 'insensitive' } } },
+            ],
+          }
+        : {}),
+    };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.auditLog.findMany({
-        include: { actor: { select: { fullName: true, username: true } } },
+        include: { actor: { select: { fullName: true, role: true, username: true } } },
         orderBy: { createdAt: 'desc' },
         where,
         ...paginationArgs(query),
@@ -163,18 +182,21 @@ export class AdminService {
   }
 
   async updateUser(id: string, dto: AdminUpdateUserDto, admin: AuthenticatedUser) {
+    await this.assertUserManagementScope(id, admin);
     const user = await this.prisma.user.update({ data: dto, where: { id } });
     await this.audit(admin, AuditAction.UPDATE, 'User', id, { ...dto });
     return user;
   }
 
   async setUserStatus(id: string, status: UserStatus, admin: AuthenticatedUser) {
+    await this.assertUserManagementScope(id, admin);
     const user = await this.prisma.user.update({ data: { status }, where: { id } });
     await this.audit(admin, AuditAction.UPDATE, 'User', id, { status });
     return user;
   }
 
   async resetPassword(id: string, dto: ResetPasswordByAdminDto, admin: AuthenticatedUser) {
+    await this.assertUserManagementScope(id, admin);
     const user = await this.prisma.user.update({
       data: { passwordHash: await hashPassword(dto.newPassword) },
       where: { id },
@@ -211,7 +233,7 @@ export class AdminService {
             orderBy: { startedAt: 'desc' },
             where: { status: { in: ['ACTIVE', 'PAUSED'] } },
           },
-          user: true,
+          user: { select: safeUserSelect },
         },
         orderBy: { createdAt: 'desc' },
         where,
@@ -249,7 +271,7 @@ export class AdminService {
   async coachProfileChangeRequests() {
     return this.prisma.coachProfileChangeRequest.findMany({
       include: {
-        coach: { include: { user: true } },
+        coach: { include: { user: { select: safeUserSelect } } },
         reviewer: { select: { fullName: true, username: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -260,7 +282,7 @@ export class AdminService {
   async memberProfileChangeRequests() {
     return this.prisma.memberProfileChangeRequest.findMany({
       include: {
-        member: { include: { user: true } },
+        member: { include: { user: { select: safeUserSelect } } },
         reviewer: { select: { fullName: true, username: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -279,7 +301,7 @@ export class AdminService {
     }
 
     const request = await this.prisma.memberProfileChangeRequest.findUnique({
-      include: { member: { include: { user: true } } },
+      include: { member: { include: { user: { select: safeUserSelect } } } },
       where: { id },
     });
     if (!request || request.status !== CoachProfileChangeStatus.PENDING) {
@@ -423,7 +445,7 @@ export class AdminService {
     admin: AuthenticatedUser,
   ) {
     const request = await this.prisma.coachProfileChangeRequest.findUnique({
-      include: { coach: { include: { user: true } } },
+      include: { coach: { include: { user: { select: safeUserSelect } } } },
       where: { id },
     });
     if (!request || request.status !== CoachProfileChangeStatus.PENDING) {
@@ -649,6 +671,10 @@ export class AdminService {
         tokenHash: hashToken(token),
       },
     });
+    await this.audit(admin, AuditAction.CREATE, 'QrInvite', invite.id, {
+      expiresAt: invite.expiresAt.toISOString(),
+      purpose: invite.purpose,
+    });
 
     return {
       expiresAt: invite.expiresAt,
@@ -658,8 +684,9 @@ export class AdminService {
     };
   }
 
-  async observers(query: PaginationDto) {
+  async observers(query: PaginationDto, user: AuthenticatedUser) {
     const where: Prisma.ShiftObserverWhereInput = {
+      ...(user.role === UserRole.OBSERVER ? { userId: user.id } : {}),
       ...(query.q
         ? {
             OR: [
@@ -674,6 +701,7 @@ export class AdminService {
       this.prisma.shiftObserver.findMany({
         include: {
           _count: { select: { membershipAuditLogs: true } },
+          user: { select: { lastLoginAt: true, username: true } },
         },
         orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
         where,
@@ -692,7 +720,7 @@ export class AdminService {
         include: {
           registrationRequest: true,
           subscriptions: { include: { plan: true }, orderBy: { endsAt: 'desc' }, take: 1 },
-          user: true,
+          user: { select: safeUserSelect },
         },
         orderBy: { createdAt: 'desc' },
         take: 10,
@@ -707,7 +735,7 @@ export class AdminService {
             include: {
               attendanceRecords: { orderBy: { checkedInAt: 'desc' }, take: 2 },
               subscriptions: { include: { plan: true }, orderBy: { endsAt: 'desc' }, take: 1 },
-              user: true,
+              user: { select: safeUserSelect },
             },
           },
         },
@@ -778,9 +806,7 @@ export class AdminService {
 
   async registrationRequests(query: PaginationDto) {
     const where: Prisma.RegistrationRequestWhereInput = {
-      ...(query.status
-        ? { status: query.status as RegistrationRequestStatus }
-        : {}),
+      ...(query.status ? { status: query.status as RegistrationRequestStatus } : {}),
       ...(query.q
         ? {
             member: {
@@ -798,7 +824,7 @@ export class AdminService {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.registrationRequest.findMany({
         include: {
-          member: { include: { user: true } },
+          member: { include: { user: { select: safeUserSelect } } },
           observer: true,
           reviewer: { select: { fullName: true, id: true } },
         },
@@ -817,8 +843,9 @@ export class AdminService {
     dto: ReviewRegistrationRequestDto,
     admin: AuthenticatedUser,
   ) {
+    const observerId = admin.role === UserRole.OBSERVER ? admin.shiftObserverId : dto.observerId;
     const request = await this.prisma.registrationRequest.findUnique({
-      include: { member: { include: { user: true } } },
+      include: { member: { include: { user: { select: safeUserSelect } } } },
       where: { id },
     });
     if (!request) throw new NotFoundException('Registration request not found');
@@ -833,6 +860,7 @@ export class AdminService {
             reviewReason: dto.reason?.trim() || null,
             reviewedAt: new Date(),
             reviewerId: admin.id,
+            observerId: observerId ?? null,
             status: RegistrationRequestStatus.REJECTED,
           },
           where: { id },
@@ -850,7 +878,7 @@ export class AdminService {
       });
     }
 
-    if (!dto.observerId) {
+    if (!observerId) {
       throw new BadRequestException('Observer is required to approve a registration');
     }
     const days = dto.days ?? 30;
@@ -858,7 +886,7 @@ export class AdminService {
       {
         days,
         memberId: request.memberId,
-        observerId: dto.observerId,
+        observerId,
         reason: dto.reason?.trim() || 'اعتماد طلب تسجيل لاعب جديد',
       },
       admin,
@@ -868,7 +896,7 @@ export class AdminService {
       const reviewed = await transaction.registrationRequest.update({
         data: {
           approvedDays: days,
-          observerId: dto.observerId,
+          observerId,
           reviewReason: dto.reason?.trim() || null,
           reviewedAt: new Date(),
           reviewerId: admin.id,
@@ -912,9 +940,21 @@ export class AdminService {
   }
 
   async updateObserver(id: string, dto: UpdateObserverDto, admin: AuthenticatedUser) {
-    const observer = await this.prisma.shiftObserver.update({
-      data: dto,
-      where: { id },
+    const observer = await this.prisma.$transaction(async (transaction) => {
+      const updated = await transaction.shiftObserver.update({
+        data: dto,
+        where: { id },
+      });
+      if (updated.userId && (dto.fullName || dto.phone)) {
+        await transaction.user.update({
+          data: {
+            ...(dto.fullName ? { fullName: dto.fullName } : {}),
+            ...(dto.phone ? { phone: dto.phone } : {}),
+          },
+          where: { id: updated.userId },
+        });
+      }
+      return updated;
     });
 
     await this.audit(admin, AuditAction.UPDATE, 'ShiftObserver', id, { ...dto });
@@ -922,9 +962,18 @@ export class AdminService {
   }
 
   async setObserverActive(id: string, active: boolean, admin: AuthenticatedUser) {
-    const observer = await this.prisma.shiftObserver.update({
-      data: { status: active ? ObserverStatus.ACTIVE : ObserverStatus.INACTIVE },
-      where: { id },
+    const observer = await this.prisma.$transaction(async (transaction) => {
+      const updated = await transaction.shiftObserver.update({
+        data: { status: active ? ObserverStatus.ACTIVE : ObserverStatus.INACTIVE },
+        where: { id },
+      });
+      if (updated.userId) {
+        await transaction.user.update({
+          data: { status: active ? UserStatus.ACTIVE : UserStatus.INACTIVE },
+          where: { id: updated.userId },
+        });
+      }
+      return updated;
     });
 
     await this.audit(admin, AuditAction.UPDATE, 'ShiftObserver', id, { status: observer.status });
@@ -932,6 +981,15 @@ export class AdminService {
   }
 
   async deleteObserver(id: string, admin: AuthenticatedUser) {
+    const linkedAccount = await this.prisma.shiftObserver.findUnique({
+      select: { userId: true },
+      where: { id },
+    });
+    if (linkedAccount?.userId) {
+      throw new BadRequestException(
+        'A linked observer account cannot be deleted. Deactivate it instead.',
+      );
+    }
     const observer = await this.prisma.shiftObserver.delete({ where: { id } });
 
     await this.audit(admin, AuditAction.DELETE, 'ShiftObserver', id, {
@@ -1045,5 +1103,17 @@ export class AdminService {
         metadata,
       },
     });
+  }
+
+  private async assertUserManagementScope(userId: string, actor: AuthenticatedUser) {
+    if (actor.role !== UserRole.OBSERVER) return;
+    const target = await this.prisma.user.findUnique({
+      select: { role: true },
+      where: { id: userId },
+    });
+    if (!target) throw new NotFoundException('User not found');
+    if (target.role !== UserRole.MEMBER) {
+      throw new ForbiddenException('Observers can only manage player accounts');
+    }
   }
 }

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import {
+  AuditAction,
   CoachRequestStatus,
   CoachRequestType,
   QrInvitePurpose,
@@ -252,6 +253,14 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
       where: { id: user.id },
     });
+    await this.prisma.auditLog.create({
+      data: {
+        action: AuditAction.LOGIN,
+        actorId: user.id,
+        entityId: user.id,
+        entityType: 'Session',
+      },
+    });
 
     return {
       tokens: await this.createTokenSet(user.id),
@@ -292,10 +301,24 @@ export class AuthService {
 
   async logout(refreshToken: string | undefined) {
     if (refreshToken) {
+      const session = await this.prisma.refreshSession.findUnique({
+        select: { userId: true },
+        where: { tokenHash: hashToken(refreshToken) },
+      });
       await this.prisma.refreshSession.updateMany({
         data: { revokedAt: new Date() },
         where: { tokenHash: hashToken(refreshToken), revokedAt: null },
       });
+      if (session) {
+        await this.prisma.auditLog.create({
+          data: {
+            action: AuditAction.LOGOUT,
+            actorId: session.userId,
+            entityId: session.userId,
+            entityType: 'Session',
+          },
+        });
+      }
     }
 
     return { success: true };
@@ -306,6 +329,7 @@ export class AuthService {
       include: {
         coachProfile: true,
         memberProfile: true,
+        shiftObserver: true,
       },
       where: { id: userId },
     });
@@ -357,6 +381,13 @@ export class AuthService {
       membership,
       pendingPhotoRequest,
       role: user.role,
+      shiftObserver: user.shiftObserver
+        ? {
+            id: user.shiftObserver.id,
+            shiftEnd: user.shiftObserver.shiftEnd,
+            shiftStart: user.shiftObserver.shiftStart,
+          }
+        : null,
       status: user.status,
       username: user.username,
     };
