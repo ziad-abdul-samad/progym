@@ -150,7 +150,7 @@ export function PublicNav({ locale }: { locale: PublicLocale }) {
     }
 
     setShowDashboardHint(true);
-    const timeout = window.setTimeout(() => setShowDashboardHint(false), 3_000);
+    const timeout = window.setTimeout(() => setShowDashboardHint(false), 10_000);
     return () => window.clearTimeout(timeout);
   }, [locale, pathname, user?.id]);
 
