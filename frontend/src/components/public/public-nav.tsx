@@ -1,16 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-  ArrowUpRight,
-  LayoutDashboard,
-  LogIn,
-  LogOut,
-  Menu,
-  Sparkles,
-  UserRound,
-  X,
-} from 'lucide-react';
+import { ArrowUpRight, LogIn, LogOut, Menu, MousePointerClick, UserRound, X } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -231,9 +222,8 @@ export function PublicNav({ locale }: { locale: PublicLocale }) {
                   >
                     <span className="absolute -top-2 end-7 hidden h-4 w-4 rotate-45 border-s border-t border-[#39ff14]/45 bg-[#090c09] sm:block" />
                     <div className="flex items-start gap-3">
-                      <span className="relative flex h-9 w-9 shrink-0 items-center justify-center bg-[#39ff14] text-black">
-                        <LayoutDashboard className="h-4 w-4" />
-                        <Sparkles className="absolute -end-1.5 -top-1.5 h-3.5 w-3.5 rounded-full bg-white p-0.5 text-black" />
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-[#39ff14] text-black">
+                        <MousePointerClick className="h-4 w-4" />
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-black text-[#39ff14]">
@@ -252,6 +242,14 @@ export function PublicNav({ locale }: { locale: PublicLocale }) {
                         <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
+                    <motion.span
+                      animate={{ scaleX: 0 }}
+                      aria-hidden="true"
+                      className="absolute inset-x-0 bottom-0 h-0.5 bg-[#39ff14] shadow-[0_0_12px_rgba(57,255,20,0.85)]"
+                      initial={{ scaleX: 1 }}
+                      style={{ transformOrigin: locale === 'ar' ? 'right' : 'left' }}
+                      transition={{ duration: 10, ease: 'linear' }}
+                    />
                   </motion.aside>
                 ) : null}
               </AnimatePresence>
