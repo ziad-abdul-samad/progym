@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Alexandria, IBM_Plex_Sans_Arabic, Manrope } from 'next/font/google';
 import type { ReactNode } from 'react';
+import { Analytics } from '@vercel/analytics/next';
 
 import { AppProviders } from '@/components/providers/app-providers';
 import { siteUrl } from '@/lib/public/content';
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     >
       <body>
         <AppProviders>{children}</AppProviders>
+        <Analytics />
       </body>
     </html>
   );
