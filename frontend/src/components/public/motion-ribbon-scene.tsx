@@ -484,7 +484,7 @@ export function MotionRibbonScene({ progress }: { progress: ScrollProgress }) {
         <div className="absolute left-1/2 top-1/2 aspect-[1.6] w-[78%] max-w-5xl -translate-x-1/2 -translate-y-1/2 -rotate-2 overflow-hidden border-4 border-[#efefe9] bg-[#ecece8] shadow-2xl md:w-[46%]">
           <Image
             alt=""
-            className="h-full w-full object-cover grayscale"
+            className="h-full w-full object-cover"
             height={800}
             sizes="(max-width: 768px) 78vw, 46vw"
             src="/images/gym/optimized/facility-06.webp"

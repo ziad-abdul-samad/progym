@@ -433,7 +433,7 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
           <div className="relative aspect-[3/2] md:aspect-[16/8] md:min-h-[26rem]">
             <Image
               alt="Pro Gym dumbbell training area"
-              className="object-contain grayscale md:object-cover"
+              className="object-contain md:object-cover"
               fill
               sizes="(max-width: 768px) 100vw, 94rem"
               src={optimizedImages.dumbbellRoom}
@@ -487,7 +487,7 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
                 {localeSteps.map((step, index) => (
                   <Image
                     alt={step.title}
-                    className={`object-cover grayscale transition duration-700 ${
+                    className={`object-cover transition duration-700 ${
                       activeStep === index ? 'scale-100 opacity-100' : 'scale-110 opacity-0'
                     }`}
                     fill
@@ -513,7 +513,7 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
                   <div className="relative mb-8 aspect-[4/5] overflow-hidden bg-black sm:aspect-[5/4] lg:aspect-[16/7]">
                     <Image
                       alt={step.title}
-                      className="object-cover object-center grayscale"
+                      className="object-cover object-center"
                       fill
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 70vw, 58vw"
                       src={step.image}
@@ -578,7 +578,7 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
                 <div className="relative aspect-[4/3] overflow-hidden" data-home-image>
                   <Image
                     alt={item.title[locale]}
-                    className="object-cover grayscale"
+                    className="object-cover"
                     fill
                     sizes="80vw"
                     src={item.image}
@@ -702,7 +702,7 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
       <section className="relative isolate min-h-[90vh] overflow-hidden px-5 py-24 md:px-8 md:py-36 lg:px-10 xl:px-14">
         <Image
           alt="Pro Gym strength area"
-          className="absolute inset-0 -z-20 object-cover grayscale"
+          className="absolute inset-0 -z-20 object-cover"
           fill
           sizes="100vw"
           src={optimizedImages.dumbbellRoom}

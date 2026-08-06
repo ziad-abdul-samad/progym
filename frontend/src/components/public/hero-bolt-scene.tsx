@@ -1,7 +1,7 @@
 'use client';
 
 import { Canvas, useFrame } from '@react-three/fiber';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 
 import { useSceneVisibility } from '@/components/public/use-scene-visibility';
@@ -132,7 +132,7 @@ function EnergyParticles() {
   );
 }
 
-function BoltModel() {
+function BoltModel({ mobile }: { mobile: boolean }) {
   const groupRef = useRef<THREE.Group>(null);
   const boltGeometry = useMemo(() => createBoltGeometry(), []);
   const edgeGeometry = useMemo(() => new THREE.EdgesGeometry(boltGeometry, 16), [boltGeometry]);
@@ -156,7 +156,11 @@ function BoltModel() {
   );
 
   return (
-    <group ref={groupRef} rotation={[0, -0.12, -0.08]} scale={[0.87, 0.96, 0.96]}>
+    <group
+      ref={groupRef}
+      rotation={[0, -0.12, -0.08]}
+      scale={[mobile ? 0.696 : 0.87, 0.96, 0.96]}
+    >
       <mesh geometry={boltGeometry} scale={1.075}>
         <meshBasicMaterial
           blending={THREE.AdditiveBlending}
@@ -213,7 +217,7 @@ function BoltModel() {
   );
 }
 
-function Scene() {
+function Scene({ mobile }: { mobile: boolean }) {
   const rigRef = useRef<THREE.Group>(null);
 
   useFrame(({ clock }) => {
@@ -228,7 +232,7 @@ function Scene() {
       <pointLight color="#39ff14" intensity={88} position={[2.6, 1.5, 3]} />
       <pointLight color="#95ff85" intensity={34} position={[-2.4, -1.8, 2]} />
       <group ref={rigRef}>
-        <BoltModel />
+        <BoltModel mobile={mobile} />
         <ElectricArc color="#39ff14" radius={1.08} seed={0.2} turns={1.45} />
         <ElectricArc color="#eaffE6" radius={1.34} seed={2.1} turns={-1.1} />
         <ElectricArc color="#39ff14" radius={1.58} seed={4.4} turns={1.2} />
@@ -250,6 +254,15 @@ function Scene() {
 
 export function HeroBoltScene() {
   const { containerRef, visible } = useSceneVisibility('15% 0px');
+  const [mobile, setMobile] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const syncMobile = () => setMobile(media.matches);
+    syncMobile();
+    media.addEventListener('change', syncMobile);
+    return () => media.removeEventListener('change', syncMobile);
+  }, []);
 
   return (
     <div className="h-full w-full" ref={containerRef}>
@@ -259,7 +272,7 @@ export function HeroBoltScene() {
           dpr={[1, 1.25]}
           gl={{ alpha: true, antialias: true, powerPreference: 'high-performance', stencil: false }}
         >
-          <Scene />
+          <Scene mobile={mobile} />
         </Canvas>
       ) : null}
     </div>
