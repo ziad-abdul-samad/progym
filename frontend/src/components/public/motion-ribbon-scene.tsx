@@ -143,6 +143,7 @@ function GalleryPanel({
   curve,
   index,
   mobile,
+  onImageOpen,
   progress,
   rigRotation,
   texture,
@@ -151,6 +152,7 @@ function GalleryPanel({
   curve: THREE.CatmullRomCurve3;
   index: number;
   mobile: boolean;
+  onImageOpen: (src: string) => void;
   progress: ScrollProgress;
   rigRotation: ScrollProgress;
   texture: THREE.Texture;
@@ -160,9 +162,18 @@ function GalleryPanel({
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
   const imageMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
   const hoveredRef = useRef(false);
+  const { gl } = useThree();
+  const imagePath = texturePaths[index];
   const pathProgress = 0.08 + (index / (texturePaths.length - 1)) * 0.84;
   const helixPose = useMemo(() => getHelixPose(curve, pathProgress), [curve, pathProgress]);
   const gridPose = useMemo(() => getGridPose(Math.min(index, 5), mobile), [index, mobile]);
+
+  useEffect(
+    () => () => {
+      gl.domElement.style.cursor = 'auto';
+    },
+    [gl],
+  );
 
   useFrame(({ clock }, delta) => {
     const group = groupRef.current;
@@ -273,11 +284,17 @@ function GalleryPanel({
       scale={0.72}
     >
       <mesh
+        onClick={(event) => {
+          event.stopPropagation();
+          if (imagePath) onImageOpen(imagePath);
+        }}
         onPointerOut={() => {
           hoveredRef.current = false;
+          gl.domElement.style.cursor = 'auto';
         }}
         onPointerOver={(event) => {
           event.stopPropagation();
+          gl.domElement.style.cursor = 'zoom-in';
           if (!mobile) hoveredRef.current = true;
         }}
       >
@@ -396,7 +413,15 @@ function GridRules({
   );
 }
 
-function Scene({ onReady, progress }: { onReady: () => void; progress: ScrollProgress }) {
+function Scene({
+  onImageOpen,
+  onReady,
+  progress,
+}: {
+  onImageOpen: (src: string) => void;
+  onReady: () => void;
+  progress: ScrollProgress;
+}) {
   const textures = useLoader(THREE.TextureLoader, texturePaths);
   const rigRef = useRef<THREE.Group>(null);
   const rigRotation = useRef(0);
@@ -459,6 +484,7 @@ function Scene({ onReady, progress }: { onReady: () => void; progress: ScrollPro
             index={index}
             key={texturePaths[index]}
             mobile={mobile}
+            onImageOpen={onImageOpen}
             progress={progress}
             rigRotation={rigRotation}
             texture={texture}
@@ -470,7 +496,13 @@ function Scene({ onReady, progress }: { onReady: () => void; progress: ScrollPro
   );
 }
 
-export function MotionRibbonScene({ progress }: { progress: ScrollProgress }) {
+export function MotionRibbonScene({
+  onImageOpen,
+  progress,
+}: {
+  onImageOpen: (src: string) => void;
+  progress: ScrollProgress;
+}) {
   const { containerRef, visible } = useSceneVisibility('35% 0px');
   const [ready, setReady] = useState(false);
   const handleReady = useCallback(() => setReady(true), []);
@@ -478,10 +510,18 @@ export function MotionRibbonScene({ progress }: { progress: ScrollProgress }) {
   return (
     <div className="relative h-full w-full" ref={containerRef}>
       <div
-        aria-hidden="true"
-        className={`absolute inset-0 transition-opacity duration-700 ${ready ? 'opacity-0' : 'opacity-100'}`}
+        aria-hidden={ready}
+        className={`absolute inset-0 transition-opacity duration-700 ${
+          ready ? 'pointer-events-none opacity-0' : 'opacity-100'
+        }`}
       >
-        <div className="absolute left-1/2 top-1/2 aspect-[1.6] w-[78%] max-w-5xl -translate-x-1/2 -translate-y-1/2 -rotate-2 overflow-hidden border-4 border-[#efefe9] bg-[#ecece8] shadow-2xl md:w-[46%]">
+        <button
+          aria-label="Open Pro Gym facility image"
+          className="absolute left-1/2 top-1/2 aspect-[1.6] w-[78%] max-w-5xl -translate-x-1/2 -translate-y-1/2 -rotate-2 cursor-zoom-in overflow-hidden border-4 border-[#efefe9] bg-[#ecece8] shadow-2xl md:w-[46%]"
+          onClick={() => onImageOpen('/images/gym/optimized/facility-06.webp')}
+          tabIndex={ready ? -1 : 0}
+          type="button"
+        >
           <Image
             alt=""
             className="h-full w-full object-cover"
@@ -490,7 +530,7 @@ export function MotionRibbonScene({ progress }: { progress: ScrollProgress }) {
             src="/images/gym/optimized/facility-06.webp"
             width={1280}
           />
-        </div>
+        </button>
       </div>
       {visible ? (
         <div className="absolute inset-0 z-10">
@@ -505,7 +545,7 @@ export function MotionRibbonScene({ progress }: { progress: ScrollProgress }) {
             }}
           >
             <Suspense fallback={null}>
-              <Scene onReady={handleReady} progress={progress} />
+              <Scene onImageOpen={onImageOpen} onReady={handleReady} progress={progress} />
             </Suspense>
           </Canvas>
         </div>

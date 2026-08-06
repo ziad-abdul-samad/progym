@@ -7,6 +7,7 @@ import {
   ArrowUpRight,
   BarChart3,
   Dumbbell,
+  Maximize2,
   ScanLine,
   Sparkles,
   Users,
@@ -14,10 +15,11 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import type { PublicLocale } from '@progym/shared';
 
 import { AnimatedCounter } from '@/components/public/animated-counter';
+import { ImageLightbox } from '@/components/public/image-lightbox';
 import { MotionRibbonSection } from '@/components/public/motion-ribbon-section';
 
 const imageRoot = '/images/gym';
@@ -323,10 +325,15 @@ function DarkSurfaceEyebrow({ children }: { children: string }) {
 export function HomeExperience({ locale }: { locale: PublicLocale }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [activeStep, setActiveStep] = useState(0);
+  const [selectedImage, setSelectedImage] = useState<{ alt: string; src: string } | null>(null);
   const copy = content[locale];
   const localeSteps = steps[locale];
   const isArabic = locale === 'ar';
   const displayClass = isArabic ? 'font-ar-display tracking-[-0.035em]' : 'tracking-[-0.06em]';
+  const openImage = useCallback((image: { alt: string; src: string }) => {
+    setSelectedImage(image);
+  }, []);
+  const closeImage = useCallback(() => setSelectedImage(null), []);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -462,7 +469,7 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
         </div>
       </div>
 
-      <MotionRibbonSection locale={locale} />
+      <MotionRibbonSection locale={locale} onImageOpen={openImage} />
 
       <section className="relative px-5 py-24 md:px-8 md:py-36 lg:px-10 xl:px-14" id="features">
         <div className="mx-auto max-w-[94rem]">
@@ -575,7 +582,17 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
               key={item.index}
             >
               <div className="border border-black/16 bg-[#e7e5df] p-2 shadow-[0_24px_55px_rgba(20,20,18,0.12)]">
-                <div className="relative aspect-[4/3] overflow-hidden" data-home-image>
+                <button
+                  aria-label={
+                    locale === 'ar'
+                      ? `عرض صورة ${item.title[locale]} بحجم أكبر`
+                      : `View ${item.title[locale]} in a larger frame`
+                  }
+                  className="group/image relative block aspect-[4/3] w-full cursor-zoom-in overflow-hidden text-start"
+                  data-home-image
+                  onClick={() => openImage({ alt: item.title[locale], src: item.image })}
+                  type="button"
+                >
                   <Image
                     alt={item.title[locale]}
                     className="object-cover"
@@ -587,7 +604,10 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
                   <span className="absolute left-4 top-4 bg-[#39ff14] px-3 py-2 text-[0.52rem] font-black uppercase tracking-[0.15em]">
                     Pro Gym / {item.index}
                   </span>
-                </div>
+                  <span className="absolute bottom-4 right-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-black/65 text-white backdrop-blur transition group-hover/image:scale-110 group-hover/image:bg-[#39ff14] group-hover/image:text-black">
+                    <Maximize2 className="h-4 w-4" />
+                  </span>
+                </button>
               </div>
               <figcaption className="mt-5 grid grid-cols-[1fr_auto] gap-6 border-t border-black/22 pt-4">
                 <div>
@@ -610,6 +630,8 @@ export function HomeExperience({ locale }: { locale: PublicLocale }) {
           ))}
         </div>
       </section>
+
+      <ImageLightbox image={selectedImage} locale={locale} onClose={closeImage} />
 
       <section className="relative px-5 py-24 md:px-8 md:py-36 lg:px-10 xl:px-14">
         <div className="mx-auto max-w-[94rem]">

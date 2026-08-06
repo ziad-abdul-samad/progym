@@ -5,7 +5,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ArrowUpRight } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useLayoutEffect, useRef } from 'react';
+import { useCallback, useLayoutEffect, useRef } from 'react';
 import type { PublicLocale } from '@progym/shared';
 
 const MotionRibbonScene = dynamic(
@@ -36,11 +36,25 @@ const copy = {
   },
 } as const;
 
-export function MotionRibbonSection({ locale }: { locale: PublicLocale }) {
+export function MotionRibbonSection({
+  locale,
+  onImageOpen,
+}: {
+  locale: PublicLocale;
+  onImageOpen: (image: { alt: string; src: string }) => void;
+}) {
   const sectionRef = useRef<HTMLElement>(null);
   const progressRef = useRef(0);
   const content = copy[locale];
   const isArabic = locale === 'ar';
+  const handleImageOpen = useCallback(
+    (src: string) =>
+      onImageOpen({
+        alt: locale === 'ar' ? 'صورة من نادي Pro Gym' : 'Pro Gym facility photo',
+        src,
+      }),
+    [locale, onImageOpen],
+  );
 
   useLayoutEffect(() => {
     const section = sectionRef.current;
@@ -157,7 +171,7 @@ export function MotionRibbonSection({ locale }: { locale: PublicLocale }) {
         </p>
 
         <div className="absolute inset-x-0 inset-y-[7%] z-10 md:inset-x-[1%]">
-          <MotionRibbonScene progress={progressRef} />
+          <MotionRibbonScene onImageOpen={handleImageOpen} progress={progressRef} />
         </div>
 
         <div

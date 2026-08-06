@@ -880,7 +880,7 @@ export function DashboardShell({
             </div>
           </aside>
 
-          <main className="min-w-0">
+          <main className="min-w-0 max-w-full overflow-x-clip">
             {isExpiredContentLocked ? (
               <Card className="flex min-h-[60vh] flex-col items-center justify-center text-center shadow-sm">
                 <h1 className="text-3xl font-black">

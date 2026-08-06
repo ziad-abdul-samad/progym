@@ -225,16 +225,16 @@ function CoachPageHeader({
   title: string;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-lg bg-black p-6 text-white shadow-xl">
+    <div className="relative min-w-0 max-w-full overflow-hidden rounded-lg bg-black p-4 text-white shadow-xl sm:p-6">
       <div className="absolute -end-20 -top-24 h-64 w-64 rounded-full bg-brand-accent/20 blur-3xl" />
-      <div className="relative flex items-center justify-between gap-4">
-        <div>
+      <div className="relative flex items-start justify-between gap-3 sm:items-center sm:gap-4">
+        <div className="min-w-0">
           <p className="text-xs font-black text-brand-accent">PRO GYM COACH</p>
-          <h1 className="mt-2 text-2xl font-black md:text-3xl">{title}</h1>
+          <h1 className="mt-2 break-words text-2xl font-black md:text-3xl">{title}</h1>
           <p className="mt-2 max-w-2xl text-sm leading-7 text-white/60">{body}</p>
         </div>
-        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-brand-accent text-black">
-          <Icon className="h-7 w-7" />
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-brand-accent text-black sm:h-14 sm:w-14">
+          <Icon className="h-6 w-6 sm:h-7 sm:w-7" />
         </span>
       </div>
     </div>
@@ -329,14 +329,14 @@ export function CoachDashboardPage() {
             />
           </div>
           <Card>
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle>اللاعبون</CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
                   افتح ملف اللاعب لإدارة التدريب والغذاء والمتابعة.
                 </p>
               </div>
-              <Link href="/ar/dashboard/coach/clients">
+              <Link className="self-start" href="/ar/dashboard/coach/clients">
                 <Button className="gap-2" variant="secondary">
                   عرض الجميع
                   <ChevronLeft className="h-4 w-4" />
@@ -371,9 +371,9 @@ function ClientCard({
   };
 }) {
   return (
-    <Link href={`/ar/dashboard/coach/clients/${client.id}`}>
-      <article className="group h-full rounded-lg border border-border bg-muted/20 p-4 transition hover:-translate-y-0.5 hover:border-brand-accent/50 hover:bg-card hover:shadow-lg">
-        <div className="flex items-center gap-3">
+    <Link className="block min-w-0 max-w-full" href={`/ar/dashboard/coach/clients/${client.id}`}>
+      <article className="group h-full min-w-0 max-w-full overflow-hidden rounded-lg border border-border bg-muted/20 p-4 transition hover:-translate-y-0.5 hover:border-brand-accent/50 hover:bg-card hover:shadow-lg">
+        <div className="grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[3.5rem_minmax(0,1fr)_auto]">
           <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-muted">
             {client.avatarUrl ? (
               <Image
@@ -391,9 +391,11 @@ function ClientCard({
             <p className="truncate font-black">{client.name}</p>
             <p className="mt-1 truncate text-xs font-bold text-muted-foreground">{client.goal}</p>
           </div>
-          <StatusBadge status={client.coaching.status} />
+          <div className="col-span-2 min-w-0 justify-self-start sm:col-span-1">
+            <StatusBadge status={client.coaching.status} />
+          </div>
         </div>
-        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-border pt-3 text-center">
+        <div className="mt-4 grid grid-cols-1 gap-2 border-t border-border pt-3 text-center min-[360px]:grid-cols-3">
           <ClientStat label="الوزن" value={`${client.weight} كغ`} />
           <ClientStat label="الحضور" value={String(client.attendanceCount)} />
           <ClientStat
@@ -410,9 +412,11 @@ function ClientCard({
 
 function ClientStat({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <p className="text-xs font-bold text-muted-foreground">{label}</p>
-      <p className="mt-1 text-sm font-black">{value}</p>
+    <div className="min-w-0">
+      <p className="break-words text-[10px] font-bold leading-4 text-muted-foreground sm:text-xs">
+        {label}
+      </p>
+      <p className="mt-1 break-words text-sm font-black">{value}</p>
     </div>
   );
 }
@@ -612,7 +616,7 @@ function SubscriptionHistoryPanel({
             كل بداية وتجديد وإيقاف محفوظ بالتاريخ والمدة.
           </p>
         </div>
-        <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="grid w-full min-w-0 grid-cols-1 gap-2 text-center min-[360px]:grid-cols-3 sm:w-auto">
           <ClientStat label="مرات الاشتراك" value={String(history.subscriptionCount)} />
           <ClientStat label="التجديدات" value={String(history.renewalCount)} />
           <ClientStat label="مجموع الأيام" value={String(history.totalDays)} />
@@ -714,13 +718,13 @@ export function CoachSubscriptionArchivePage() {
       <QueryState query={query}>
         {(response) => (
           <>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {response.items.map((client) => (
                 <Card
-                  className="group transition hover:-translate-y-0.5 hover:border-brand-accent/45 hover:shadow-lg"
+                  className="group min-w-0 max-w-full overflow-hidden transition hover:-translate-y-0.5 hover:border-brand-accent/45 hover:shadow-lg"
                   key={client.id}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[3.5rem_minmax(0,1fr)_auto]">
                     <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-muted">
                       {client.user.avatarUrl ? (
                         <Image
@@ -740,9 +744,11 @@ export function CoachSubscriptionArchivePage() {
                         {client.memberCode} · @{client.user.username}
                       </p>
                     </div>
-                    <StatusBadge status={client.currentCoaching?.status ?? 'ARCHIVED'} />
+                    <div className="col-span-2 min-w-0 justify-self-start sm:col-span-1">
+                      <StatusBadge status={client.currentCoaching?.status ?? 'ARCHIVED'} />
+                    </div>
                   </div>
-                  <div className="mt-4 grid grid-cols-3 gap-2 border-y border-border py-3 text-center">
+                  <div className="mt-4 grid grid-cols-1 gap-2 border-y border-border py-3 text-center min-[360px]:grid-cols-3">
                     <ClientStat
                       label="مرات الاشتراك"
                       value={String(client.subscriptionHistory.subscriptionCount)}
@@ -756,8 +762,8 @@ export function CoachSubscriptionArchivePage() {
                       value={String(client.subscriptionHistory.totalDays)}
                     />
                   </div>
-                  <div className="mt-4 flex items-center justify-between gap-3">
-                    <p className="text-xs font-bold text-muted-foreground">
+                  <div className="mt-4 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="min-w-0 break-words text-xs font-bold text-muted-foreground">
                       {client.subscriptionHistory.lastActivityAt
                         ? `آخر حركة ${formatCompactDateTime(
                             client.subscriptionHistory.lastActivityAt,
@@ -765,7 +771,7 @@ export function CoachSubscriptionArchivePage() {
                         : 'لم يبدأ اشتراك بعد'}
                     </p>
                     <Button
-                      className="gap-2"
+                      className="w-full gap-2 sm:w-auto"
                       onClick={() => setSelectedClient(client)}
                       variant="secondary"
                     >
@@ -932,8 +938,7 @@ export function CoachClientDetailPage() {
     },
   });
   const resumeSubscription = useMutation({
-    mutationFn: () =>
-      apiRequest(`/coaches/clients/${params.memberId}/resume`, { method: 'PATCH' }),
+    mutationFn: () => apiRequest(`/coaches/clients/${params.memberId}/resume`, { method: 'PATCH' }),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['coach-client', params.memberId] }),
@@ -948,8 +953,7 @@ export function CoachClientDetailPage() {
     },
   });
   const endRelationship = useMutation({
-    mutationFn: () =>
-      apiRequest(`/coaches/clients/${params.memberId}/end`, { method: 'PATCH' }),
+    mutationFn: () => apiRequest(`/coaches/clients/${params.memberId}/end`, { method: 'PATCH' }),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['coach-clients'] }),
@@ -1565,11 +1569,7 @@ function NutritionPlans({
   );
 }
 
-function PlanVersionArchive({
-  plans,
-}: {
-  plans: Array<NutritionPlanData | WorkoutPlanData>;
-}) {
+function PlanVersionArchive({ plans }: { plans: Array<NutritionPlanData | WorkoutPlanData> }) {
   if (!plans.length) return null;
   return (
     <Card>
@@ -1710,12 +1710,16 @@ export function CoachPlansPage() {
       />
       <QueryState query={query}>
         {(response) => (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {response.items.map(({ member }) => (
-              <Link href={`/ar/dashboard/coach/clients/${member.id}`} key={member.id}>
-                <Card className="group h-full transition hover:-translate-y-1 hover:border-brand-accent/50 hover:shadow-xl">
-                  <div className="flex items-center gap-3">
-                    <div className="relative h-14 w-14 overflow-hidden rounded-lg bg-muted">
+              <Link
+                className="block min-w-0 max-w-full"
+                href={`/ar/dashboard/coach/clients/${member.id}`}
+                key={member.id}
+              >
+                <Card className="group h-full min-w-0 max-w-full overflow-hidden transition hover:-translate-y-1 hover:border-brand-accent/50 hover:shadow-xl">
+                  <div className="grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-3">
+                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-muted">
                       {member.user.avatarUrl ? (
                         <Image
                           alt={member.user.fullName}
