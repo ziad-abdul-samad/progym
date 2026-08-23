@@ -786,11 +786,19 @@ export class AdminService {
   async receptionFeed(user: AuthenticatedUser) {
     const branchId = requireBranchId(user);
     const since = new Date(Date.now() - 15 * 60_000);
-    const [registrations, attendances] = await Promise.all([
+    const [registrations, attendances, deniedEntries] = await Promise.all([
       this.prisma.memberProfile.findMany({
         include: {
+          homeBranch: { select: { code: true, id: true, nameAr: true, nameEn: true } },
           registrationRequest: true,
-          subscriptions: { include: { plan: true }, orderBy: { endsAt: 'desc' }, take: 1 },
+          subscriptions: {
+            include: {
+              branch: { select: { code: true, id: true, nameAr: true, nameEn: true } },
+              plan: true,
+            },
+            orderBy: { endsAt: 'desc' },
+            take: 1,
+          },
           user: { select: safeUserSelect },
         },
         orderBy: { createdAt: 'desc' },
@@ -806,7 +814,15 @@ export class AdminService {
           member: {
             include: {
               attendanceRecords: { orderBy: { checkedInAt: 'desc' }, take: 2 },
-              subscriptions: { include: { plan: true }, orderBy: { endsAt: 'desc' }, take: 1 },
+              homeBranch: { select: { code: true, id: true, nameAr: true, nameEn: true } },
+              subscriptions: {
+                include: {
+                  branch: { select: { code: true, id: true, nameAr: true, nameEn: true } },
+                  plan: true,
+                },
+                orderBy: { endsAt: 'desc' },
+                take: 1,
+              },
               user: { select: safeUserSelect },
             },
           },
@@ -814,6 +830,26 @@ export class AdminService {
         orderBy: { checkedInAt: 'desc' },
         take: 12,
         where: { branchId, checkedInAt: { gte: since } },
+      }),
+      this.prisma.deniedEntryAttempt.findMany({
+        include: {
+          branch: { select: { code: true, id: true, nameAr: true, nameEn: true } },
+          member: {
+            include: {
+              homeBranch: { select: { code: true, id: true, nameAr: true, nameEn: true } },
+              user: { select: safeUserSelect },
+            },
+          },
+          subscription: {
+            include: {
+              branch: { select: { code: true, id: true, nameAr: true, nameEn: true } },
+              plan: true,
+            },
+          },
+        },
+        orderBy: { attemptedAt: 'desc' },
+        take: 12,
+        where: { attemptedAt: { gte: since }, branchId },
       }),
     ]);
 
@@ -828,6 +864,7 @@ export class AdminService {
         gender: member.gender,
         heightCm: member.heightCm,
         id: member.id,
+        homeBranch: member.homeBranch,
         name: member.user.fullName,
         phone: member.user.phone,
         username: member.user.username,
@@ -856,6 +893,7 @@ export class AdminService {
           gender: record.member.gender,
           heightCm: record.member.heightCm,
           id: record.member.id,
+          homeBranch: record.member.homeBranch,
           name: record.member.user.fullName,
           phone: record.member.user.phone,
           username: record.member.user.username,
@@ -863,6 +901,7 @@ export class AdminService {
         },
         membership: {
           plan: subscription?.plan?.nameAr ?? null,
+          branch: subscription?.branch ?? null,
           remainingDays,
           status: subscription?.status ?? 'NONE',
         },
@@ -871,7 +910,44 @@ export class AdminService {
       };
     });
 
-    return [...registrationEvents, ...attendanceEvents]
+    const deniedEntryEvents = deniedEntries.map((attempt) => {
+      const subscription = attempt.subscription;
+      const remainingDays = subscription
+        ? Math.max(0, Math.ceil((subscription.endsAt.getTime() - Date.now()) / 86_400_000))
+        : 0;
+
+      return {
+        attemptedBranch: attempt.branch,
+        denialCode: attempt.denialCode,
+        id: `denied-entry:${attempt.id}`,
+        kind: 'DENIED_ENTRY' as const,
+        member: {
+          age: ageFromDateOfBirth(attempt.member.dateOfBirth),
+          avatarUrl: attempt.member.user.avatarUrl,
+          fitnessGoal: attempt.member.fitnessGoal,
+          gender: attempt.member.gender,
+          heightCm: attempt.member.heightCm,
+          homeBranch: attempt.member.homeBranch,
+          id: attempt.member.id,
+          name: attempt.member.user.fullName,
+          phone: attempt.member.user.phone,
+          username: attempt.member.user.username,
+          weightKg: attempt.member.currentWeightKg,
+        },
+        membership: subscription
+          ? {
+              branch: subscription.branch,
+              plan: subscription.plan?.nameAr ?? null,
+              remainingDays,
+              status: subscription.status,
+            }
+          : null,
+        occurredAt: attempt.attemptedAt,
+        previousCheckIn: null,
+      };
+    });
+
+    return [...registrationEvents, ...attendanceEvents, ...deniedEntryEvents]
       .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())
       .slice(0, 20);
   }

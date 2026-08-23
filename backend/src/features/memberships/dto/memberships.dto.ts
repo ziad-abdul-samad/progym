@@ -1,5 +1,22 @@
 import { Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
+
+export class MembershipMemberSearchDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(80)
+  q!: string;
+}
 
 export class CreateMembershipPlanDto {
   @IsString()

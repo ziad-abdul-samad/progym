@@ -8,6 +8,7 @@ import type { AuthenticatedUser } from '../../common/types/authenticated-user';
 import {
   CreateMembershipPlanDto,
   CreateSubscriptionDto,
+  MembershipMemberSearchDto,
   MembershipMutationDto,
   UpdateMembershipPlanDto,
 } from './dto/memberships.dto';
@@ -39,6 +40,15 @@ export class MembershipsController {
   @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async listSubscriptions(@Query() query: PaginationDto, @CurrentUser() user: AuthenticatedUser) {
     return { data: await this.memberships.listSubscriptions(query, user) };
+  }
+
+  @Get('members/search')
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
+  async searchMembers(
+    @Query() query: MembershipMemberSearchDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return { data: await this.memberships.searchMembersForSubscription(query.q, user) };
   }
 
   @Post('subscriptions')

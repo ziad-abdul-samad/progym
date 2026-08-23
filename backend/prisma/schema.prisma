@@ -211,6 +211,7 @@ model Branch {
   qrInvites            QrInvite[]
   attendanceQrSessions AttendanceQrSession[]
   attendanceRecords    AttendanceRecord[]
+  deniedEntryAttempts  DeniedEntryAttempt[]
   subscriptions        Subscription[]
   membershipAuditLogs  MembershipAuditLog[]
   files                FileAsset[]
@@ -337,6 +338,7 @@ model MemberProfile {
   assignments             CoachAssignment[]
   coachSubscriptionEvents CoachSubscriptionEvent[]
   attendanceRecords       AttendanceRecord[]
+  deniedEntryAttempts     DeniedEntryAttempt[]
   coachRequests           CoachRequest[]
   membershipAuditLogs     MembershipAuditLog[]
   nutritionPlans          NutritionPlan[]
@@ -480,6 +482,7 @@ model Subscription {
   plan      MembershipPlan?      @relation(fields: [planId], references: [id], onDelete: SetNull)
   auditLogs MembershipAuditLog[]
   payments  Payment[]
+  deniedEntryAttempts DeniedEntryAttempt[]
 
   @@index([memberId, status])
   @@index([branchId, status, endsAt])
@@ -649,6 +652,24 @@ model AttendanceRecord {
   @@index([branchId, attendanceDate, checkedInAt])
   @@index([attendanceDate])
   @@index([voidedAt])
+}
+
+model DeniedEntryAttempt {
+  id             String           @id @default(cuid())
+  memberId       String
+  branchId       String
+  subscriptionId String?
+  source         AttendanceSource @default(QR)
+  denialCode     String
+  attemptedAt    DateTime         @default(now())
+  createdAt      DateTime         @default(now())
+
+  member       MemberProfile @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  branch       Branch        @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([branchId, attemptedAt])
+  @@index([memberId, attemptedAt])
 }
 
 model ExerciseCategory {

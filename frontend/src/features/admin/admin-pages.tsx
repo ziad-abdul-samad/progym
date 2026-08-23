@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Activity,
+  ArrowLeftRight,
   BadgeCheck,
   CalendarCheck,
   CalendarDays,
@@ -47,6 +48,7 @@ import { DashboardLoader, EmptyState, ErrorState } from '@/components/ui/state';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { useToast } from '@/components/ui/toast';
 import { apiRequest, jsonBody } from '@/lib/api/client';
+import { useAuth } from '@/lib/auth/use-auth';
 import { cn, formatCompactDate, formatCompactDateTime, formatShiftTime } from '@/lib/utils';
 
 type Member = {
@@ -154,12 +156,39 @@ type ShiftObserver = {
 };
 
 type Subscription = {
+  branch: BranchSummary;
   endsAt: string;
   id: string;
-  member: { user: { fullName: string } };
+  member: { homeBranch: BranchSummary; user: { fullName: string } };
   plan: { nameAr: string } | null;
   startsAt?: string;
   status: string;
+};
+
+type BranchSummary = {
+  code: string;
+  id: string;
+  nameAr: string;
+  nameEn: string;
+};
+
+type MemberSubscriptionSearchResult = {
+  currentSubscription: {
+    branch: BranchSummary;
+    endsAt: string;
+    id: string;
+    status: string;
+  } | null;
+  homeBranch: BranchSummary;
+  id: string;
+  memberCode: string;
+  user: {
+    avatarUrl: string | null;
+    fullName: string;
+    phone: string;
+    status: string;
+    username: string;
+  };
 };
 
 type MembershipAuditItem = {
@@ -1686,12 +1715,17 @@ function coachProfileFieldLabel(field: string) {
 }
 
 export function AdminMembershipsPage() {
+  const auth = useAuth();
   const queryClient = useQueryClient();
   const { push } = useToast();
   const [subscriptionQuery, setSubscriptionQuery] = useState('');
   const deferredSubscriptionQuery = useDeferredValue(subscriptionQuery);
   const [subscriptionPage, setSubscriptionPage] = useState(1);
   const [subscriptionStatus, setSubscriptionStatus] = useState('ALL');
+  const [newSubscriptionQuery, setNewSubscriptionQuery] = useState('');
+  const deferredNewSubscriptionQuery = useDeferredValue(newSubscriptionQuery);
+  const [newSubscriptionMember, setNewSubscriptionMember] =
+    useState<MemberSubscriptionSearchResult | null>(null);
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [subscriptionAction, setSubscriptionAction] = useState<{
     action: string;
@@ -1716,6 +1750,36 @@ export function AdminMembershipsPage() {
         }),
       ),
     queryKey: ['subscriptions', deferredSubscriptionQuery, subscriptionPage, subscriptionStatus],
+  });
+  const memberSearch = useQuery({
+    enabled: deferredNewSubscriptionQuery.trim().length >= 2,
+    queryFn: () =>
+      apiRequest<MemberSubscriptionSearchResult[]>(
+        pagedPath('/memberships/members/search', { q: deferredNewSubscriptionQuery.trim() }),
+      ),
+    queryKey: ['membership-global-member-search', deferredNewSubscriptionQuery],
+  });
+  const createSubscription = useMutation({
+    mutationFn: (payload: {
+      days: string;
+      memberId: string;
+      observerId?: string;
+      reason: string;
+    }) =>
+      apiRequest('/memberships/subscriptions', {
+        body: jsonBody(payload),
+        method: 'POST',
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
+        queryClient.invalidateQueries({ queryKey: ['membership-global-member-search'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin-overview'] }),
+      ]);
+      setNewSubscriptionMember(null);
+      setNewSubscriptionQuery('');
+      push({ title: 'تم بدء الاشتراك في الفرع الحالي وتوثيق العملية', tone: 'success' });
+    },
   });
   const mutateSub = useMutation({
     mutationFn: ({
@@ -1743,10 +1807,82 @@ export function AdminMembershipsPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        body="تُفعّل مدة اللاعب من نافذة الاستقبال بعد التسجيل، وتبقى كل التعديلات هنا موثقة بالسبب ومراقب الشفت."
+        body="ابحث عن أي لاعب للاشتراك في هذا الفرع أو نقله إليه بعد الدفع. يُحفظ فرع تسجيله الأصلي وتُوثق كل عملية باسم مراقب الشفت."
         icon={WalletCards}
         title="الاشتراكات"
       />
+      <Card className="overflow-hidden border-brand-accent/25">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-green-700 dark:text-brand-accent">
+              <ArrowLeftRight className="h-5 w-5" />
+              <p className="font-black">اشتراك أو نقل لاعب إلى هذا الفرع</p>
+            </div>
+            <p className="mt-2 max-w-2xl text-sm leading-7 text-muted-foreground">
+              ابحث بالاسم أو اسم المستخدم أو رقم الهاتف. عند تأكيد الدفع يبدأ اشتراك جديد بسعر الفرع
+              الحالي، وينتهي الاشتراك السابق تلقائياً من دون حذف تاريخه.
+            </p>
+          </div>
+          <div className="w-full lg:max-w-md">
+            <div className="relative">
+              <Search className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pe-10"
+                onChange={(event) => setNewSubscriptionQuery(event.target.value)}
+                placeholder="ابحث عن اللاعب في جميع الفروع"
+                value={newSubscriptionQuery}
+              />
+            </div>
+            {newSubscriptionQuery.trim().length === 1 ? (
+              <p className="mt-2 text-xs text-muted-foreground">اكتب حرفين على الأقل للبحث.</p>
+            ) : null}
+          </div>
+        </div>
+
+        {deferredNewSubscriptionQuery.trim().length >= 2 ? (
+          <div className="mt-5 grid gap-2 border-t border-border pt-4">
+            {memberSearch.isLoading ? <DashboardLoader /> : null}
+            {memberSearch.error ? <ErrorState message={memberSearch.error.message} /> : null}
+            {memberSearch.data?.map((member) => (
+              <button
+                className="flex w-full flex-col gap-3 rounded-lg border border-border bg-muted/25 p-3 text-start transition hover:border-brand-accent/55 hover:bg-brand-accent/[0.04] sm:flex-row sm:items-center"
+                key={member.id}
+                onClick={() => setNewSubscriptionMember(member)}
+                type="button"
+              >
+                {member.user.avatarUrl ? (
+                  <Image
+                    alt={member.user.fullName}
+                    className="h-16 w-14 rounded-lg bg-muted object-contain"
+                    height={64}
+                    src={member.user.avatarUrl}
+                    width={56}
+                  />
+                ) : (
+                  <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-muted">
+                    <Users className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-black">{member.user.fullName}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    @{member.user.username} · {member.user.phone} · {member.memberCode}
+                  </p>
+                </div>
+                <div className="grid gap-1 text-xs font-bold text-muted-foreground sm:text-end">
+                  <span>فرع التسجيل: {member.homeBranch.nameAr}</span>
+                  <span>
+                    الاشتراك الحالي: {member.currentSubscription?.branch.nameAr ?? 'لا يوجد'}
+                  </span>
+                </div>
+              </button>
+            ))}
+            {memberSearch.data && !memberSearch.data.length ? (
+              <EmptyState title="لم نجد لاعباً مطابقاً في الفروع" />
+            ) : null}
+          </div>
+        ) : null}
+      </Card>
       <Card>
         <div className="grid gap-3 lg:grid-cols-[1fr_0.8fr_auto] lg:items-center">
           <div className="relative">
@@ -1883,6 +2019,70 @@ export function AdminMembershipsPage() {
         <Pagination meta={subscriptions.data.meta} onPageChange={setSubscriptionPage} />
       ) : null}
       <Dialog
+        description="بعد استلام الدفع سيبدأ اشتراك جديد في الفرع الحالي. إذا كان هناك اشتراك فعال، سيُنهيه النظام ويحفظه في السجل قبل بدء الاشتراك الجديد."
+        onClose={() => setNewSubscriptionMember(null)}
+        open={Boolean(newSubscriptionMember)}
+        title="تأكيد الاشتراك في الفرع الحالي"
+      >
+        {newSubscriptionMember ? (
+          <DialogForm
+            actions={
+              <>
+                <DialogCancelButton onClick={() => setNewSubscriptionMember(null)} />
+                <Button isLoading={createSubscription.isPending} loadingText="جاري تفعيل الاشتراك">
+                  تأكيد الدفع والاشتراك
+                </Button>
+              </>
+            }
+            onSubmit={(event) => {
+              event.preventDefault();
+              const form = objectFromForm(event.currentTarget);
+              createSubscription.mutate({
+                days: formText(form.days),
+                memberId: newSubscriptionMember.id,
+                observerId: formText(form.observerId) || undefined,
+                reason: formText(form.reason),
+              });
+            }}
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              <DetailRow label="اللاعب" value={newSubscriptionMember.user.fullName} />
+              <DetailRow label="فرع التسجيل" value={newSubscriptionMember.homeBranch.nameAr} />
+              <DetailRow
+                label="الاشتراك المدفوع الحالي"
+                value={newSubscriptionMember.currentSubscription?.branch.nameAr ?? 'لا يوجد'}
+              />
+              <DetailRow
+                label="حالته"
+                value={
+                  newSubscriptionMember.currentSubscription ? (
+                    <StatusBadge status={newSubscriptionMember.currentSubscription.status} />
+                  ) : (
+                    'لا يوجد اشتراك'
+                  )
+                }
+              />
+            </div>
+            <Input defaultValue={30} min={1} name="days" required type="number" />
+            {auth.data?.role !== 'OBSERVER' ? (
+              <SelectField name="observerId" required>
+                <option value="">اختر مراقب الشفت</option>
+                {observers.data?.items.map((observer) => (
+                  <option key={observer.id} value={observer.id}>
+                    {observer.fullName}
+                  </option>
+                ))}
+              </SelectField>
+            ) : null}
+            <Textarea
+              defaultValue="اشتراك جديد في الفرع الحالي بعد استلام الدفع"
+              name="reason"
+              required
+            />
+          </DialogForm>
+        ) : null}
+      </Dialog>
+      <Dialog
         description="تفاصيل الاشتراك الحالية لهذا اللاعب."
         onClose={() => setSelectedSubscription(null)}
         open={Boolean(selectedSubscription)}
@@ -1891,6 +2091,7 @@ export function AdminMembershipsPage() {
         {selectedSubscription ? (
           <div className="grid gap-3 sm:grid-cols-2">
             <DetailRow label="الخطة" value={selectedSubscription.plan?.nameAr ?? 'اشتراك مخصص'} />
+            <DetailRow label="فرع الاشتراك" value={selectedSubscription.branch.nameAr} />
             <DetailRow
               label="الحالة"
               value={<StatusBadge status={selectedSubscription.status} />}

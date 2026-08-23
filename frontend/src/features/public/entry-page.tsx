@@ -1,7 +1,15 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import { ArrowUpRight, CheckCircle2, LogIn, ScanLine, UserPlus } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Building2,
+  CheckCircle2,
+  LogIn,
+  ScanLine,
+  ShieldX,
+  UserPlus,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { PublicLocale } from '@progym/shared';
@@ -10,8 +18,15 @@ import { apiRequest, jsonBody } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth/use-auth';
 
 type EntryResult = {
+  allowed: boolean;
+  attemptedBranch: { code: string; id: string; nameAr: string; nameEn: string };
+  denialCode: 'BRANCH_NOT_ALLOWED' | 'NO_ACTIVE_SUBSCRIPTION' | 'SUBSCRIPTION_INACTIVE' | null;
   member: { name: string };
-  membership: { remainingDays: number; status: string };
+  membership: {
+    branch: { code: string; id: string; nameAr: string; nameEn: string } | null;
+    remainingDays: number;
+    status: string;
+  };
   message: string;
 };
 
@@ -64,21 +79,41 @@ export function EntryPage({
         ) : auth.data?.role === 'MEMBER' ? (
           <div className="mt-10 border-t border-white/10 pt-8">
             {entry.data ? (
-              <div className="border border-[#39ff14]/30 bg-[#39ff14]/[0.06] p-6">
-                <CheckCircle2 className="h-8 w-8 text-[#39ff14]" />
-                <h2 className="mt-4 font-ar-display text-3xl font-black leading-[1.4]">
-                  {ar ? `أهلاً ${entry.data.member.name}` : `Welcome, ${entry.data.member.name}`}
-                </h2>
-                <p className="mt-3 text-white/55">
-                  {entry.data.membership.status === 'ACTIVE'
-                    ? ar
-                      ? `تم تسجيل دخولك. متبقي ${entry.data.membership.remainingDays} يوم في اشتراكك.`
-                      : `Entry recorded. ${entry.data.membership.remainingDays} membership days remain.`
-                    : ar
-                      ? 'تم تسجيل دخولك، لكن اشتراكك يحتاج إلى مراجعة الاستقبال.'
-                      : 'Entry recorded, but reception needs to review your membership.'}
-                </p>
-              </div>
+              entry.data.allowed ? (
+                <div className="border border-[#39ff14]/30 bg-[#39ff14]/[0.06] p-6">
+                  <CheckCircle2 className="h-8 w-8 text-[#39ff14]" />
+                  <h2 className="mt-4 font-ar-display text-3xl font-black leading-[1.4]">
+                    {ar ? `أهلاً ${entry.data.member.name}` : `Welcome, ${entry.data.member.name}`}
+                  </h2>
+                  <p className="mt-3 text-white/55">
+                    {ar
+                      ? `تم تسجيل دخولك إلى ${entry.data.attemptedBranch.nameAr}. متبقي ${entry.data.membership.remainingDays} يوم في اشتراكك.`
+                      : `Entry to ${entry.data.attemptedBranch.nameEn} recorded. ${entry.data.membership.remainingDays} membership days remain.`}
+                  </p>
+                </div>
+              ) : (
+                <div className="border border-red-400/35 bg-red-500/[0.08] p-6">
+                  <ShieldX className="h-9 w-9 text-red-300" />
+                  <h2 className="mt-4 font-ar-display text-3xl font-black leading-[1.4] text-red-100">
+                    {ar ? 'الدخول غير مسموح لهذا الفرع' : 'Entry is not allowed at this branch'}
+                  </h2>
+                  <p className="mt-3 max-w-2xl text-sm leading-7 text-white/65">
+                    {entry.data.denialCode === 'BRANCH_NOT_ALLOWED'
+                      ? ar
+                        ? `اشتراكك الحالي مخصص لفرع ${entry.data.membership.branch?.nameAr ?? '-'}. راجع استقبال فرع ${entry.data.attemptedBranch.nameAr} للاشتراك فيه.`
+                        : `Your current subscription belongs to ${entry.data.membership.branch?.nameEn ?? '-'}. Please visit ${entry.data.attemptedBranch.nameEn} reception to subscribe here.`
+                      : ar
+                        ? 'لا يوجد اشتراك فعال يسمح بالدخول. راجع الاستقبال لتفعيل أو تجديد اشتراكك.'
+                        : 'There is no active subscription for entry. Please visit reception to activate or renew it.'}
+                  </p>
+                  <div className="mt-5 flex items-center gap-3 border-t border-white/10 pt-5 text-sm font-black text-white/75">
+                    <Building2 className="h-5 w-5 text-red-300" />
+                    {ar
+                      ? `الفرع الذي تم مسحه: ${entry.data.attemptedBranch.nameAr}`
+                      : `Scanned branch: ${entry.data.attemptedBranch.nameEn}`}
+                  </div>
+                </div>
+              )
             ) : (
               <>
                 <p className="max-w-xl text-sm leading-7 text-white/50">

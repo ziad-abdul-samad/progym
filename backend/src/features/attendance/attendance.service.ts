@@ -86,6 +86,9 @@ export class AttendanceService {
       null,
       notes,
     );
+    if (!result.allowed || !result.checkIn) {
+      throw new BadRequestException('The member is not allowed to enter this branch');
+    }
     await this.prisma.auditLog.create({
       data: {
         action: AuditAction.ATTENDANCE,
@@ -251,6 +254,61 @@ export class AttendanceService {
       throw new NotFoundException('Member not found');
     }
 
+    const access = await this.memberships.getBranchEntryAccess(memberId, branchId);
+    if (!access.allowed) {
+      const attempt = await this.prisma.$transaction(async (transaction) => {
+        const created = await transaction.deniedEntryAttempt.create({
+          data: {
+            branchId,
+            denialCode: access.denialCode ?? 'NO_ACTIVE_SUBSCRIPTION',
+            memberId,
+            source,
+            subscriptionId: access.membership?.id ?? null,
+          },
+        });
+        await transaction.auditLog.create({
+          data: {
+            action: AuditAction.ATTENDANCE,
+            branchId,
+            entityId: created.id,
+            entityType: 'DeniedEntryAttempt',
+            metadata: {
+              action: 'BRANCH_ACCESS_DENIED',
+              attemptedBranchId: branchId,
+              denialCode: access.denialCode,
+              memberId,
+              subscriptionBranchId: access.membership?.branch.id ?? null,
+              subscriptionId: access.membership?.id ?? null,
+            },
+          },
+        });
+        return created;
+      });
+
+      return {
+        allowed: false as const,
+        attemptedBranch: access.attemptedBranch,
+        checkIn: null,
+        denialCode: access.denialCode,
+        member: {
+          goal: member.fitnessGoal,
+          name: member.user.fullName,
+          photoUrl: member.user.avatarUrl,
+        },
+        membership: access.membership
+          ? {
+              branch: access.membership.branch,
+              endsAt: access.membership.endsAt,
+              remainingDays: access.membership.remainingDays,
+              status: access.membership.status,
+            }
+          : { branch: null, endsAt: null, remainingDays: 0, status: 'NONE' },
+        message: 'غير مسموح بالدخول إلى هذا الفرع',
+        previousCheckIn: null,
+        rejectedAttemptId: attempt.id,
+      };
+    }
+
     const previousCheckIn = await this.prisma.attendanceRecord.findFirst({
       orderBy: { checkedInAt: 'desc' },
       select: { checkedInAt: true },
@@ -268,7 +326,12 @@ export class AttendanceService {
         source,
       },
     });
-    const membership = await this.memberships.getMembershipSummary(memberId);
+    const membership = {
+      branch: access.membership?.branch ?? null,
+      endsAt: access.membership?.endsAt ?? null,
+      remainingDays: access.membership?.remainingDays ?? 0,
+      status: access.membership?.status ?? 'NONE',
+    };
 
     await this.notifications.create({
       bodyAr: `تم تسجيل حضورك بتاريخ ${record.checkedInAt.toLocaleDateString('ar')}`,
@@ -279,6 +342,8 @@ export class AttendanceService {
     });
 
     return {
+      allowed: true as const,
+      attemptedBranch: access.attemptedBranch,
       checkIn: record,
       member: {
         goal: member.fitnessGoal,

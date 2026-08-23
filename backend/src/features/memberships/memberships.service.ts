@@ -22,6 +22,7 @@ import type {
 } from './dto/memberships.dto';
 
 function subscriptionSnapshot(subscription: {
+  branchId: string;
   status: SubscriptionStatus;
   startsAt: Date;
   endsAt: Date;
@@ -29,12 +30,23 @@ function subscriptionSnapshot(subscription: {
   planId: string | null;
 }) {
   return {
+    branchId: subscription.branchId,
     endsAt: subscription.endsAt.toISOString(),
     frozenAt: subscription.frozenAt?.toISOString() ?? null,
     planId: subscription.planId,
     startsAt: subscription.startsAt.toISOString(),
     status: subscription.status,
   };
+}
+
+export function canSubscriptionEnterBranch(
+  subscriptionBranchCode: string,
+  subscriptionBranchId: string,
+  attemptedBranchId: string,
+) {
+  return (
+    subscriptionBranchCode.toLowerCase() === 'b1' || subscriptionBranchId === attemptedBranchId
+  );
 }
 
 export function computeSubscriptionChargeMinor(monthlyPriceMinor: number, days: number) {
@@ -99,6 +111,114 @@ export class MembershipsService {
     return summary;
   }
 
+  async getBranchEntryAccess(memberId: string, attemptedBranchId: string) {
+    const now = new Date();
+    const [attemptedBranch, current] = await Promise.all([
+      this.prisma.branch.findUnique({
+        select: { code: true, id: true, nameAr: true, nameEn: true },
+        where: { id: attemptedBranchId },
+      }),
+      this.prisma.subscription.findFirst({
+        include: {
+          branch: { select: { code: true, id: true, nameAr: true, nameEn: true } },
+          plan: { select: { nameAr: true, nameEn: true } },
+        },
+        orderBy: { endsAt: 'desc' },
+        where: { memberId, status: { in: ['ACTIVE', 'FROZEN', 'PENDING'] } },
+      }),
+    ]);
+
+    if (!attemptedBranch) throw new NotFoundException('Branch not found');
+
+    let subscription = current;
+    if (subscription?.status === SubscriptionStatus.ACTIVE && subscription.endsAt <= now) {
+      subscription = await this.prisma.subscription.update({
+        data: { status: SubscriptionStatus.EXPIRED },
+        include: {
+          branch: { select: { code: true, id: true, nameAr: true, nameEn: true } },
+          plan: { select: { nameAr: true, nameEn: true } },
+        },
+        where: { id: subscription.id },
+      });
+    }
+
+    const remainingDays = subscription
+      ? Math.max(0, Math.ceil((subscription.endsAt.getTime() - now.getTime()) / 86_400_000))
+      : 0;
+    const active = subscription?.status === SubscriptionStatus.ACTIVE && remainingDays > 0;
+    const allowed = Boolean(
+      active &&
+      subscription &&
+      canSubscriptionEnterBranch(
+        subscription.branch.code,
+        subscription.branchId,
+        attemptedBranchId,
+      ),
+    );
+
+    return {
+      allowed,
+      attemptedBranch,
+      denialCode: allowed
+        ? null
+        : !subscription
+          ? 'NO_ACTIVE_SUBSCRIPTION'
+          : !active
+            ? 'SUBSCRIPTION_INACTIVE'
+            : 'BRANCH_NOT_ALLOWED',
+      membership: subscription
+        ? {
+            branch: subscription.branch,
+            endsAt: subscription.endsAt,
+            id: subscription.id,
+            plan: subscription.plan,
+            remainingDays,
+            status: subscription.status,
+          }
+        : null,
+    };
+  }
+
+  async searchMembersForSubscription(rawQuery: string, user: AuthenticatedUser) {
+    requireBranchId(user);
+    const q = rawQuery.trim();
+    if (q.length < 2) throw new BadRequestException('Enter at least two search characters');
+
+    const members = await this.prisma.memberProfile.findMany({
+      include: {
+        homeBranch: { select: { code: true, id: true, nameAr: true, nameEn: true } },
+        subscriptions: {
+          include: { branch: { select: { code: true, id: true, nameAr: true, nameEn: true } } },
+          orderBy: { endsAt: 'desc' },
+          take: 1,
+        },
+        user: {
+          select: { avatarUrl: true, fullName: true, phone: true, status: true, username: true },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 10,
+      where: {
+        user: {
+          role: UserRole.MEMBER,
+          OR: [
+            { fullName: { contains: q, mode: 'insensitive' } },
+            { username: { contains: q, mode: 'insensitive' } },
+            { phone: { contains: q, mode: 'insensitive' } },
+          ],
+        },
+      },
+    });
+
+    return members.map((member) => ({
+      currentSubscription: member.subscriptions[0] ?? null,
+      homeBranch: member.homeBranch,
+      id: member.id,
+      memberCode: member.memberCode,
+      user: member.user,
+    }));
+  }
+
   async listSubscriptions(query: PaginationDto, user: AuthenticatedUser) {
     const branchId = requireBranchId(user);
     const where: Prisma.SubscriptionWhereInput = {
@@ -123,6 +243,7 @@ export class MembershipsService {
         include: {
           member: {
             include: {
+              homeBranch: { select: { code: true, id: true, nameAr: true, nameEn: true } },
               user: {
                 select: {
                   avatarUrl: true,
@@ -134,6 +255,7 @@ export class MembershipsService {
               },
             },
           },
+          branch: { select: { code: true, id: true, nameAr: true, nameEn: true } },
           plan: {
             select: {
               durationDays: true,
@@ -163,19 +285,9 @@ export class MembershipsService {
     if (!member) {
       throw new NotFoundException('Member not found');
     }
-    if (member.homeBranchId !== branchId) {
-      throw new BadRequestException('Create the subscription from the member home branch');
+    if (member.user.status !== 'ACTIVE') {
+      throw new BadRequestException('Only active member accounts can start a subscription');
     }
-    const current = await this.prisma.subscription.findFirst({
-      where: {
-        memberId: member.id,
-        status: { in: ['PENDING', 'ACTIVE', 'FROZEN'] },
-      },
-    });
-    if (current) {
-      throw new BadRequestException('Member already has a current gym subscription');
-    }
-
     const plan = dto.planId
       ? await this.prisma.membershipPlan.findUnique({ where: { id: dto.planId } })
       : null;
@@ -188,6 +300,32 @@ export class MembershipsService {
     const now = new Date();
     const observer = await this.requireActiveObserver(dto.observerId, admin);
     return this.prisma.$transaction(async (transaction) => {
+      const current = await transaction.subscription.findFirst({
+        orderBy: { endsAt: 'desc' },
+        where: {
+          memberId: member.id,
+          status: { in: ['PENDING', 'ACTIVE', 'FROZEN'] },
+        },
+      });
+
+      if (current) {
+        const expired = await transaction.subscription.update({
+          data: { endsAt: now, frozenAt: null, status: SubscriptionStatus.EXPIRED },
+          where: { id: current.id },
+        });
+        await this.writeMembershipAudit(transaction, {
+          action: MembershipAuditAction.EXPIRE,
+          admin,
+          branchId: current.branchId,
+          memberId: member.id,
+          newValue: subscriptionSnapshot(expired),
+          observer,
+          previousValue: subscriptionSnapshot(current),
+          reason: `نقل اشتراك اللاعب إلى فرع جديد: ${dto.reason}`,
+          subscriptionId: current.id,
+        });
+      }
+
       const subscription = await transaction.subscription.create({
         data: {
           branchId,
@@ -206,7 +344,7 @@ export class MembershipsService {
         memberId: member.id,
         newValue: subscriptionSnapshot(subscription),
         observer,
-        previousValue: {},
+        previousValue: current ? subscriptionSnapshot(current) : {},
         reason: dto.reason,
         subscriptionId: subscription.id,
       });
