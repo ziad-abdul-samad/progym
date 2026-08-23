@@ -126,6 +126,7 @@ const observerAccounts = branchSeeds.flatMap((branch, branchIndex) =>
       username:
         process.env[`${envPrefix}_USERNAME`] ??
         (branch.code === 'b1' ? shift.username : `${branch.code}.observer.${number}`),
+      seedKey: `${branch.code}:shift:${number}`,
     };
   }),
 );
@@ -710,6 +711,31 @@ async function seedDemoUsers() {
 async function seedObservers() {
   for (const account of observerAccounts) {
     const branch = await prisma.branch.findUniqueOrThrow({ where: { code: account.branchCode } });
+    const existing = await prisma.shiftObserver.findFirst({
+      include: { user: { select: { id: true } } },
+      where: {
+        OR: [
+          { seedKey: account.seedKey },
+          { user: { username: account.username } },
+          { fullName: account.fullName },
+          { fullName: account.legacyName },
+        ],
+      },
+    });
+
+    // A deleted seeded observer remains as an audit tombstone so a future
+    // deploy never recreates an account the owner intentionally removed.
+    if (existing?.deletedAt) continue;
+    if (existing?.userId) {
+      if (existing.seedKey !== account.seedKey) {
+        await prisma.shiftObserver.update({
+          data: { seedKey: account.seedKey },
+          where: { id: existing.id },
+        });
+      }
+      continue;
+    }
+
     const passwordHash = account.password
       ? await hashPassword(account.password)
       : account.fallbackPasswordHash;
@@ -732,12 +758,6 @@ async function seedObservers() {
       where: { username: account.username },
     });
 
-    const existing = await prisma.shiftObserver.findFirst({
-      where: {
-        OR: [{ userId: user.id }, { fullName: account.fullName }, { fullName: account.legacyName }],
-      },
-    });
-
     const observerData = {
       branchId: branch.id,
       fullName: account.fullName,
@@ -745,6 +765,7 @@ async function seedObservers() {
       phone: account.phone,
       shiftEnd: account.shiftEnd,
       shiftStart: account.shiftStart,
+      seedKey: account.seedKey,
       status: ObserverStatus.ACTIVE,
       userId: user.id,
     };

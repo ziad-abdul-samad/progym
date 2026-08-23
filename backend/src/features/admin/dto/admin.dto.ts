@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  Matches,
   Min,
   MinLength,
 } from 'class-validator';
@@ -80,9 +81,24 @@ export class CreateObserverDto {
   @IsString()
   fullName!: string;
 
-  @IsOptional()
   @IsString()
-  phone?: string;
+  @MinLength(3)
+  username!: string;
+
+  @IsString()
+  @MinLength(8)
+  password!: string;
+
+  @IsString()
+  phone!: string;
+
+  @IsString()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  shiftStart!: string;
+
+  @IsString()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  shiftEnd!: string;
 
   @IsOptional()
   @IsString()
@@ -96,11 +112,31 @@ export class UpdateObserverDto {
 
   @IsOptional()
   @IsString()
+  @MinLength(3)
+  username?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(8)
+  newPassword?: string;
+
+  @IsOptional()
+  @IsString()
   phone?: string;
 
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  shiftStart?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  shiftEnd?: string;
 }
 
 export class ResetPasswordByAdminDto {

@@ -222,12 +222,27 @@ export function ReceptionEventCenter() {
           </div>
 
           {activeEvent.kind === 'ATTENDANCE' && activeEvent.membership ? (
-            <Card className="grid gap-4 sm:grid-cols-3">
+            <Card className="grid items-stretch gap-4 sm:grid-cols-[0.85fr_1.3fr_0.85fr]">
               <Info
                 label="حالة الاشتراك"
                 value={<StatusBadge status={activeEvent.membership.status} />}
               />
-              <Info label="الأيام المتبقية" value={`${activeEvent.membership.remainingDays} يوم`} />
+              <div className="relative isolate overflow-hidden rounded-xl border-2 border-emerald-500 bg-gradient-to-br from-emerald-500/20 via-brand-accent/10 to-emerald-500/5 p-4 text-center shadow-[0_0_0_3px_rgba(34,197,94,0.12),0_14px_36px_rgba(34,197,94,0.18)] dark:border-brand-accent dark:shadow-[0_0_0_3px_rgba(57,255,20,0.12),0_14px_40px_rgba(57,255,20,0.18)]">
+                <div className="absolute -end-5 -top-8 -z-10 h-24 w-24 rounded-full bg-brand-accent/25 blur-2xl" />
+                <div className="mx-auto mb-2 flex w-fit items-center gap-2 rounded-full border border-emerald-500/30 bg-background/75 px-3 py-1 text-[0.68rem] font-black text-emerald-800 dark:text-brand-accent">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500 dark:bg-brand-accent" />
+                  الأهم الآن
+                </div>
+                <p className="text-xs font-black text-emerald-900/70 dark:text-white/65">
+                  الأيام المتبقية في الاشتراك
+                </p>
+                <div className="mt-1 flex items-end justify-center gap-2 text-emerald-950 dark:text-brand-accent">
+                  <strong className="text-5xl font-black leading-none tabular-nums">
+                    {activeEvent.membership.remainingDays}
+                  </strong>
+                  <span className="pb-1 text-sm font-black">يوم</span>
+                </div>
+              </div>
               <Info
                 label="آخر دخول سابق"
                 value={

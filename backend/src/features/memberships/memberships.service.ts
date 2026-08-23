@@ -603,7 +603,7 @@ export class MembershipsService {
     const observer = await this.prisma.shiftObserver.findUnique({
       where: { id: observerId },
     });
-    if (!observer || observer.status !== ObserverStatus.ACTIVE) {
+    if (!observer || observer.deletedAt || observer.status !== ObserverStatus.ACTIVE) {
       throw new BadRequestException('Active shift observer is required');
     }
     if (observer.branchId !== requireBranchId(admin)) {

@@ -756,12 +756,16 @@ export class AdminService {
     const branchId = requireBranchId(user);
     const where: Prisma.ShiftObserverWhereInput = {
       branchId,
+      deletedAt: null,
       ...(user.role === UserRole.OBSERVER ? { userId: user.id } : {}),
       ...(query.q
         ? {
             OR: [
               { fullName: { contains: query.q, mode: 'insensitive' as const } },
               { phone: { contains: query.q, mode: 'insensitive' as const } },
+              {
+                user: { username: { contains: query.q, mode: 'insensitive' as const } },
+              },
             ],
           }
         : {}),
@@ -1078,17 +1082,45 @@ export class AdminService {
 
   async createObserver(dto: CreateObserverDto, admin: AuthenticatedUser) {
     const branchId = requireBranchId(admin);
-    const observer = await this.prisma.shiftObserver.create({
-      data: {
-        branchId,
-        fullName: dto.fullName,
-        notes: dto.notes,
-        phone: dto.phone,
-      },
+    const username = normalizeUsername(dto.username);
+    const phone = dto.phone.trim();
+    const existing = await this.prisma.user.findFirst({
+      where: { OR: [{ username }, { phone }] },
+    });
+    if (existing) throw new ConflictException('Username or phone already exists');
+    const passwordHash = await hashPassword(dto.password);
+
+    const observer = await this.prisma.$transaction(async (transaction) => {
+      const account = await transaction.user.create({
+        data: {
+          fullName: dto.fullName.trim(),
+          passwordHash,
+          phone,
+          role: UserRole.OBSERVER,
+          status: UserStatus.ACTIVE,
+          username,
+        },
+      });
+      return transaction.shiftObserver.create({
+        data: {
+          branchId,
+          fullName: dto.fullName.trim(),
+          notes: dto.notes?.trim() || null,
+          phone,
+          shiftEnd: dto.shiftEnd,
+          shiftStart: dto.shiftStart,
+          status: ObserverStatus.ACTIVE,
+          userId: account.id,
+        },
+        include: { user: { select: { lastLoginAt: true, username: true } } },
+      });
     });
 
     await this.audit(admin, AuditAction.CREATE, 'ShiftObserver', observer.id, {
       fullName: observer.fullName,
+      shiftEnd: observer.shiftEnd,
+      shiftStart: observer.shiftStart,
+      username,
     });
 
     return observer;
@@ -1096,16 +1128,45 @@ export class AdminService {
 
   async updateObserver(id: string, dto: UpdateObserverDto, admin: AuthenticatedUser) {
     await this.assertObserverScope(id, admin);
+    const target = await this.prisma.shiftObserver.findUnique({
+      include: { user: true },
+      where: { id },
+    });
+    if (!target || target.deletedAt) throw new NotFoundException('Observer not found');
+
+    const username = dto.username ? normalizeUsername(dto.username) : undefined;
+    if (username || dto.phone) {
+      const duplicate = await this.prisma.user.findFirst({
+        where: {
+          id: { not: target.userId ?? undefined },
+          OR: [
+            ...(username ? [{ username }] : []),
+            ...(dto.phone ? [{ phone: dto.phone.trim() }] : []),
+          ],
+        },
+      });
+      if (duplicate) throw new ConflictException('Username or phone already exists');
+    }
+
+    const passwordHash = dto.newPassword ? await hashPassword(dto.newPassword) : undefined;
     const observer = await this.prisma.$transaction(async (transaction) => {
       const updated = await transaction.shiftObserver.update({
-        data: dto,
+        data: {
+          ...(dto.fullName ? { fullName: dto.fullName.trim() } : {}),
+          ...(dto.phone ? { phone: dto.phone.trim() } : {}),
+          ...(dto.notes !== undefined ? { notes: dto.notes.trim() || null } : {}),
+          ...(dto.shiftEnd ? { shiftEnd: dto.shiftEnd } : {}),
+          ...(dto.shiftStart ? { shiftStart: dto.shiftStart } : {}),
+        },
         where: { id },
       });
-      if (updated.userId && (dto.fullName || dto.phone)) {
+      if (updated.userId) {
         await transaction.user.update({
           data: {
-            ...(dto.fullName ? { fullName: dto.fullName } : {}),
-            ...(dto.phone ? { phone: dto.phone } : {}),
+            ...(dto.fullName ? { fullName: dto.fullName.trim() } : {}),
+            ...(dto.phone ? { phone: dto.phone.trim() } : {}),
+            ...(username ? { username } : {}),
+            ...(passwordHash ? { passwordHash } : {}),
           },
           where: { id: updated.userId },
         });
@@ -1113,7 +1174,14 @@ export class AdminService {
       return updated;
     });
 
-    await this.audit(admin, AuditAction.UPDATE, 'ShiftObserver', id, { ...dto });
+    await this.audit(admin, AuditAction.UPDATE, 'ShiftObserver', id, {
+      fullName: dto.fullName,
+      passwordChanged: Boolean(dto.newPassword),
+      phone: dto.phone,
+      shiftEnd: dto.shiftEnd,
+      shiftStart: dto.shiftStart,
+      username,
+    });
     return observer;
   }
 
@@ -1139,21 +1207,28 @@ export class AdminService {
 
   async deleteObserver(id: string, admin: AuthenticatedUser) {
     const linkedAccount = await this.prisma.shiftObserver.findUnique({
-      select: { branchId: true, userId: true },
+      include: { user: { select: { username: true } } },
       where: { id },
     });
-    if (!linkedAccount) throw new NotFoundException('Observer not found');
-    assertSameBranch(linkedAccount.branchId, admin);
-    if (linkedAccount?.userId) {
-      throw new BadRequestException(
-        'A linked observer account cannot be deleted. Deactivate it instead.',
-      );
+    if (!linkedAccount || linkedAccount.deletedAt) {
+      throw new NotFoundException('Observer not found');
     }
-    const observer = await this.prisma.shiftObserver.delete({ where: { id } });
+    assertSameBranch(linkedAccount.branchId, admin);
+    const observer = await this.prisma.$transaction(async (transaction) => {
+      const deleted = await transaction.shiftObserver.update({
+        data: { deletedAt: new Date(), status: ObserverStatus.INACTIVE, userId: null },
+        where: { id },
+      });
+      if (linkedAccount.userId) {
+        await transaction.user.delete({ where: { id: linkedAccount.userId } });
+      }
+      return deleted;
+    });
 
     await this.audit(admin, AuditAction.DELETE, 'ShiftObserver', id, {
       fullName: observer.fullName,
       phone: observer.phone,
+      username: linkedAccount.user?.username ?? null,
     });
 
     return observer;
@@ -1175,7 +1250,7 @@ export class AdminService {
       where: { id },
     });
 
-    if (!observer) throw new NotFoundException('Observer not found');
+    if (!observer || observer.deletedAt) throw new NotFoundException('Observer not found');
     assertSameBranch(observer.branchId, user);
 
     return observer;
@@ -1301,10 +1376,10 @@ export class AdminService {
 
   private async assertObserverScope(observerId: string, actor: AuthenticatedUser) {
     const observer = await this.prisma.shiftObserver.findUnique({
-      select: { branchId: true },
+      select: { branchId: true, deletedAt: true },
       where: { id: observerId },
     });
-    if (!observer) throw new NotFoundException('Observer not found');
+    if (!observer || observer.deletedAt) throw new NotFoundException('Observer not found');
     assertSameBranch(observer.branchId, actor);
   }
 }

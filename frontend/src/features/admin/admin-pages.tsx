@@ -2884,6 +2884,7 @@ export function AdminObserversPage() {
   const [observerQuery, setObserverQuery] = useState('');
   const deferredObserverQuery = useDeferredValue(observerQuery);
   const [observerPage, setObserverPage] = useState(1);
+  const [creatingObserver, setCreatingObserver] = useState(false);
   const [selectedObserver, setSelectedObserver] = useState<ShiftObserver | null>(null);
   const [editingObserver, setEditingObserver] = useState<ShiftObserver | null>(null);
   const [deletingObserver, setDeletingObserver] = useState<ShiftObserver | null>(null);
@@ -2914,8 +2915,20 @@ export function AdminObserversPage() {
       push({ title: 'تم تحديث حالة المراقب', tone: 'success' });
     },
   });
+  const createObserver = useMutation({
+    mutationFn: (payload: Record<string, string>) =>
+      apiRequest('/admin/observers', {
+        body: jsonBody(payload),
+        method: 'POST',
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['shift-observers'] });
+      setCreatingObserver(false);
+      push({ title: 'تم إنشاء حساب المراقب', tone: 'success' });
+    },
+  });
   const updateObserver = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Record<string, FormDataEntryValue> }) =>
+    mutationFn: ({ id, payload }: { id: string; payload: Record<string, string> }) =>
       apiRequest(`/admin/observers/${id}`, { body: jsonBody(payload), method: 'PATCH' }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['shift-observers'] });
@@ -2943,15 +2956,20 @@ export function AdminObserversPage() {
       />
       <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
         <Card>
-          <CardTitle>ثلاثة حسابات ثابتة وآمنة</CardTitle>
+          <CardTitle>إدارة حسابات مراقبي الفرع</CardTitle>
           <div className="mt-4 space-y-3 text-sm font-bold leading-7 text-muted-foreground">
             <p>الوردية الأولى: من 7:00 AM حتى 2:00 PM</p>
             <p>الوردية الثانية: من 2:00 PM حتى 7:00 PM</p>
             <p>الوردية الثالثة: من 7:00 PM حتى 12:00 AM</p>
           </div>
           <p className="mt-4 rounded-lg border border-brand-accent/30 bg-brand-accent/10 p-3 text-xs font-black leading-6 text-foreground">
-            كلمات المرور تُحفظ في إعدادات الخادم ولا تظهر داخل لوحة التحكم.
+            يستطيع المالك إنشاء الحسابات وتعديل أسماء الدخول والورديات وتغيير كلمات المرور أو حذف
+            الحساب نهائياً. لا تُعرض كلمة المرور القديمة بعد حفظها.
           </p>
+          <Button className="mt-4 w-full" onClick={() => setCreatingObserver(true)}>
+            <UserCheck className="h-4 w-4" />
+            إضافة حساب مراقب
+          </Button>
         </Card>
         <Card>
           <CardTitle>بحث سريع</CardTitle>
@@ -3026,11 +3044,9 @@ export function AdminObserversPage() {
                   >
                     {observer.status === 'ACTIVE' ? 'تعطيل' : 'تفعيل'}
                   </Button>
-                  {!observer.userId ? (
-                    <Button onClick={() => setDeletingObserver(observer)} variant="danger">
-                      حذف
-                    </Button>
-                  ) : null}
+                  <Button onClick={() => setDeletingObserver(observer)} variant="danger">
+                    حذف
+                  </Button>
                 </div>
               </Card>
             ))}
@@ -3042,6 +3058,58 @@ export function AdminObserversPage() {
         <Pagination meta={observers.data.meta} onPageChange={setObserverPage} />
       ) : null}
       <Dialog
+        description="أنشئ حساب دخول مستقل لمراقب هذا الفرع وحدد ورديته. يمكن تعديله أو حذفه لاحقاً من نفس الصفحة."
+        onClose={() => setCreatingObserver(false)}
+        open={creatingObserver}
+        title="إضافة حساب مراقب"
+      >
+        <DialogForm
+          actions={
+            <>
+              <DialogCancelButton onClick={() => setCreatingObserver(false)} />
+              <Button isLoading={createObserver.isPending} loadingText="جاري إنشاء الحساب">
+                إنشاء الحساب
+              </Button>
+            </>
+          }
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = objectFromForm(event.currentTarget);
+            const shiftParts = formText(form.shiftPreset).split('|');
+            const shiftStart = shiftParts[0] ?? '07:00';
+            const shiftEnd = shiftParts[1] ?? '14:00';
+            createObserver.mutate({
+              fullName: formText(form.fullName),
+              notes: formText(form.notes),
+              password: formText(form.password),
+              phone: formText(form.phone),
+              shiftEnd,
+              shiftStart,
+              username: formText(form.username),
+            });
+          }}
+        >
+          <Input name="fullName" placeholder="اسم المراقب" required />
+          <Input dir="ltr" name="username" placeholder="اسم المستخدم" required />
+          <Input
+            autoComplete="new-password"
+            dir="ltr"
+            minLength={8}
+            name="password"
+            placeholder="كلمة مرور قوية"
+            required
+            type="password"
+          />
+          <Input dir="ltr" name="phone" placeholder="رقم الهاتف" required />
+          <SelectField defaultValue="07:00|14:00" name="shiftPreset" required>
+            <option value="07:00|14:00">7:00 AM — 2:00 PM</option>
+            <option value="14:00|19:00">2:00 PM — 7:00 PM</option>
+            <option value="19:00|00:00">7:00 PM — 12:00 AM</option>
+          </SelectField>
+          <Textarea name="notes" placeholder="ملاحظات اختيارية" />
+        </DialogForm>
+      </Dialog>
+      <Dialog
         description="نشاط المراقب يظهر للمالك لمعرفة من كان على الشفت عند كل تعديل."
         onClose={() => setSelectedObserver(null)}
         open={Boolean(selectedObserver)}
@@ -3050,8 +3118,16 @@ export function AdminObserversPage() {
         {selectedObserver ? (
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
+              <DetailRow
+                label="اسم المستخدم"
+                value={selectedObserver.user?.username ? `@${selectedObserver.user.username}` : '-'}
+              />
               <DetailRow label="الهاتف" value={selectedObserver.phone ?? 'لا يوجد'} />
               <DetailRow label="الحالة" value={<StatusBadge status={selectedObserver.status} />} />
+              <DetailRow
+                label="الوردية"
+                value={`${formatShiftTime(selectedObserver.shiftStart)} — ${formatShiftTime(selectedObserver.shiftEnd)}`}
+              />
               <DetailRow label="ملاحظات" value={selectedObserver.notes ?? 'لا يوجد'} />
               <DetailRow
                 label="آخر تحديث"
@@ -3092,7 +3168,7 @@ export function AdminObserversPage() {
         ) : null}
       </Dialog>
       <Dialog
-        description="عدّل اسم المراقب أو رقم هاتفه أو ملاحظات الشفت."
+        description="عدّل بيانات الحساب والوردية. اترك كلمة المرور الجديدة فارغة إذا لم ترغب بتغييرها."
         onClose={() => setEditingObserver(null)}
         open={Boolean(editingObserver)}
         title={editingObserver ? `تعديل ${editingObserver.fullName}` : 'تعديل المراقب'}
@@ -3109,9 +3185,22 @@ export function AdminObserversPage() {
             }
             onSubmit={(event) => {
               event.preventDefault();
+              const form = objectFromForm(event.currentTarget);
+              const shiftParts = formText(form.shiftPreset).split('|');
+              const shiftStart = shiftParts[0] ?? '07:00';
+              const shiftEnd = shiftParts[1] ?? '14:00';
+              const newPassword = formText(form.newPassword);
               updateObserver.mutate({
                 id: editingObserver.id,
-                payload: objectFromForm(event.currentTarget),
+                payload: {
+                  fullName: formText(form.fullName),
+                  notes: formText(form.notes),
+                  phone: formText(form.phone),
+                  shiftEnd,
+                  shiftStart,
+                  username: formText(form.username),
+                  ...(newPassword ? { newPassword } : {}),
+                },
               });
             }}
           >
@@ -3122,6 +3211,30 @@ export function AdminObserversPage() {
               required
             />
             <Input defaultValue={editingObserver.phone ?? ''} name="phone" placeholder="الهاتف" />
+            <Input
+              defaultValue={editingObserver.user?.username ?? ''}
+              dir="ltr"
+              name="username"
+              placeholder="اسم المستخدم"
+              required={Boolean(editingObserver.userId)}
+            />
+            <Input
+              autoComplete="new-password"
+              dir="ltr"
+              minLength={8}
+              name="newPassword"
+              placeholder="كلمة مرور جديدة (اختياري)"
+              type="password"
+            />
+            <SelectField
+              defaultValue={`${editingObserver.shiftStart ?? '07:00'}|${editingObserver.shiftEnd ?? '14:00'}`}
+              name="shiftPreset"
+              required
+            >
+              <option value="07:00|14:00">7:00 AM — 2:00 PM</option>
+              <option value="14:00|19:00">2:00 PM — 7:00 PM</option>
+              <option value="19:00|00:00">7:00 PM — 12:00 AM</option>
+            </SelectField>
             <Textarea
               defaultValue={editingObserver.notes ?? ''}
               name="notes"
@@ -3131,7 +3244,7 @@ export function AdminObserversPage() {
         ) : null}
       </Dialog>
       <Dialog
-        description="سيبقى اسم المراقب محفوظاً داخل سجلات التدقيق القديمة، لكن سيتم حذف بطاقة المراقب من الإدارة."
+        description="سيتم حذف حساب الدخول وإغلاق جلساته وإخفاؤه من الإدارة. سيبقى اسمه محفوظاً فقط داخل سجلات التدقيق القديمة."
         onClose={() => setDeletingObserver(null)}
         open={Boolean(deletingObserver)}
         title="حذف المراقب"
@@ -3151,7 +3264,7 @@ export function AdminObserversPage() {
                 onClick={() => deleteObserver.mutate(deletingObserver.id)}
                 variant="danger"
               >
-                حذف المراقب
+                حذف الحساب نهائياً
               </Button>
             </div>
           </div>
