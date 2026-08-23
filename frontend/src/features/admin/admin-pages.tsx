@@ -2146,9 +2146,10 @@ export function AdminMembershipsPage() {
                 action: subscriptionAction.action,
                 body: {
                   observerId: formText(form.observerId),
-                  ...(subscriptionAction.action !== 'renew'
-                    ? { reason: formText(form.reason) }
-                    : {}),
+                  reason:
+                    subscriptionAction.action === 'renew'
+                      ? `تجديد الاشتراك لمدة ${formText(form.days)} يوم بعد استلام الدفع`
+                      : formText(form.reason),
                   ...(subscriptionAction.needsDays ? { days: formText(form.days) } : {}),
                 },
                 id: subscriptionAction.subscription.id,

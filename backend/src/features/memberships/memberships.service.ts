@@ -387,7 +387,6 @@ export class MembershipsService {
       status: SubscriptionStatus;
     }> = {};
     let billableDays: number | null = null;
-    let auditReason = dto.reason?.trim() ?? '';
 
     if (action === MembershipAuditAction.ADD_DAYS) {
       if (!dto.days) throw new BadRequestException('days is required');
@@ -435,17 +434,12 @@ export class MembershipsService {
       data.startsAt = now;
       data.status = SubscriptionStatus.ACTIVE;
       billableDays = days;
-      auditReason ||= `تجديد الاشتراك لمدة ${days} يوم بعد استلام الدفع`;
     }
 
     if (action === MembershipAuditAction.EXPIRE) {
       data.endsAt = now;
       data.frozenAt = null;
       data.status = SubscriptionStatus.EXPIRED;
-    }
-
-    if (!auditReason) {
-      throw new BadRequestException('Reason is required for this membership change');
     }
 
     const observer = await this.requireActiveObserver(dto.observerId, admin);
@@ -462,7 +456,7 @@ export class MembershipsService {
         newValue: subscriptionSnapshot(updated),
         observer,
         previousValue,
-        reason: auditReason,
+        reason: dto.reason,
         subscriptionId: updated.id,
       });
       if (billableDays) {
@@ -470,7 +464,7 @@ export class MembershipsService {
           adminId: admin.id,
           branchId: subscription.branchId,
           days: billableDays,
-          reason: auditReason,
+          reason: dto.reason,
           subscriptionId: updated.id,
         });
       }
