@@ -2116,7 +2116,11 @@ export function AdminMembershipsPage() {
         ) : null}
       </Dialog>
       <Dialog
-        description="كل تعديل على الاشتراك يحتاج سبب واضح وسيظهر للمالك في سجل التدقيق."
+        description={
+          subscriptionAction?.action === 'renew'
+            ? 'مدة التجديد الافتراضية 30 يوماً ويمكن تعديلها قبل التأكيد. لا حاجة لكتابة سبب عند التجديد.'
+            : 'اكتب سبباً واضحاً لهذا التعديل ليظهر للمالك في سجل التدقيق.'
+        }
         onClose={() => setSubscriptionAction(null)}
         open={Boolean(subscriptionAction)}
         title={
@@ -2142,7 +2146,9 @@ export function AdminMembershipsPage() {
                 action: subscriptionAction.action,
                 body: {
                   observerId: formText(form.observerId),
-                  reason: formText(form.reason),
+                  ...(subscriptionAction.action !== 'renew'
+                    ? { reason: formText(form.reason) }
+                    : {}),
                   ...(subscriptionAction.needsDays ? { days: formText(form.days) } : {}),
                 },
                 id: subscriptionAction.subscription.id,
@@ -2168,7 +2174,22 @@ export function AdminMembershipsPage() {
               />
             </div>
             {subscriptionAction.needsDays ? (
-              <Input min={1} name="days" placeholder="عدد الأيام" required type="number" />
+              <label className="grid gap-2 text-sm font-black">
+                عدد الأيام
+                <Input
+                  defaultValue={subscriptionAction.action === 'renew' ? 30 : undefined}
+                  min={1}
+                  name="days"
+                  placeholder="عدد الأيام"
+                  required
+                  type="number"
+                />
+                {subscriptionAction.action === 'renew' ? (
+                  <span className="text-xs font-medium text-muted-foreground">
+                    القيمة الافتراضية 30 يوماً، ويمكنك تعديلها.
+                  </span>
+                ) : null}
+              </label>
             ) : null}
             <SelectField name="observerId" required>
               <option value="">اختر مراقب الشفت</option>
@@ -2178,7 +2199,9 @@ export function AdminMembershipsPage() {
                 </option>
               ))}
             </SelectField>
-            <Textarea name="reason" placeholder="سبب التعديل للمالك" required />
+            {subscriptionAction.action !== 'renew' ? (
+              <Textarea name="reason" placeholder="سبب التعديل للمالك" required />
+            ) : null}
           </DialogForm>
         ) : null}
       </Dialog>

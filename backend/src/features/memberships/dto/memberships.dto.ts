@@ -115,9 +115,9 @@ export class CreateSubscriptionDto {
 }
 
 export class MembershipMutationDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  reason!: string;
+  reason?: string;
 
   @IsOptional()
   @IsString()
