@@ -19,6 +19,7 @@ import {
 } from '@prisma/client';
 
 import type { AuthenticatedUser } from '../../common/types/authenticated-user';
+import { assertSameBranch, requireBranchId } from '../../common/utils/branch.util';
 import type { PaginationDto } from '../../common/dto/pagination.dto';
 import { ageFromDateOfBirth } from '../../common/utils/age.util';
 import {
@@ -70,8 +71,25 @@ export class AdminService {
     private readonly storage: StorageService,
   ) {}
 
-  async members(query: PaginationDto) {
+  async branches() {
+    return this.prisma.branch.findMany({
+      orderBy: { sortOrder: 'asc' },
+      select: {
+        addressAr: true,
+        code: true,
+        id: true,
+        nameAr: true,
+        nameEn: true,
+        slug: true,
+      },
+      where: { isActive: true },
+    });
+  }
+
+  async members(query: PaginationDto, user: AuthenticatedUser) {
+    const branchId = requireBranchId(user);
     const where: Prisma.MemberProfileWhereInput = {
+      homeBranchId: branchId,
       user: {
         ...(query.status ? { status: query.status as UserStatus } : {}),
         ...(query.q
@@ -115,6 +133,7 @@ export class AdminService {
   }
 
   async createMember(dto: AdminCreateMemberDto, admin: AuthenticatedUser) {
+    const branchId = requireBranchId(admin);
     if (process.env.NODE_ENV === 'production') {
       throw new ForbiddenException('Production member registration requires a QR invite');
     }
@@ -144,6 +163,7 @@ export class AdminService {
             fitnessGoal: dto.fitnessGoal,
             gender: dto.gender,
             heightCm: dto.heightCm,
+            homeBranchId: branchId,
             memberCode: `PG-${randomToken(5).toUpperCase()}`,
           },
         },
@@ -155,8 +175,10 @@ export class AdminService {
     return user;
   }
 
-  async auditLog(query: PaginationDto) {
+  async auditLog(query: PaginationDto, user: AuthenticatedUser) {
+    const branchId = requireBranchId(user);
     const where: Prisma.AuditLogWhereInput = {
+      branchId,
       ...(query.action ? { action: query.action as AuditAction } : {}),
       ...(query.status ? { actor: { role: query.status as UserRole } } : {}),
       ...(query.q
@@ -209,21 +231,25 @@ export class AdminService {
     return { success: true };
   }
 
-  async coaches(query: PaginationDto) {
-    const where: Prisma.CoachProfileWhereInput = query.q
-      ? {
-          user: {
-            OR: [
-              { fullName: { contains: query.q, mode: 'insensitive' } },
-              { username: { contains: query.q, mode: 'insensitive' } },
-            ],
-          },
-        }
-      : {};
+  async coaches(query: PaginationDto, user: AuthenticatedUser) {
+    const branchId = requireBranchId(user);
+    const where: Prisma.CoachProfileWhereInput = {
+      branches: { some: { branchId } },
+      ...(query.q
+        ? {
+            user: {
+              OR: [
+                { fullName: { contains: query.q, mode: 'insensitive' as const } },
+                { username: { contains: query.q, mode: 'insensitive' as const } },
+              ],
+            },
+          }
+        : {}),
+    };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.coachProfile.findMany({
         include: {
-          _count: { select: { assignments: true } },
+          _count: { select: { assignments: { where: { branchId } } } },
           assignments: {
             include: {
               member: {
@@ -231,7 +257,7 @@ export class AdminService {
               },
             },
             orderBy: { startedAt: 'desc' },
-            where: { status: { in: ['ACTIVE', 'PAUSED'] } },
+            where: { branchId, status: { in: ['ACTIVE', 'PAUSED'] } },
           },
           user: { select: safeUserSelect },
         },
@@ -245,7 +271,8 @@ export class AdminService {
     return paginated(items, total, query);
   }
 
-  async coachSubscriptionEvents() {
+  async coachSubscriptionEvents(user: AuthenticatedUser) {
+    const branchId = requireBranchId(user);
     return this.prisma.coachSubscriptionEvent.findMany({
       include: {
         assignment: {
@@ -265,10 +292,12 @@ export class AdminService {
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
+      where: { assignment: { branchId } },
     });
   }
 
-  async coachProfileChangeRequests() {
+  async coachProfileChangeRequests(user: AuthenticatedUser) {
+    const branchId = requireBranchId(user);
     return this.prisma.coachProfileChangeRequest.findMany({
       include: {
         coach: { include: { user: { select: safeUserSelect } } },
@@ -276,10 +305,12 @@ export class AdminService {
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
+      where: { coach: { branches: { some: { branchId } } } },
     });
   }
 
-  async memberProfileChangeRequests() {
+  async memberProfileChangeRequests(user: AuthenticatedUser) {
+    const branchId = requireBranchId(user);
     return this.prisma.memberProfileChangeRequest.findMany({
       include: {
         member: { include: { user: { select: safeUserSelect } } },
@@ -287,6 +318,7 @@ export class AdminService {
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
+      where: { member: { homeBranchId: branchId } },
     });
   }
 
@@ -307,6 +339,7 @@ export class AdminService {
     if (!request || request.status !== CoachProfileChangeStatus.PENDING) {
       throw new NotFoundException('طلب تعديل بيانات العضو غير موجود أو تمت مراجعته');
     }
+    assertSameBranch(request.member.homeBranchId, admin);
 
     const requested = request.requestedData as Record<string, unknown>;
     if (
@@ -380,6 +413,7 @@ export class AdminService {
         data: {
           action: AuditAction.UPDATE,
           actorId: admin.id,
+          branchId: requireBranchId(admin),
           entityId: id,
           entityType: 'MemberProfileChangeRequest',
           metadata: { approve, reason: reason ?? null, requestedData: request.requestedData },
@@ -451,6 +485,11 @@ export class AdminService {
     if (!request || request.status !== CoachProfileChangeStatus.PENDING) {
       throw new NotFoundException('Pending coach profile change request not found');
     }
+    const branchId = requireBranchId(admin);
+    const coachBranch = await this.prisma.coachBranch.findUnique({
+      where: { coachId_branchId: { branchId, coachId: request.coachId } },
+    });
+    if (!coachBranch) throw new ForbiddenException('Coach does not belong to this branch');
 
     const requestedData = request.requestedData as Record<string, unknown>;
     const userData: { fullName?: string; phone?: string } = {};
@@ -474,6 +513,7 @@ export class AdminService {
         data: {
           action: AuditAction.UPDATE,
           actorId: admin.id,
+          branchId,
           entityId: id,
           entityType: 'CoachProfileChangeRequest',
           metadata: {
@@ -508,6 +548,10 @@ export class AdminService {
 
     if (existing) throw new ConflictException('Username or phone already exists');
 
+    const branches = await this.prisma.branch.findMany({
+      select: { id: true },
+      where: { isActive: true },
+    });
     const user = await this.prisma.user.create({
       data: {
         fullName: dto.fullName,
@@ -517,6 +561,7 @@ export class AdminService {
         username,
         coachProfile: {
           create: {
+            branches: { create: branches.map(({ id }) => ({ branchId: id })) },
             isPublic: false,
             specialties:
               dto.specialties
@@ -534,20 +579,35 @@ export class AdminService {
   }
 
   async promoteMemberToCoach(userId: string, admin: AuthenticatedUser) {
+    await this.assertUserManagementScope(userId, admin);
     const user = await this.prisma.user.findUnique({
       include: { coachProfile: true },
       where: { id: userId },
     });
 
     if (!user) throw new NotFoundException('User not found');
+    const branches = await this.prisma.branch.findMany({
+      select: { id: true },
+      where: { isActive: true },
+    });
 
     const updated = await this.prisma.user.update({
       data: {
         role: UserRole.COACH,
         coachProfile: user.coachProfile
-          ? undefined
+          ? {
+              update: {
+                branches: {
+                  createMany: {
+                    data: branches.map(({ id }) => ({ branchId: id })),
+                    skipDuplicates: true,
+                  },
+                },
+              },
+            }
           : {
               create: {
+                branches: { create: branches.map(({ id }) => ({ branchId: id })) },
                 isPublic: false,
                 specialties: [],
               },
@@ -603,6 +663,7 @@ export class AdminService {
         data: {
           action: AuditAction.ROLE_CHANGE,
           actorId: admin.id,
+          branchId: requireBranchId(admin),
           entityId: userId,
           entityType: 'User',
           metadata: {
@@ -639,18 +700,23 @@ export class AdminService {
   }
 
   async assignClient(dto: AssignClientDto, admin: AuthenticatedUser) {
+    const branchId = requireBranchId(admin);
     const member = await this.prisma.memberProfile.findUnique({ where: { id: dto.memberId } });
-    const coach = await this.prisma.coachProfile.findUnique({ where: { id: dto.coachId } });
+    const coach = await this.prisma.coachProfile.findFirst({
+      where: { branches: { some: { branchId } }, id: dto.coachId },
+    });
 
     if (!member || !coach) throw new NotFoundException('Member or coach not found');
+    assertSameBranch(member.homeBranchId, admin);
 
     await this.prisma.coachAssignment.updateMany({
       data: { endedAt: new Date(), status: 'ENDED' },
-      where: { memberId: dto.memberId, status: 'ACTIVE' },
+      where: { branchId, memberId: dto.memberId, status: 'ACTIVE' },
     });
 
     const assignment = await this.prisma.coachAssignment.create({
       data: {
+        branchId,
         coachId: dto.coachId,
         memberId: dto.memberId,
         notes: dto.notes,
@@ -662,9 +728,11 @@ export class AdminService {
   }
 
   async createRegistrationQr(dto: CreateRegistrationQrDto, admin: AuthenticatedUser) {
+    const branchId = requireBranchId(admin);
     const token = randomToken(32);
     const invite = await this.prisma.qrInvite.create({
       data: {
+        branchId,
         createdById: admin.id,
         expiresAt: new Date(Date.now() + dto.expiresInDays * 86_400_000),
         purpose: QrInvitePurpose.MEMBER_REGISTRATION,
@@ -685,7 +753,9 @@ export class AdminService {
   }
 
   async observers(query: PaginationDto, user: AuthenticatedUser) {
+    const branchId = requireBranchId(user);
     const where: Prisma.ShiftObserverWhereInput = {
+      branchId,
       ...(user.role === UserRole.OBSERVER ? { userId: user.id } : {}),
       ...(query.q
         ? {
@@ -713,7 +783,8 @@ export class AdminService {
     return paginated(items, total, query);
   }
 
-  async receptionFeed() {
+  async receptionFeed(user: AuthenticatedUser) {
+    const branchId = requireBranchId(user);
     const since = new Date(Date.now() - 15 * 60_000);
     const [registrations, attendances] = await Promise.all([
       this.prisma.memberProfile.findMany({
@@ -725,6 +796,7 @@ export class AdminService {
         orderBy: { createdAt: 'desc' },
         take: 10,
         where: {
+          homeBranchId: branchId,
           registrationRequest: { status: RegistrationRequestStatus.PENDING },
           user: { role: UserRole.MEMBER },
         },
@@ -741,7 +813,7 @@ export class AdminService {
         },
         orderBy: { checkedInAt: 'desc' },
         take: 12,
-        where: { checkedInAt: { gte: since } },
+        where: { branchId, checkedInAt: { gte: since } },
       }),
     ]);
 
@@ -804,8 +876,10 @@ export class AdminService {
       .slice(0, 20);
   }
 
-  async registrationRequests(query: PaginationDto) {
+  async registrationRequests(query: PaginationDto, user: AuthenticatedUser) {
+    const branchId = requireBranchId(user);
     const where: Prisma.RegistrationRequestWhereInput = {
+      branchId,
       ...(query.status ? { status: query.status as RegistrationRequestStatus } : {}),
       ...(query.q
         ? {
@@ -849,6 +923,7 @@ export class AdminService {
       where: { id },
     });
     if (!request) throw new NotFoundException('Registration request not found');
+    assertSameBranch(request.branchId, admin);
     if (request.status !== RegistrationRequestStatus.PENDING) {
       throw new ConflictException('Registration request was already reviewed');
     }
@@ -869,6 +944,7 @@ export class AdminService {
           data: {
             action: AuditAction.UPDATE,
             actorId: admin.id,
+            branchId: request.branchId,
             entityId: id,
             entityType: 'RegistrationRequest',
             metadata: { action: 'REJECT', reason: dto.reason ?? null },
@@ -912,6 +988,7 @@ export class AdminService {
         data: {
           action: AuditAction.UPDATE,
           actorId: admin.id,
+          branchId: request.branchId,
           entityId: id,
           entityType: 'RegistrationRequest',
           metadata: { action: 'APPROVE', days, subscriptionId: subscription.id },
@@ -924,8 +1001,10 @@ export class AdminService {
   }
 
   async createObserver(dto: CreateObserverDto, admin: AuthenticatedUser) {
+    const branchId = requireBranchId(admin);
     const observer = await this.prisma.shiftObserver.create({
       data: {
+        branchId,
         fullName: dto.fullName,
         notes: dto.notes,
         phone: dto.phone,
@@ -940,6 +1019,7 @@ export class AdminService {
   }
 
   async updateObserver(id: string, dto: UpdateObserverDto, admin: AuthenticatedUser) {
+    await this.assertObserverScope(id, admin);
     const observer = await this.prisma.$transaction(async (transaction) => {
       const updated = await transaction.shiftObserver.update({
         data: dto,
@@ -962,6 +1042,7 @@ export class AdminService {
   }
 
   async setObserverActive(id: string, active: boolean, admin: AuthenticatedUser) {
+    await this.assertObserverScope(id, admin);
     const observer = await this.prisma.$transaction(async (transaction) => {
       const updated = await transaction.shiftObserver.update({
         data: { status: active ? ObserverStatus.ACTIVE : ObserverStatus.INACTIVE },
@@ -982,9 +1063,11 @@ export class AdminService {
 
   async deleteObserver(id: string, admin: AuthenticatedUser) {
     const linkedAccount = await this.prisma.shiftObserver.findUnique({
-      select: { userId: true },
+      select: { branchId: true, userId: true },
       where: { id },
     });
+    if (!linkedAccount) throw new NotFoundException('Observer not found');
+    assertSameBranch(linkedAccount.branchId, admin);
     if (linkedAccount?.userId) {
       throw new BadRequestException(
         'A linked observer account cannot be deleted. Deactivate it instead.',
@@ -1000,7 +1083,7 @@ export class AdminService {
     return observer;
   }
 
-  async observerActivity(id: string) {
+  async observerActivity(id: string, user: AuthenticatedUser) {
     const observer = await this.prisma.shiftObserver.findUnique({
       include: {
         membershipAuditLogs: {
@@ -1017,13 +1100,18 @@ export class AdminService {
     });
 
     if (!observer) throw new NotFoundException('Observer not found');
+    assertSameBranch(observer.branchId, user);
 
     return observer;
   }
 
   async notify(dto: AdminNotificationDto, admin: AuthenticatedUser) {
     const target = dto.target ?? 'USER';
-    const userIds = await this.resolveNotificationTargets(target, dto.userId);
+    const userIds = await this.resolveNotificationTargets(
+      target,
+      requireBranchId(admin),
+      dto.userId,
+    );
 
     if (!userIds.length) {
       throw new BadRequestException('No matching notification recipients');
@@ -1050,15 +1138,24 @@ export class AdminService {
 
   private async resolveNotificationTargets(
     target: NonNullable<AdminNotificationDto['target']>,
+    branchId: string,
     userId?: string,
   ): Promise<string[]> {
     if (target === 'USER') {
       if (!userId) throw new BadRequestException('userId is required for USER target');
+      const member = await this.prisma.memberProfile.findUnique({
+        select: { homeBranchId: true },
+        where: { userId },
+      });
+      if (!member || member.homeBranchId !== branchId) {
+        throw new ForbiddenException('Notification recipient is outside this branch');
+      }
       return [userId];
     }
 
     const now = new Date();
     const memberWhere: Prisma.MemberProfileWhereInput = {
+      homeBranchId: branchId,
       user: { role: UserRole.MEMBER, status: UserStatus.ACTIVE },
     };
 
@@ -1098,6 +1195,7 @@ export class AdminService {
       data: {
         action,
         actorId: admin.id,
+        branchId: requireBranchId(admin),
         entityId,
         entityType,
         metadata,
@@ -1106,14 +1204,31 @@ export class AdminService {
   }
 
   private async assertUserManagementScope(userId: string, actor: AuthenticatedUser) {
-    if (actor.role !== UserRole.OBSERVER) return;
+    const branchId = requireBranchId(actor);
     const target = await this.prisma.user.findUnique({
-      select: { role: true },
+      select: {
+        coachProfile: { select: { branches: { select: { branchId: true } } } },
+        memberProfile: { select: { homeBranchId: true } },
+        role: true,
+      },
       where: { id: userId },
     });
     if (!target) throw new NotFoundException('User not found');
-    if (target.role !== UserRole.MEMBER) {
+    if (actor.role === UserRole.OBSERVER && target.role !== UserRole.MEMBER) {
       throw new ForbiddenException('Observers can only manage player accounts');
     }
+    const belongsToBranch =
+      target.memberProfile?.homeBranchId === branchId ||
+      target.coachProfile?.branches.some((item) => item.branchId === branchId);
+    if (!belongsToBranch) throw new ForbiddenException('User does not belong to this branch');
+  }
+
+  private async assertObserverScope(observerId: string, actor: AuthenticatedUser) {
+    const observer = await this.prisma.shiftObserver.findUnique({
+      select: { branchId: true },
+      where: { id: observerId },
+    });
+    if (!observer) throw new NotFoundException('Observer not found');
+    assertSameBranch(observer.branchId, actor);
   }
 }

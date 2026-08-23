@@ -25,15 +25,21 @@ import {
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
+  @Get('branches')
+  @Protected(UserRole.ADMIN)
+  async branches() {
+    return { data: await this.adminService.branches() };
+  }
+
   @Get('members')
-  async members(@Query() query: PaginationDto) {
-    return { data: await this.adminService.members(query) };
+  async members(@Query() query: PaginationDto, @CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.adminService.members(query, user) };
   }
 
   @Get('audit-log')
   @Protected(UserRole.ADMIN)
-  async auditLog(@Query() query: PaginationDto) {
-    return { data: await this.adminService.auditLog(query) };
+  async auditLog(@Query() query: PaginationDto, @CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.adminService.auditLog(query, user) };
   }
 
   @Post('members')
@@ -70,13 +76,13 @@ export class AdminController {
   }
 
   @Get('coaches/subscription-events')
-  async coachSubscriptionEvents() {
-    return { data: await this.adminService.coachSubscriptionEvents() };
+  async coachSubscriptionEvents(@CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.adminService.coachSubscriptionEvents(user) };
   }
 
   @Get('coaches')
-  async coaches(@Query() query: PaginationDto) {
-    return { data: await this.adminService.coaches(query) };
+  async coaches(@Query() query: PaginationDto, @CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.adminService.coaches(query, user) };
   }
 
   @Post('coaches/promote/:userId')
@@ -99,13 +105,13 @@ export class AdminController {
   }
 
   @Get('coaches/profile-change-requests')
-  async coachProfileChangeRequests() {
-    return { data: await this.adminService.coachProfileChangeRequests() };
+  async coachProfileChangeRequests(@CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.adminService.coachProfileChangeRequests(user) };
   }
 
   @Get('members/profile-change-requests')
-  async memberProfileChangeRequests() {
-    return { data: await this.adminService.memberProfileChangeRequests() };
+  async memberProfileChangeRequests(@CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.adminService.memberProfileChangeRequests(user) };
   }
 
   @Post('members/profile-change-requests/:id/approve')
@@ -160,13 +166,16 @@ export class AdminController {
   }
 
   @Get('reception-feed')
-  async receptionFeed() {
-    return { data: await this.adminService.receptionFeed() };
+  async receptionFeed(@CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.adminService.receptionFeed(user) };
   }
 
   @Get('registration-requests')
-  async registrationRequests(@Query() query: PaginationDto) {
-    return { data: await this.adminService.registrationRequests(query) };
+  async registrationRequests(
+    @Query() query: PaginationDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return { data: await this.adminService.registrationRequests(query, user) };
   }
 
   @Post('registration-requests/:id/review')
@@ -214,8 +223,8 @@ export class AdminController {
 
   @Get('observers/:id/activity')
   @Protected(UserRole.ADMIN)
-  async observerActivity(@Param('id') id: string) {
-    return { data: await this.adminService.observerActivity(id) };
+  async observerActivity(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.adminService.observerActivity(id, user) };
   }
 
   @Post('notifications')

@@ -93,7 +93,7 @@ export class AuthController {
 
   @Post('register')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @UseInterceptors(FileInterceptor('photo'))
+  @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 5 * 1024 * 1024 } }))
   async register(@Body() dto: RegisterDto, @UploadedFile() photo: Express.Multer.File | undefined) {
     const result = await this.authService.register(dto, photo);
     return { data: result };

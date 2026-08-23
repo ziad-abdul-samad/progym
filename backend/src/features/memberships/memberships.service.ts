@@ -10,6 +10,7 @@ import {
 
 import type { PaginationDto } from '../../common/dto/pagination.dto';
 import type { AuthenticatedUser } from '../../common/types/authenticated-user';
+import { assertSameBranch, requireBranchId } from '../../common/utils/branch.util';
 import { addDays, diffDaysCeil, summarizeSubscription } from '../../common/utils/membership.util';
 import { paginated, paginationArgs } from '../../common/utils/pagination.util';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -98,8 +99,10 @@ export class MembershipsService {
     return summary;
   }
 
-  async listSubscriptions(query: PaginationDto) {
+  async listSubscriptions(query: PaginationDto, user: AuthenticatedUser) {
+    const branchId = requireBranchId(user);
     const where: Prisma.SubscriptionWhereInput = {
+      branchId,
       ...(query.q
         ? {
             member: {
@@ -151,6 +154,7 @@ export class MembershipsService {
   }
 
   async createSubscription(dto: CreateSubscriptionDto, admin: AuthenticatedUser) {
+    const branchId = requireBranchId(admin);
     const member = await this.prisma.memberProfile.findUnique({
       include: { user: true },
       where: { id: dto.memberId },
@@ -158,6 +162,9 @@ export class MembershipsService {
 
     if (!member) {
       throw new NotFoundException('Member not found');
+    }
+    if (member.homeBranchId !== branchId) {
+      throw new BadRequestException('Create the subscription from the member home branch');
     }
     const current = await this.prisma.subscription.findFirst({
       where: {
@@ -183,6 +190,7 @@ export class MembershipsService {
     return this.prisma.$transaction(async (transaction) => {
       const subscription = await transaction.subscription.create({
         data: {
+          branchId,
           endsAt: addDays(now, days),
           memberId: member.id,
           planId: plan?.id,
@@ -194,6 +202,7 @@ export class MembershipsService {
       await this.writeMembershipAudit(transaction, {
         action: MembershipAuditAction.CREATE,
         admin,
+        branchId,
         memberId: member.id,
         newValue: subscriptionSnapshot(subscription),
         observer,
@@ -203,6 +212,7 @@ export class MembershipsService {
       });
       await this.recordAutomaticPayment(transaction, {
         adminId: admin.id,
+        branchId,
         days,
         reason: dto.reason,
         subscriptionId: subscription.id,
@@ -225,6 +235,7 @@ export class MembershipsService {
     if (!subscription) {
       throw new NotFoundException('Subscription not found');
     }
+    assertSameBranch(subscription.branchId, admin);
     this.assertAllowedTransition(subscription.status, action);
 
     const previousValue = subscriptionSnapshot(subscription);
@@ -302,6 +313,7 @@ export class MembershipsService {
       await this.writeMembershipAudit(transaction, {
         action,
         admin,
+        branchId: subscription.branchId,
         memberId: subscription.memberId,
         newValue: subscriptionSnapshot(updated),
         observer,
@@ -312,6 +324,7 @@ export class MembershipsService {
       if (billableDays) {
         await this.recordAutomaticPayment(transaction, {
           adminId: admin.id,
+          branchId: subscription.branchId,
           days: billableDays,
           reason: dto.reason,
           subscriptionId: updated.id,
@@ -321,8 +334,10 @@ export class MembershipsService {
     });
   }
 
-  async listAuditLogs(query: PaginationDto) {
+  async listAuditLogs(query: PaginationDto, user: AuthenticatedUser) {
+    const branchId = requireBranchId(user);
     const where: Prisma.MembershipAuditLogWhereInput = {
+      branchId,
       ...(query.q
         ? {
             OR: [
@@ -362,6 +377,7 @@ export class MembershipsService {
     input: {
       action: MembershipAuditAction;
       admin: AuthenticatedUser;
+      branchId: string;
       memberId: string;
       newValue: object;
       observer: { fullName: string; id: string };
@@ -378,6 +394,7 @@ export class MembershipsService {
         action: input.action,
         adminId: input.admin.id,
         adminName: input.admin.fullName,
+        branchId: input.branchId,
         memberId: input.memberId,
         newValue: input.newValue,
         observerId: input.observer.id,
@@ -391,6 +408,7 @@ export class MembershipsService {
       data: {
         action: AuditAction.MEMBERSHIP_CHANGE,
         actorId: input.admin.id,
+        branchId: input.branchId,
         entityId: input.subscriptionId,
         entityType: 'Subscription',
         metadata: {
@@ -407,10 +425,16 @@ export class MembershipsService {
 
   private async recordAutomaticPayment(
     transaction: Prisma.TransactionClient,
-    input: { adminId: string; days: number; reason: string; subscriptionId: string },
+    input: {
+      adminId: string;
+      branchId: string;
+      days: number;
+      reason: string;
+      subscriptionId: string;
+    },
   ) {
     const settings = await transaction.gymSettings.findUnique({
-      where: { singletonKey: 'primary' },
+      where: { branchId: input.branchId },
     });
     const monthlyPriceMinor = settings?.monthlySubscriptionPriceMinor ?? 2500;
     const amountMinor = computeSubscriptionChargeMinor(monthlyPriceMinor, input.days);
@@ -443,6 +467,9 @@ export class MembershipsService {
     });
     if (!observer || observer.status !== ObserverStatus.ACTIVE) {
       throw new BadRequestException('Active shift observer is required');
+    }
+    if (observer.branchId !== requireBranchId(admin)) {
+      throw new BadRequestException('Observer belongs to another Pro Gym branch');
     }
     return observer;
   }

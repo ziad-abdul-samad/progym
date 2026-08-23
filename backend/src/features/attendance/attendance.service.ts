@@ -8,6 +8,7 @@ import { AttendanceSource, AuditAction, NotificationType } from '@prisma/client'
 
 import type { AuthenticatedUser } from '../../common/types/authenticated-user';
 import type { PaginationDto } from '../../common/dto/pagination.dto';
+import { assertSameBranch, requireBranchId } from '../../common/utils/branch.util';
 import { hashToken, randomToken } from '../../common/utils/hash.util';
 import { gymDate, startOfGymMonth } from '../../common/utils/membership.util';
 import { paginated, paginationArgs } from '../../common/utils/pagination.util';
@@ -24,10 +25,12 @@ export class AttendanceService {
   ) {}
 
   async createQr(admin: AuthenticatedUser, expiresInMinutes: number) {
+    const branchId = requireBranchId(admin);
     const token = randomToken(32);
     const expiresAt = new Date(Date.now() + expiresInMinutes * 60_000);
     const session = await this.prisma.attendanceQrSession.create({
       data: {
+        branchId,
         createdById: admin.id,
         expiresAt,
         tokenHash: hashToken(token),
@@ -55,22 +58,39 @@ export class AttendanceService {
       throw new BadRequestException('Attendance QR is invalid or expired');
     }
 
-    return this.recordAttendance(user.memberProfileId, AttendanceSource.QR, session.id);
+    return this.recordAttendance(
+      user.memberProfileId,
+      session.branchId,
+      AttendanceSource.QR,
+      session.id,
+    );
   }
 
-  async entry(user: AuthenticatedUser) {
+  async entry(user: AuthenticatedUser, branchCode: string) {
     if (!user.memberProfileId) {
       throw new BadRequestException('Only members can record entry');
     }
-    return this.recordAttendance(user.memberProfileId, AttendanceSource.QR, null);
+    const branch = await this.prisma.branch.findFirst({
+      where: { code: branchCode.trim().toLowerCase(), isActive: true },
+    });
+    if (!branch) throw new BadRequestException('Unknown or inactive Pro Gym branch');
+    return this.recordAttendance(user.memberProfileId, branch.id, AttendanceSource.QR, null);
   }
 
   async manualRecord(admin: AuthenticatedUser, memberId: string, notes?: string) {
-    const result = await this.recordAttendance(memberId, AttendanceSource.ADMIN, null, notes);
+    const branchId = requireBranchId(admin);
+    const result = await this.recordAttendance(
+      memberId,
+      branchId,
+      AttendanceSource.ADMIN,
+      null,
+      notes,
+    );
     await this.prisma.auditLog.create({
       data: {
         action: AuditAction.ATTENDANCE,
         actorId: admin.id,
+        branchId,
         entityId: result.checkIn.id,
         entityType: 'AttendanceRecord',
         metadata: { action: 'MANUAL_CREATE', memberId, notes: notes ?? null },
@@ -102,20 +122,24 @@ export class AttendanceService {
     };
   }
 
-  async adminList(query: PaginationDto) {
-    const where = query.q
-      ? {
-          member: {
-            user: {
-              OR: [
-                { fullName: { contains: query.q, mode: 'insensitive' as const } },
-                { username: { contains: query.q, mode: 'insensitive' as const } },
-                { phone: { contains: query.q, mode: 'insensitive' as const } },
-              ],
+  async adminList(query: PaginationDto, user: AuthenticatedUser) {
+    const branchId = requireBranchId(user);
+    const where = {
+      branchId,
+      ...(query.q
+        ? {
+            member: {
+              user: {
+                OR: [
+                  { fullName: { contains: query.q, mode: 'insensitive' as const } },
+                  { username: { contains: query.q, mode: 'insensitive' as const } },
+                  { phone: { contains: query.q, mode: 'insensitive' as const } },
+                ],
+              },
             },
-          },
-        }
-      : {};
+          }
+        : {}),
+    };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.attendanceRecord.findMany({
         include: {
@@ -136,7 +160,8 @@ export class AttendanceService {
     return paginated(items, total, query);
   }
 
-  async recentCheckIns(take = 8) {
+  async recentCheckIns(user: AuthenticatedUser, take = 8) {
+    const branchId = requireBranchId(user);
     const records = await this.prisma.attendanceRecord.findMany({
       include: {
         member: {
@@ -148,7 +173,7 @@ export class AttendanceService {
       },
       orderBy: { checkedInAt: 'desc' },
       take,
-      where: { voidedAt: null },
+      where: { branchId, voidedAt: null },
     });
 
     return records.map((record) => {
@@ -181,6 +206,7 @@ export class AttendanceService {
     const record = await this.prisma.attendanceRecord.findUnique({ where: { id } });
     if (!record) throw new NotFoundException('Attendance record not found');
     if (record.voidedAt) throw new ConflictException('Attendance record is already voided');
+    assertSameBranch(record.branchId, admin);
 
     return this.prisma.$transaction(async (transaction) => {
       const updated = await transaction.attendanceRecord.update({
@@ -195,6 +221,7 @@ export class AttendanceService {
         data: {
           action: AuditAction.ATTENDANCE,
           actorId: admin.id,
+          branchId: record.branchId,
           entityId: id,
           entityType: 'AttendanceRecord',
           metadata: {
@@ -210,6 +237,7 @@ export class AttendanceService {
 
   private async recordAttendance(
     memberId: string,
+    branchId: string,
     source: AttendanceSource,
     sessionId?: string | null,
     notes?: string,
@@ -233,6 +261,7 @@ export class AttendanceService {
     const record = await this.prisma.attendanceRecord.create({
       data: {
         attendanceDate,
+        branchId,
         memberId,
         notes,
         sessionId,

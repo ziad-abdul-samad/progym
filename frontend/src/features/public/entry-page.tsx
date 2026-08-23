@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { PublicLocale } from '@progym/shared';
 
-import { apiRequest } from '@/lib/api/client';
+import { apiRequest, jsonBody } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth/use-auth';
 
 type EntryResult = {
@@ -15,10 +15,20 @@ type EntryResult = {
   message: string;
 };
 
-export function EntryPage({ locale }: { locale: PublicLocale }) {
+export function EntryPage({
+  branchCode = 'b1',
+  locale,
+}: {
+  branchCode?: string;
+  locale: PublicLocale;
+}) {
   const auth = useAuth();
   const entry = useMutation({
-    mutationFn: () => apiRequest<EntryResult>('/attendance/entry', { method: 'POST' }),
+    mutationFn: () =>
+      apiRequest<EntryResult>('/attendance/entry', {
+        body: jsonBody({ branchCode }),
+        method: 'POST',
+      }),
   });
   const [autoSubmitted, setAutoSubmitted] = useState(false);
   const ar = locale === 'ar';
@@ -102,14 +112,15 @@ export function EntryPage({ locale }: { locale: PublicLocale }) {
               className="mt-6 inline-flex items-center gap-3 text-sm font-black text-[#39ff14]"
               href="/ar/dashboard/admin"
             >
-              {ar ? 'الذهاب إلى لوحة التحكم' : 'Go to dashboard'} <ArrowUpRight className="h-4 w-4" />
+              {ar ? 'الذهاب إلى لوحة التحكم' : 'Go to dashboard'}{' '}
+              <ArrowUpRight className="h-4 w-4" />
             </Link>
           </div>
         ) : (
           <div className="mt-10 grid gap-4 border-t border-white/10 pt-8 md:grid-cols-2">
             <Link
               className="group border border-[#39ff14]/45 bg-[#39ff14] p-6 text-black transition hover:bg-white"
-              href={`/${locale}/login?next=/${locale}/entry`}
+              href={`/${locale}/login?next=/${locale}/entry/${branchCode}`}
             >
               <LogIn className="h-6 w-6" />
               <strong className="mt-5 block text-lg">
@@ -121,16 +132,14 @@ export function EntryPage({ locale }: { locale: PublicLocale }) {
             </Link>
             <Link
               className="group border border-white/12 bg-white/[0.035] p-6 transition hover:border-[#39ff14]/50"
-              href={`/${locale}/register?entry=1`}
+              href={`/${locale}/register?entry=1&branch=${encodeURIComponent(branchCode)}`}
             >
               <UserPlus className="h-6 w-6 text-[#39ff14]" />
               <strong className="mt-5 block text-lg">
                 {ar ? 'لا أملك حساباً' : 'Create an account'}
               </strong>
               <span className="mt-2 block text-sm text-white/40">
-                {ar
-                  ? 'أرسل بياناتك ليعتمدها المراقب.'
-                  : 'Submit your details for staff approval.'}
+                {ar ? 'أرسل بياناتك ليعتمدها المراقب.' : 'Submit your details for staff approval.'}
               </span>
             </Link>
           </div>

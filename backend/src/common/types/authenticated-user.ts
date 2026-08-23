@@ -8,6 +8,9 @@ export interface AuthenticatedUser {
   memberProfileId?: string;
   coachProfileId?: string;
   shiftObserverId?: string;
+  branchId?: string;
+  branchCode?: string;
+  branchName?: string;
 }
 
 export interface AuthenticatedRequest {

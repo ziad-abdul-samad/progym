@@ -12,6 +12,7 @@ export class ApiClientError extends Error {
 
 const AUTH_SCOPE_KEY = 'progym_auth_scope';
 const AUTH_SCOPES = ['admin', 'observer', 'coach', 'member'] as const;
+const BRANCH_PATH_PATTERN = /\/dashboard\/admin\/(b[1-9][a-z0-9-]*)(?:\/|$)/i;
 
 type AuthScope = (typeof AUTH_SCOPES)[number];
 
@@ -29,6 +30,11 @@ function getAuthScope(): AuthScope | undefined {
   if (!isAuthScope(latestScope)) return undefined;
   window.sessionStorage.setItem(AUTH_SCOPE_KEY, latestScope);
   return latestScope;
+}
+
+function getDashboardBranchCode(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  return window.location.pathname.match(BRANCH_PATH_PATTERN)?.[1]?.toLowerCase();
 }
 
 function setAuthScopeFromRole(role: unknown): AuthScope | undefined {
@@ -67,6 +73,8 @@ export async function apiRequest<TData>(path: string, init: RequestInit = {}): P
   const headers = new Headers(init.headers);
   let authScope = getAuthScope();
   if (authScope) headers.set('x-auth-scope', authScope);
+  const branchCode = getDashboardBranchCode();
+  if (branchCode) headers.set('x-progym-branch', branchCode);
 
   if (!isFormData && init.body && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');

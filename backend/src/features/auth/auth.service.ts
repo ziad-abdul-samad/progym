@@ -25,6 +25,7 @@ import {
   verifySecurityAnswer,
 } from '../../common/utils/hash.util';
 import { ageFromDateOfBirth } from '../../common/utils/age.util';
+import { DEFAULT_BRANCH_CODE } from '../../common/utils/branch.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StorageService } from '../../storage/storage.service';
 import { MembershipsService } from '../memberships/memberships.service';
@@ -84,6 +85,16 @@ export class AuthService {
     const registrationInvite = dto.registrationToken
       ? await this.assertValidRegistrationToken(dto.registrationToken)
       : null;
+    const branch = await this.prisma.branch.findFirst({
+      where: {
+        code: registrationInvite?.branchId
+          ? undefined
+          : (dto.branchCode?.trim().toLowerCase() ?? DEFAULT_BRANCH_CODE),
+        id: registrationInvite?.branchId,
+        isActive: true,
+      },
+    });
+    if (!branch) throw new BadRequestException('Unknown or inactive Pro Gym branch');
 
     const existing = await this.prisma.user.findFirst({
       where: {
@@ -103,7 +114,7 @@ export class AuthService {
     ]);
     const memberCode = `PG-${randomToken(5).toUpperCase()}`;
     const claimToken = randomToken(40);
-    const avatar = await this.storage.saveImage(photo, null);
+    const avatar = await this.storage.saveImage(photo, null, undefined, branch.id);
 
     let request;
     try {
@@ -142,6 +153,7 @@ export class AuthService {
                 fitnessGoal: dto.fitnessGoal,
                 gender: dto.gender,
                 heightCm: dto.heightCm,
+                homeBranchId: branch.id,
                 memberCode,
                 progressEntries: {
                   create: {
@@ -181,6 +193,7 @@ export class AuthService {
 
         return transaction.registrationRequest.create({
           data: {
+            branchId: branch.id,
             claimTokenHash: hashToken(claimToken),
             memberId: createdUser.memberProfile!.id,
             requestedDays: 30,
@@ -237,6 +250,7 @@ export class AuthService {
       include: {
         coachProfile: true,
         memberProfile: true,
+        shiftObserver: true,
       },
       where: { username: normalizeUsername(dto.username) },
     });
@@ -257,6 +271,7 @@ export class AuthService {
       data: {
         action: AuditAction.LOGIN,
         actorId: user.id,
+        branchId: user.shiftObserver?.branchId ?? user.memberProfile?.homeBranchId ?? null,
         entityId: user.id,
         entityType: 'Session',
       },
@@ -302,7 +317,15 @@ export class AuthService {
   async logout(refreshToken: string | undefined) {
     if (refreshToken) {
       const session = await this.prisma.refreshSession.findUnique({
-        select: { userId: true },
+        select: {
+          user: {
+            select: {
+              memberProfile: { select: { homeBranchId: true } },
+              shiftObserver: { select: { branchId: true } },
+            },
+          },
+          userId: true,
+        },
         where: { tokenHash: hashToken(refreshToken) },
       });
       await this.prisma.refreshSession.updateMany({
@@ -314,6 +337,10 @@ export class AuthService {
           data: {
             action: AuditAction.LOGOUT,
             actorId: session.userId,
+            branchId:
+              session.user.shiftObserver?.branchId ??
+              session.user.memberProfile?.homeBranchId ??
+              null,
             entityId: session.userId,
             entityType: 'Session',
           },
@@ -327,9 +354,9 @@ export class AuthService {
   async getSessionUser(userId: string) {
     const user = await this.prisma.user.findUniqueOrThrow({
       include: {
-        coachProfile: true,
-        memberProfile: true,
-        shiftObserver: true,
+        coachProfile: { include: { branches: { include: { branch: true } } } },
+        memberProfile: { include: { homeBranch: true } },
+        shiftObserver: { include: { branch: true } },
       },
       where: { id: userId },
     });
@@ -366,6 +393,14 @@ export class AuthService {
       : null;
 
     return {
+      branch: user.shiftObserver?.branch ?? user.memberProfile?.homeBranch ?? null,
+      branches:
+        user.coachProfile?.branches.map(({ branch }) => ({
+          code: branch.code,
+          id: branch.id,
+          nameAr: branch.nameAr,
+          nameEn: branch.nameEn,
+        })) ?? [],
       assignedCoach: assignedCoach
         ? {
             avatarUrl: assignedCoach.coach.user.avatarUrl,
@@ -383,6 +418,7 @@ export class AuthService {
       role: user.role,
       shiftObserver: user.shiftObserver
         ? {
+            branch: user.shiftObserver.branch,
             id: user.shiftObserver.id,
             shiftEnd: user.shiftObserver.shiftEnd,
             shiftStart: user.shiftObserver.shiftStart,

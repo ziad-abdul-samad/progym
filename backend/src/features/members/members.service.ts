@@ -187,7 +187,9 @@ export class MembersService {
       requestedData.currentWeightKg = dto.weightKg;
     }
 
-    const stagedAvatar = photo ? await this.storage.saveImage(photo, user.id) : null;
+    const stagedAvatar = photo
+      ? await this.storage.saveImage(photo, user.id, undefined, current.homeBranchId)
+      : null;
     if (stagedAvatar) requestedData.avatarChanged = true;
 
     if (!Object.keys(requestedData).length) {

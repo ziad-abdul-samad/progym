@@ -17,7 +17,11 @@ import {
 } from '@/lib/reports/arabic-gym-report';
 import { cn } from '@/lib/utils';
 
-type ReportSettings = { membershipCurrency: string; monthlySubscriptionPriceMinor: number };
+type ReportSettings = {
+  branch: { code: string; nameAr: string; nameEn: string } | null;
+  membershipCurrency: string;
+  monthlySubscriptionPriceMinor: number;
+};
 type Preset = 'day' | 'week' | 'month' | 'custom';
 
 const metricOptions: Array<{ description: string; id: ReportMetric; label: string }> = [
@@ -49,6 +53,7 @@ function Summary({ report }: { report: GymReport }) {
         <div>
           <p className="text-xs font-black text-brand-accent">آخر تقرير تم إنشاؤه</p>
           <h2 className="mt-1 text-xl font-black">
+            {report.branch?.nameAr ? `${report.branch.nameAr} / ` : ''}
             {report.range.from} — {report.range.to}
           </h2>
         </div>
@@ -156,6 +161,11 @@ export function AdminReportsPage() {
             <FileText className="h-4 w-4" /> مركز تقارير Pro Gym
           </div>
           <h1 className="mt-2 text-3xl font-black tracking-tight">التقارير المالية والتشغيلية</h1>
+          {settings.data?.branch?.nameAr ? (
+            <p className="mt-1 text-sm font-black text-green-700 dark:text-brand-accent">
+              {settings.data.branch.nameAr}
+            </p>
+          ) : null}
           <p className="mt-2 max-w-2xl text-sm leading-7 text-muted-foreground">
             اختر الفترة والإحصاءات، ثم أنشئ ملف PDF عربي جاهز للحفظ أو الطباعة بشعار النادي.
           </p>

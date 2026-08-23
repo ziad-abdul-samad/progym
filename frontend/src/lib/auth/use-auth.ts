@@ -5,6 +5,18 @@ import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api/client';
 
 export type SessionUser = {
+  branch: {
+    code: string;
+    id: string;
+    nameAr: string;
+    nameEn: string;
+  } | null;
+  branches: Array<{
+    code: string;
+    id: string;
+    nameAr: string;
+    nameEn: string;
+  }>;
   assignedCoach: {
     avatarUrl: string | null;
     fullName: string;
@@ -28,6 +40,12 @@ export type SessionUser = {
   } | null;
   role: 'MEMBER' | 'COACH' | 'ADMIN' | 'OBSERVER';
   shiftObserver: {
+    branch: {
+      code: string;
+      id: string;
+      nameAr: string;
+      nameEn: string;
+    };
     id: string;
     shiftEnd: string | null;
     shiftStart: string | null;

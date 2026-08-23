@@ -14,6 +14,7 @@ export type GymReport = {
     uniqueMembers: number;
     visits: number;
   };
+  branch: { code: string; nameAr: string; nameEn: string } | null;
   coaches: { activeAssignments: number; total: number };
   generatedAt: string;
   members: { new: number; total: number };
@@ -332,12 +333,18 @@ function drawHeader(context: CanvasRenderingContext2D, report: GymReport, logo: 
     fontSize: 23,
     fontWeight: 800,
   });
-  drawText(context, 'تقرير أداء النادي', WIDTH - 104, 212, {
-    color: palette.white,
-    fontSize: 55,
-    fontWeight: 900,
-    maxWidth: 760,
-  });
+  drawText(
+    context,
+    report.branch?.nameAr ? `تقرير أداء النادي — ${report.branch.nameAr}` : 'تقرير أداء النادي',
+    WIDTH - 104,
+    212,
+    {
+      color: palette.white,
+      fontSize: 55,
+      fontWeight: 900,
+      maxWidth: 760,
+    },
+  );
   drawText(context, `الفترة من ${report.range.from} إلى ${report.range.to}`, WIDTH - 104, 277, {
     color: '#c6ccc5',
     fontSize: 24,
@@ -659,7 +666,7 @@ export async function downloadArabicGymReport(report: GymReport) {
   const url = URL.createObjectURL(createPdf(images));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `progym-report-${report.range.from}-${report.range.to}.pdf`;
+  link.download = `progym-${report.branch?.code ?? 'gym'}-report-${report.range.from}-${report.range.to}.pdf`;
   link.style.display = 'none';
   document.body.append(link);
   link.click();

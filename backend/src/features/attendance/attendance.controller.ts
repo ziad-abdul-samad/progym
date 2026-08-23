@@ -8,6 +8,7 @@ import type { AuthenticatedUser } from '../../common/types/authenticated-user';
 import { AttendanceService } from './attendance.service';
 import {
   CreateAttendanceQrDto,
+  EntryAttendanceDto,
   ManualAttendanceDto,
   ScanAttendanceDto,
   VoidAttendanceDto,
@@ -31,8 +32,8 @@ export class AttendanceController {
 
   @Post('entry')
   @Protected(UserRole.MEMBER)
-  async entry(@CurrentUser() user: AuthenticatedUser) {
-    return { data: await this.attendance.entry(user) };
+  async entry(@Body() dto: EntryAttendanceDto, @CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.attendance.entry(user, dto.branchCode) };
   }
 
   @Post('manual')
@@ -43,8 +44,8 @@ export class AttendanceController {
 
   @Get('recent')
   @Protected(UserRole.ADMIN, UserRole.OBSERVER)
-  async recent() {
-    return { data: await this.attendance.recentCheckIns() };
+  async recent(@CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.attendance.recentCheckIns(user) };
   }
 
   @Get('me')
@@ -55,8 +56,8 @@ export class AttendanceController {
 
   @Get()
   @Protected(UserRole.ADMIN, UserRole.OBSERVER)
-  async adminList(@Query() query: PaginationDto) {
-    return { data: await this.attendance.adminList(query) };
+  async adminList(@Query() query: PaginationDto, @CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.attendance.adminList(query, user) };
   }
 
   @Patch(':id/void')

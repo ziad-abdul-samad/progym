@@ -37,7 +37,7 @@ const demoPassword = process.env.SEED_DEMO_PASSWORD ?? 'Demo@123456';
 const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? 'Admin@123456';
 const seedDemoData = process.env.SEED_DEMO_DATA !== 'false';
 const uploadRoot = join(process.cwd(), 'uploads');
-const observerAccounts = [
+const observerShiftTemplates = [
   {
     fullName: 'مراقب الفترة الأولى',
     fallbackPasswordHash:
@@ -75,6 +75,60 @@ const observerAccounts = [
     username: process.env.SEED_OBSERVER_3_USERNAME ?? 'observer.3',
   },
 ] as const;
+
+const branchSeeds = [
+  {
+    addressAr: 'الإنشاءات مقابل الفرن الآلي',
+    addressEn: 'Al-Inshaat, opposite the automatic bakery',
+    code: 'b1',
+    id: 'branch_b1',
+    nameAr: 'الإنشاءات مقابل الفرن الآلي',
+    nameEn: 'Al-Inshaat',
+    slug: 'inshaat',
+    sortOrder: 1,
+  },
+  {
+    addressAr: 'جورة الشياح مقابل المشفى الوطني',
+    addressEn: 'Jourat Al-Shayah, opposite the National Hospital',
+    code: 'b2',
+    id: 'branch_b2',
+    nameAr: 'جورة الشياح مقابل المشفى الوطني',
+    nameEn: 'Jourat Al-Shayah',
+    slug: 'jourat-al-shayah',
+    sortOrder: 2,
+  },
+  {
+    addressAr: 'بروجيم 8 آذار',
+    addressEn: 'Pro Gym March 8',
+    code: 'b3',
+    id: 'branch_b3',
+    nameAr: 'بروجيم 8 آذار',
+    nameEn: 'Pro Gym March 8',
+    slug: 'march-8',
+    sortOrder: 3,
+  },
+] as const;
+
+const observerAccounts = branchSeeds.flatMap((branch, branchIndex) =>
+  observerShiftTemplates.map((shift, shiftIndex) => {
+    const number = shiftIndex + 1;
+    const envPrefix = `SEED_${branch.code.toUpperCase()}_OBSERVER_${number}`;
+    return {
+      ...shift,
+      branchCode: branch.code,
+      fullName: branch.code === 'b1' ? shift.fullName : `${shift.fullName} - ${branch.nameAr}`,
+      legacyName: branch.code === 'b1' ? shift.legacyName : `${shift.legacyName} (${branch.code})`,
+      password: process.env[`${envPrefix}_PASSWORD`] ?? shift.password,
+      phone:
+        branch.code === 'b1'
+          ? shift.phone
+          : `+96390000${branchIndex + 3}${String(number).padStart(2, '0')}`,
+      username:
+        process.env[`${envPrefix}_USERNAME`] ??
+        (branch.code === 'b1' ? shift.username : `${branch.code}.observer.${number}`),
+    };
+  }),
+);
 
 function addDays(date: Date, days: number) {
   return new Date(date.getTime() + days * dayMs);
@@ -239,6 +293,24 @@ const demoMembers = [
   },
 ] as const;
 
+async function seedBranches() {
+  for (const branch of branchSeeds) {
+    await prisma.branch.upsert({
+      create: branch,
+      update: {
+        addressAr: branch.addressAr,
+        addressEn: branch.addressEn,
+        isActive: true,
+        nameAr: branch.nameAr,
+        nameEn: branch.nameEn,
+        slug: branch.slug,
+        sortOrder: branch.sortOrder,
+      },
+      where: { code: branch.code },
+    });
+  }
+}
+
 async function seedBaseData() {
   await prisma.gymSettings.upsert({
     create: {
@@ -258,7 +330,8 @@ async function seedBaseData() {
       nameAr: 'برو جيم',
       nameEn: 'Pro Gym',
       phone: '2213324',
-      singletonKey: 'primary',
+      branchId: 'branch_b1',
+      singletonKey: 'branch-b1',
       socialLinks: { instagram: 'https://www.instagram.com/progym.homs/' },
     },
     update: {
@@ -280,8 +353,38 @@ async function seedBaseData() {
       phone: '2213324',
       socialLinks: { instagram: 'https://www.instagram.com/progym.homs/' },
     },
-    where: { singletonKey: 'primary' },
+    where: { singletonKey: 'branch-b1' },
   });
+
+  for (const branch of branchSeeds.filter((item) => item.code !== 'b1')) {
+    await prisma.gymSettings.upsert({
+      create: {
+        addressAr: branch.addressAr,
+        addressEn: branch.addressEn,
+        branchId: branch.id,
+        membershipCurrency: 'USD',
+        monthlySubscriptionPriceMinor: 2500,
+        nameAr: 'برو جيم',
+        nameEn: 'Pro Gym',
+        openingHours: {
+          friday: { closes: '19:00', opens: '14:00' },
+          saturdayThroughThursday: { closes: '12:00', opens: '07:00' },
+        },
+        phone: '2213324',
+        singletonKey: `branch-${branch.code}`,
+      },
+      update: {
+        addressAr: branch.addressAr,
+        addressEn: branch.addressEn,
+        branchId: branch.id,
+        openingHours: {
+          friday: { closes: '19:00', opens: '14:00' },
+          saturdayThroughThursday: { closes: '12:00', opens: '07:00' },
+        },
+      },
+      where: { singletonKey: `branch-${branch.code}` },
+    });
+  }
 
   const admin = await prisma.user.upsert({
     create: {
@@ -476,6 +579,7 @@ async function seedDemoUsers() {
             fitnessGoal: member.goal,
             gender: Gender.MALE,
             heightCm: member.height,
+            homeBranchId: 'branch_b1',
             memberCode: member.code,
           },
         },
@@ -494,6 +598,7 @@ async function seedDemoUsers() {
               fitnessGoal: member.goal,
               gender: Gender.MALE,
               heightCm: member.height,
+              homeBranchId: 'branch_b1',
               memberCode: member.code,
             },
             update: {
@@ -502,6 +607,7 @@ async function seedDemoUsers() {
               fitnessGoal: member.goal,
               gender: Gender.MALE,
               heightCm: member.height,
+              homeBranchId: 'branch_b1',
             },
           },
         },
@@ -564,7 +670,7 @@ async function seedDemoUsers() {
   ];
 
   for (const coach of coachProfiles) {
-    await prisma.user.update({
+    const coachUser = await prisma.user.update({
       data: {
         coachProfile: {
           upsert: {
@@ -585,13 +691,25 @@ async function seedDemoUsers() {
         },
         role: UserRole.COACH,
       },
+      include: { coachProfile: true },
       where: { username: coach.username },
     });
+    if (coachUser.coachProfile) {
+      const coachId = coachUser.coachProfile.id;
+      await prisma.coachBranch.createMany({
+        data: branchSeeds.map((branch) => ({
+          branchId: branch.id,
+          coachId,
+        })),
+        skipDuplicates: true,
+      });
+    }
   }
 }
 
 async function seedObservers() {
   for (const account of observerAccounts) {
+    const branch = await prisma.branch.findUniqueOrThrow({ where: { code: account.branchCode } });
     const passwordHash = account.password
       ? await hashPassword(account.password)
       : account.fallbackPasswordHash;
@@ -621,6 +739,7 @@ async function seedObservers() {
     });
 
     const observerData = {
+      branchId: branch.id,
       fullName: account.fullName,
       notes: account.notes,
       phone: account.phone,
@@ -689,7 +808,7 @@ async function seedOperationalData(adminId: string, adminName: string) {
   const exercises = await prisma.exercise.findMany({ take: 8 });
   const shiftObserver = await prisma.shiftObserver.findFirstOrThrow({
     orderBy: { createdAt: 'asc' },
-    where: { status: ObserverStatus.ACTIVE },
+    where: { branchId: 'branch_b1', status: ObserverStatus.ACTIVE },
   });
 
   const assignmentPairs = [
@@ -708,6 +827,7 @@ async function seedOperationalData(adminId: string, adminName: string) {
     const coachingEndsAt = addDays(new Date(), index === 0 ? 4 : 14 + index * 6);
     const assignment = await prisma.coachAssignment.create({
       data: {
+        branchId: 'branch_b1',
         coachId: coach.id,
         coachingEndsAt,
         coachingStartsAt: daysAgo(26 - index),
@@ -799,6 +919,7 @@ async function seedOperationalData(adminId: string, adminName: string) {
 
     const subscription = await prisma.subscription.create({
       data: {
+        branchId: 'branch_b1',
         endsAt,
         frozenAt: status === SubscriptionStatus.FROZEN ? daysAgo(2) : null,
         memberId: member.id,
@@ -824,6 +945,7 @@ async function seedOperationalData(adminId: string, adminName: string) {
         action: MembershipAuditAction.CREATE,
         adminId,
         adminName,
+        branchId: 'branch_b1',
         memberId: member.id,
         newValue: {
           endsAt: endsAt.toISOString(),
@@ -846,6 +968,7 @@ async function seedOperationalData(adminId: string, adminName: string) {
           action: MembershipAuditAction.ADD_DAYS,
           adminId,
           adminName,
+          branchId: 'branch_b1',
           memberId: member.id,
           newValue: { endsAt: extended.toISOString(), status },
           observerId: shiftObserver.id,
@@ -864,6 +987,7 @@ async function seedOperationalData(adminId: string, adminName: string) {
         const checkedInAt = daysAgo(day, 8 + ((index + dayIndex) % 10));
         return {
           attendanceDate: utcDateOnly(checkedInAt),
+          branchId: 'branch_b1',
           checkedInAt,
           memberId: member.id,
           source: 'QR' as const,
@@ -871,6 +995,7 @@ async function seedOperationalData(adminId: string, adminName: string) {
       })
       .filter(Boolean) as Array<{
       attendanceDate: Date;
+      branchId: string;
       checkedInAt: Date;
       memberId: string;
       source: 'QR';
@@ -1087,6 +1212,7 @@ async function seedOperationalData(adminId: string, adminName: string) {
 }
 
 async function main() {
+  await seedBranches();
   const admin = await seedBaseData();
   await seedObservers();
   if (seedDemoData) {

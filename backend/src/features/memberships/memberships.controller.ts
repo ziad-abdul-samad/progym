@@ -37,8 +37,8 @@ export class MembershipsController {
 
   @Get('subscriptions')
   @Protected(UserRole.ADMIN, UserRole.OBSERVER)
-  async listSubscriptions(@Query() query: PaginationDto) {
-    return { data: await this.memberships.listSubscriptions(query) };
+  async listSubscriptions(@Query() query: PaginationDto, @CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.memberships.listSubscriptions(query, user) };
   }
 
   @Post('subscriptions')
@@ -134,7 +134,7 @@ export class MembershipsController {
 
   @Get('audit')
   @Protected(UserRole.ADMIN)
-  async audit(@Query() query: PaginationDto) {
-    return { data: await this.memberships.listAuditLogs(query) };
+  async audit(@Query() query: PaginationDto, @CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.memberships.listAuditLogs(query, user) };
   }
 }

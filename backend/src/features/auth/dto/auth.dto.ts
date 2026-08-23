@@ -13,6 +13,10 @@ import {
 import { Gender } from '@prisma/client';
 
 export class RegisterDto {
+  @IsOptional()
+  @IsString()
+  branchCode?: string;
+
   @IsString()
   @Length(2, 120)
   fullName!: string;

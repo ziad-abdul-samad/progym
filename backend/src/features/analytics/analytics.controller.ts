@@ -13,14 +13,14 @@ export class AnalyticsController {
 
   @Get('overview')
   @Protected(UserRole.ADMIN, UserRole.OBSERVER)
-  async overview() {
-    return { data: await this.analytics.overview() };
+  async overview(@CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.analytics.overview(user) };
   }
 
   @Get('report-settings')
   @Protected(UserRole.ADMIN)
-  async reportSettings() {
-    return { data: await this.analytics.reportSettings() };
+  async reportSettings(@CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.analytics.reportSettings(user) };
   }
 
   @Patch('report-settings')
@@ -36,7 +36,7 @@ export class AnalyticsController {
 
   @Get('report')
   @Protected(UserRole.ADMIN)
-  async report(@Query() query: ReportQueryDto) {
-    return { data: await this.analytics.report(query) };
+  async report(@Query() query: ReportQueryDto, @CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.analytics.report(query, user) };
   }
 }

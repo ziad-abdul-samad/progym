@@ -9,6 +9,8 @@ import sharp from 'sharp';
 import { PrismaService } from '../prisma/prisma.service';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_STORED_IMAGE_BYTES = 900 * 1024;
+const MAX_IMAGE_EDGE = 1280;
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const STORAGE_MODES = new Set(['database', 'filesystem', 'hybrid']);
 
@@ -42,6 +44,7 @@ export class StorageService {
     file: Express.Multer.File | undefined,
     ownerUserId: string | null,
     visibility: FileVisibility = FileVisibility.PRIVATE,
+    branchId: string | null = null,
   ) {
     if (!file) {
       throw new BadRequestException('Image file is required');
@@ -73,15 +76,41 @@ export class StorageService {
       ) {
         throw new Error('Unsupported image content');
       }
-      // rotate() applies EXIF orientation. Re-encoding strips EXIF and other metadata.
-      safeBuffer = await image.rotate().jpeg({ mozjpeg: true, quality: 88 }).toBuffer();
+      // rotate() applies EXIF orientation. Resize + WebP keeps player photos clear while
+      // making storage and transfer predictable on the future 50 GB Hostinger volume.
+      const normalized = image.rotate().resize({
+        fit: 'inside',
+        height: MAX_IMAGE_EDGE,
+        withoutEnlargement: true,
+        width: MAX_IMAGE_EDGE,
+      });
+      safeBuffer = await normalized.webp({ effort: 4, quality: 82 }).toBuffer();
+      if (safeBuffer.byteLength > MAX_STORED_IMAGE_BYTES) {
+        safeBuffer = await sharp(file.buffer, { limitInputPixels: 40_000_000 })
+          .rotate()
+          .resize({
+            fit: 'inside',
+            height: MAX_IMAGE_EDGE,
+            withoutEnlargement: true,
+            width: MAX_IMAGE_EDGE,
+          })
+          .webp({ effort: 5, quality: 72 })
+          .toBuffer();
+      }
+      if (safeBuffer.byteLength > MAX_STORED_IMAGE_BYTES) {
+        safeBuffer = await sharp(file.buffer, { limitInputPixels: 40_000_000 })
+          .rotate()
+          .resize({ fit: 'inside', height: 960, withoutEnlargement: true, width: 960 })
+          .webp({ effort: 6, quality: 65 })
+          .toBuffer();
+      }
     } catch {
       throw new BadRequestException('Uploaded file is not a valid safe image');
     }
 
     const now = new Date();
     const folder = `${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
-    const filename = `${randomUUID()}.jpg`;
+    const filename = `${randomUUID()}.webp`;
     const storageKey = `${folder}/${filename}`;
     const absoluteFolder = join(this.uploadRoot, folder);
     const shouldWriteFile = this.mode !== 'database';
@@ -95,6 +124,7 @@ export class StorageService {
     try {
       return await this.prisma.fileAsset.create({
         data: {
+          branchId,
           byteSize: safeBuffer.byteLength,
           blob: shouldStoreBlob
             ? {
@@ -103,7 +133,7 @@ export class StorageService {
                 },
               }
             : undefined,
-          mimeType: 'image/jpeg',
+          mimeType: 'image/webp',
           originalName: file.originalname,
           ownerUserId,
           storageKey,

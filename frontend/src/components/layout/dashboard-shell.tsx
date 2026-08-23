@@ -5,6 +5,7 @@ import {
   Archive,
   Bell,
   BellRing,
+  Building2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -138,6 +139,12 @@ const roleLabel: Record<SessionUser['role'], string> = {
   OBSERVER: 'مراقب الوردية',
 };
 
+const dashboardBranchLabels: Record<string, string> = {
+  b1: 'الإنشاءات مقابل الفرن الآلي',
+  b2: 'جورة الشياح مقابل المشفى الوطني',
+  b3: 'بروجيم 8 آذار',
+};
+
 const memberNavEnglish = [
   'Overview',
   'Profile',
@@ -150,7 +157,25 @@ const memberNavEnglish = [
   'Calculators',
 ] as const;
 
-function localizedNavItems(role: SessionUser['role'], locale: PublicLocale): NavItem[] {
+function dashboardBranchCode(pathname: string): string | null {
+  return (
+    pathname.match(/\/dashboard\/admin\/(b[1-9][a-z0-9-]*)(?:\/|$)/i)?.[1]?.toLowerCase() ?? null
+  );
+}
+
+function localizedNavItems(
+  role: SessionUser['role'],
+  locale: PublicLocale,
+  branchCode?: string | null,
+): NavItem[] {
+  if (role === 'ADMIN' || role === 'OBSERVER') {
+    const source = navItems[role];
+    if (!branchCode) return source.slice(0, 1);
+    return source.map((item) => ({
+      ...item,
+      href: item.href.replace('/dashboard/admin', `/dashboard/admin/${branchCode}`),
+    }));
+  }
   if (role !== 'MEMBER' || locale === 'ar') return navItems[role];
 
   return navItems.MEMBER.map((item, index) => ({
@@ -179,20 +204,27 @@ function defaultAdminSidebarSeenAt(): Record<AdminSidebarBadgeKey, string> {
 }
 
 function adminBadgeKeyForPath(pathname: string): AdminSidebarBadgeKey | null {
-  const path = pathname.replace(/^\/(ar|en)/, '');
+  const path = pathname
+    .replace(/^\/(ar|en)/, '')
+    .replace(/\/dashboard\/admin\/b[1-9][a-z0-9-]*/i, '/dashboard/admin');
   if (path === '/dashboard/admin/members') return 'members';
   if (path === '/dashboard/admin/registrations') return 'registrations';
   if (path === '/dashboard/admin/attendance') return 'attendance';
   return null;
 }
 
-function readAdminSidebarSeenAt(): Record<AdminSidebarBadgeKey, string> {
+function adminSidebarSeenStorageKey(branchCode?: string | null): string {
+  return branchCode ? `${ADMIN_SIDEBAR_SEEN_KEY}:${branchCode}` : ADMIN_SIDEBAR_SEEN_KEY;
+}
+
+function readAdminSidebarSeenAt(branchCode?: string | null): Record<AdminSidebarBadgeKey, string> {
   if (typeof window === 'undefined') return defaultAdminSidebarSeenAt();
   const fallback = defaultAdminSidebarSeenAt();
   try {
-    const stored = window.localStorage.getItem(ADMIN_SIDEBAR_SEEN_KEY);
+    const storageKey = adminSidebarSeenStorageKey(branchCode);
+    const stored = window.localStorage.getItem(storageKey);
     if (!stored) {
-      window.localStorage.setItem(ADMIN_SIDEBAR_SEEN_KEY, JSON.stringify(fallback));
+      window.localStorage.setItem(storageKey, JSON.stringify(fallback));
       return fallback;
     }
     return {
@@ -266,8 +298,8 @@ function Sidebar({
           'flex items-center gap-3 rounded-md px-3 py-3 transition hover:bg-muted',
           collapsed && 'justify-center px-2',
         )}
-        href={homeForRole(user.role, locale)}
-        onClick={() => onNavigate?.(homeForRole(user.role, locale))}
+        href={items[0]?.href ?? homeForRole(user.role, locale)}
+        onClick={() => onNavigate?.(items[0]?.href ?? homeForRole(user.role, locale))}
       >
         <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-border bg-white shadow-sm">
           <Image alt="Pro Gym logo" className="object-cover" fill sizes="44px" src={brand.logoBw} />
@@ -589,6 +621,7 @@ export function DashboardShell({
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
+  const selectedBranchCode = dashboardBranchCode(pathname);
   const logout = useMutation({
     mutationFn: () => apiRequest('/auth/logout', { body: jsonBody({}), method: 'POST' }),
     onSuccess: () => {
@@ -599,7 +632,8 @@ export function DashboardShell({
     },
   });
   const [adminSidebarSeenAt, setAdminSidebarSeenAt] = useState(defaultAdminSidebarSeenAt);
-  const isAdminWorkspace = auth.data?.role === 'ADMIN' || auth.data?.role === 'OBSERVER';
+  const isAdminWorkspace =
+    Boolean(selectedBranchCode) && (auth.data?.role === 'ADMIN' || auth.data?.role === 'OBSERVER');
   const activeAdminBadgeKey = isAdminWorkspace ? adminBadgeKeyForPath(pathname) : null;
   const adminSidebarBadgeSource = useQuery({
     enabled: isAdminWorkspace,
@@ -623,7 +657,7 @@ export function DashboardShell({
         registrations: registrations.items,
       };
     },
-    queryKey: ['admin-sidebar-badges'],
+    queryKey: ['admin-sidebar-badges', selectedBranchCode],
     refetchInterval: 15_000,
   });
   const adminSidebarBadges = useMemo<Partial<Record<AdminSidebarBadgeKey, number>>>(() => {
@@ -658,15 +692,28 @@ export function DashboardShell({
   useEffect(() => {
     const stored = window.localStorage.getItem('progym-sidebar-collapsed');
     if (stored) setCollapsed(stored === 'true');
-    setAdminSidebarSeenAt(readAdminSidebarSeenAt());
-  }, []);
+    setAdminSidebarSeenAt(readAdminSidebarSeenAt(selectedBranchCode));
+  }, [selectedBranchCode]);
+
+  useEffect(() => {
+    if (!selectedBranchCode) return;
+    void queryClient.invalidateQueries({
+      predicate: (query) => query.queryKey[0] !== 'auth',
+    });
+  }, [queryClient, selectedBranchCode]);
 
   useEffect(() => {
     if (!activeAdminBadgeKey) return;
-    const next = { ...readAdminSidebarSeenAt(), [activeAdminBadgeKey]: new Date().toISOString() };
-    window.localStorage.setItem(ADMIN_SIDEBAR_SEEN_KEY, JSON.stringify(next));
+    const next = {
+      ...readAdminSidebarSeenAt(selectedBranchCode),
+      [activeAdminBadgeKey]: new Date().toISOString(),
+    };
+    window.localStorage.setItem(
+      adminSidebarSeenStorageKey(selectedBranchCode),
+      JSON.stringify(next),
+    );
     setAdminSidebarSeenAt(next);
-  }, [activeAdminBadgeKey]);
+  }, [activeAdminBadgeKey, selectedBranchCode]);
 
   useEffect(() => {
     window.localStorage.setItem('progym-sidebar-collapsed', String(collapsed));
@@ -679,16 +726,35 @@ export function DashboardShell({
   useEffect(() => {
     if (auth.data) {
       if (locale === 'en' && auth.data.role !== 'MEMBER') {
-        router.replace(homeForRole(auth.data.role));
+        const branchCode =
+          auth.data.role === 'OBSERVER' ? (auth.data.branch?.code ?? 'b1') : selectedBranchCode;
+        router.replace(
+          branchCode ? `/ar/dashboard/admin/${branchCode}` : homeForRole(auth.data.role),
+        );
         return;
       }
-      const expected = homeForRole(auth.data.role, locale);
+      const expected =
+        auth.data.role === 'OBSERVER'
+          ? `/ar/dashboard/admin/${auth.data.branch?.code ?? 'b1'}`
+          : homeForRole(auth.data.role, locale);
       if (
         auth.data.role === 'OBSERVER' &&
         pathname !== `/${locale}/dashboard` &&
-        !navItems.OBSERVER.some((item) => item.href === pathname)
+        (!selectedBranchCode || selectedBranchCode !== auth.data.branch?.code)
       ) {
         router.replace(expected);
+        return;
+      }
+      if (auth.data.role === 'OBSERVER') {
+        if (pathname === `/${locale}/dashboard`) router.replace(expected);
+        return;
+      }
+      if (
+        auth.data.role === 'ADMIN' &&
+        pathname.startsWith(`/${locale}/dashboard/admin/`) &&
+        !selectedBranchCode
+      ) {
+        router.replace(`/${locale}/dashboard/admin`);
         return;
       }
       const roleSegment = expected.split('/').at(-1);
@@ -697,7 +763,7 @@ export function DashboardShell({
       }
       if (pathname === `/${locale}/dashboard`) router.replace(expected);
     }
-  }, [auth.data, locale, pathname, router]);
+  }, [auth.data, locale, pathname, router, selectedBranchCode]);
 
   useEffect(() => setMobileOpen(false), [pathname]);
 
@@ -729,7 +795,7 @@ export function DashboardShell({
   }
 
   const user = auth.data;
-  const items = localizedNavItems(user.role, locale);
+  const items = localizedNavItems(user.role, locale, selectedBranchCode);
   const isExpiredMember = user.role === 'MEMBER' && user.membership?.isExpired;
   const isExpiredContentLocked =
     isExpiredMember &&
@@ -747,7 +813,9 @@ export function DashboardShell({
 
   return (
     <div className={cn('min-h-screen bg-background text-foreground lg:grid', sidebarWidth)}>
-      {user.role === 'ADMIN' || user.role === 'OBSERVER' ? <ReceptionEventCenter /> : null}
+      {(user.role === 'ADMIN' || user.role === 'OBSERVER') && selectedBranchCode ? (
+        <ReceptionEventCenter />
+      ) : null}
       <aside className="relative hidden h-screen p-3 lg:sticky lg:top-0 lg:block">
         <Card className="h-full border-border/80 bg-card/92 p-2 shadow-sm backdrop-blur">
           <Sidebar
@@ -811,11 +879,25 @@ export function DashboardShell({
                 <Menu className="h-5 w-5" />
               </button>
               <div>
-                <p className="text-xs font-bold text-muted-foreground">Pro Gym</p>
+                <p className="text-xs font-bold text-muted-foreground">
+                  {selectedBranchCode
+                    ? `Pro Gym / ${dashboardBranchLabels[selectedBranchCode] ?? selectedBranchCode.toUpperCase()}`
+                    : 'Pro Gym'}
+                </p>
                 <h1 className="text-xl font-black tracking-tight">{pageTitle}</h1>
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {user.role === 'ADMIN' && selectedBranchCode ? (
+                <Link
+                  aria-label="تبديل الفرع"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-brand-accent/45 bg-brand-accent/10 px-2.5 text-xs font-black text-green-800 transition hover:bg-brand-accent hover:text-black dark:text-brand-accent sm:px-3"
+                  href="/ar/dashboard/admin"
+                >
+                  <Building2 className="h-4 w-4" />
+                  <span className="hidden md:inline">تبديل الفرع</span>
+                </Link>
+              ) : null}
               <Link
                 aria-label={locale === 'en' ? 'Back to public site' : 'العودة للموقع العام'}
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border bg-white/58 px-2.5 text-xs font-black text-foreground shadow-sm transition hover:border-brand-accent hover:text-green-700 dark:bg-white/5 dark:hover:text-brand-accent sm:px-3"

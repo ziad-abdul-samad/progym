@@ -1,5 +1,5 @@
-import { AdminOverviewPage } from '@/features/admin/admin-pages';
+import { BranchSelectorPage } from '@/features/admin/branch-selector-page';
 
 export default function AdminDashboardRoute() {
-  return <AdminOverviewPage />;
+  return <BranchSelectorPage />;
 }

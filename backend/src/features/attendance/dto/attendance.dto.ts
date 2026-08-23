@@ -15,6 +15,11 @@ export class ScanAttendanceDto {
   token!: string;
 }
 
+export class EntryAttendanceDto {
+  @IsString()
+  branchCode!: string;
+}
+
 export class ManualAttendanceDto {
   @IsString()
   memberId!: string;

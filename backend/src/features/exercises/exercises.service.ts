@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { AuditAction, Prisma } from '@prisma/client';
 
 import type { PaginationDto } from '../../common/dto/pagination.dto';
+import type { AuthenticatedUser } from '../../common/types/authenticated-user';
+import { requireBranchId } from '../../common/utils/branch.util';
 import { paginated, paginationArgs } from '../../common/utils/pagination.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { CreateExerciseCategoryDto, CreateExerciseDto } from './dto/exercises.dto';
@@ -10,7 +12,7 @@ import type { CreateExerciseCategoryDto, CreateExerciseDto } from './dto/exercis
 export class ExercisesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async seedDefaultCategories() {
+  async seedDefaultCategories(user: AuthenticatedUser) {
     const categories = [
       ['chest', 'صدر', 'Chest'],
       ['back', 'ظهر', 'Back'],
@@ -29,6 +31,9 @@ export class ExercisesService {
       });
     }
 
+    await this.audit(user, AuditAction.UPDATE, 'ExerciseCategory', 'defaults', {
+      action: 'SEED_DEFAULTS',
+    });
     return this.listCategories();
   }
 
@@ -39,8 +44,12 @@ export class ExercisesService {
     });
   }
 
-  async createCategory(dto: CreateExerciseCategoryDto) {
-    return this.prisma.exerciseCategory.create({ data: dto });
+  async createCategory(dto: CreateExerciseCategoryDto, user: AuthenticatedUser) {
+    const category = await this.prisma.exerciseCategory.create({ data: dto });
+    await this.audit(user, AuditAction.CREATE, 'ExerciseCategory', category.id, {
+      action: 'CREATE',
+    });
+    return category;
   }
 
   async list(categoryId?: string) {
@@ -85,15 +94,40 @@ export class ExercisesService {
     return paginated(items, total, query);
   }
 
-  async create(dto: CreateExerciseDto) {
-    return this.prisma.exercise.create({ data: dto });
+  async create(dto: CreateExerciseDto, user: AuthenticatedUser) {
+    const exercise = await this.prisma.exercise.create({ data: dto });
+    await this.audit(user, AuditAction.CREATE, 'Exercise', exercise.id, { action: 'CREATE' });
+    return exercise;
   }
 
-  async update(id: string, dto: Partial<CreateExerciseDto>) {
-    return this.prisma.exercise.update({ data: dto, where: { id } });
+  async update(id: string, dto: Partial<CreateExerciseDto>, user: AuthenticatedUser) {
+    const exercise = await this.prisma.exercise.update({ data: dto, where: { id } });
+    await this.audit(user, AuditAction.UPDATE, 'Exercise', id, { action: 'UPDATE' });
+    return exercise;
   }
 
-  async delete(id: string) {
-    return this.prisma.exercise.delete({ where: { id } });
+  async delete(id: string, user: AuthenticatedUser) {
+    const exercise = await this.prisma.exercise.delete({ where: { id } });
+    await this.audit(user, AuditAction.DELETE, 'Exercise', id, { action: 'DELETE' });
+    return exercise;
+  }
+
+  private async audit(
+    user: AuthenticatedUser,
+    action: AuditAction,
+    entityType: string,
+    entityId: string,
+    metadata: Prisma.InputJsonObject,
+  ) {
+    await this.prisma.auditLog.create({
+      data: {
+        action,
+        actorId: user.id,
+        branchId: requireBranchId(user),
+        entityId,
+        entityType,
+        metadata,
+      },
+    });
   }
 }

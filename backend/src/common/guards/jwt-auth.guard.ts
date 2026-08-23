@@ -1,8 +1,16 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import type { AuthenticatedRequest } from '../types/authenticated-user';
+import { BRANCH_HEADER, normalizeBranchCode } from '../utils/branch.util';
 import {
   AUTH_SCOPE_HEADER,
   authScopeFromHeader,
@@ -63,15 +71,44 @@ export class JwtAuthGuard implements CanActivate {
         fullName: true,
         role: true,
         status: true,
-        memberProfile: { select: { id: true } },
+        memberProfile: {
+          select: { id: true, homeBranch: { select: { code: true, id: true, nameAr: true } } },
+        },
         coachProfile: { select: { id: true } },
-        shiftObserver: { select: { id: true } },
+        shiftObserver: {
+          select: { id: true, branch: { select: { code: true, id: true, nameAr: true } } },
+        },
       },
       where: { id: payload.sub },
     });
 
     if (!user || user.status !== 'ACTIVE') {
       throw new UnauthorizedException('Account is not active');
+    }
+
+    const requestedBranchCode = normalizeBranchCode(request.headers[BRANCH_HEADER]);
+    let selectedBranch =
+      user.role === UserRole.OBSERVER
+        ? (user.shiftObserver?.branch ?? undefined)
+        : user.role === UserRole.MEMBER
+          ? (user.memberProfile?.homeBranch ?? undefined)
+          : undefined;
+
+    if (requestedBranchCode && user.role === UserRole.ADMIN) {
+      const requestedBranch = await this.prisma.branch.findFirst({
+        select: { code: true, id: true, nameAr: true },
+        where: { code: requestedBranchCode, isActive: true },
+      });
+      if (!requestedBranch) throw new ForbiddenException('Unknown or inactive Pro Gym branch');
+      selectedBranch = requestedBranch;
+    }
+
+    if (
+      requestedBranchCode &&
+      user.role === UserRole.OBSERVER &&
+      requestedBranchCode !== user.shiftObserver?.branch.code
+    ) {
+      throw new ForbiddenException('Observers cannot switch Pro Gym branches');
     }
 
     request.user = {
@@ -82,6 +119,9 @@ export class JwtAuthGuard implements CanActivate {
       memberProfileId: user.memberProfile?.id,
       coachProfileId: user.coachProfile?.id,
       shiftObserverId: user.shiftObserver?.id,
+      branchId: selectedBranch?.id,
+      branchCode: selectedBranch?.code,
+      branchName: selectedBranch?.nameAr,
     };
 
     return true;

@@ -417,7 +417,12 @@ export class CoachesService {
 
     const assignment = await this.prisma.$transaction(async (transaction) => {
       const created = await transaction.coachAssignment.create({
-        data: { coachId, memberId, status: AssignmentStatus.PAUSED },
+        data: {
+          branchId: member.homeBranchId,
+          coachId,
+          memberId,
+          status: AssignmentStatus.PAUSED,
+        },
       });
       await transaction.coachSubscriptionEvent.create({
         data: {
@@ -925,7 +930,9 @@ export class CoachesService {
     if (!request) throw new NotFoundException('Request not found');
     await this.assertAssigned(user, request.memberId);
     if (request.type === 'NEW_PHOTOS') {
-      throw new BadRequestException('Photo requests complete only after all required angles upload');
+      throw new BadRequestException(
+        'Photo requests complete only after all required angles upload',
+      );
     }
 
     return this.prisma.coachRequest.update({

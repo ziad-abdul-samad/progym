@@ -32,7 +32,7 @@ export class ProgressController {
 
   @Post('photos')
   @Protected(UserRole.MEMBER, UserRole.COACH)
-  @UseInterceptors(FileInterceptor('photo'))
+  @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 5 * 1024 * 1024 } }))
   async uploadPhoto(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UploadProgressPhotoDto,

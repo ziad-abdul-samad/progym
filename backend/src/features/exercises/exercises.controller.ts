@@ -26,14 +26,17 @@ export class ExercisesController {
 
   @Post('categories/defaults')
   @Protected(UserRole.ADMIN, UserRole.OBSERVER)
-  async defaults() {
-    return { data: await this.exercises.seedDefaultCategories() };
+  async defaults(@CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.exercises.seedDefaultCategories(user) };
   }
 
   @Post('categories')
   @Protected(UserRole.ADMIN, UserRole.OBSERVER)
-  async createCategory(@Body() dto: CreateExerciseCategoryDto) {
-    return { data: await this.exercises.createCategory(dto) };
+  async createCategory(
+    @Body() dto: CreateExerciseCategoryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return { data: await this.exercises.createCategory(dto, user) };
   }
 
   @Get()
@@ -51,20 +54,24 @@ export class ExercisesController {
 
   @Post()
   @Protected(UserRole.ADMIN, UserRole.OBSERVER)
-  async create(@Body() dto: CreateExerciseDto) {
-    return { data: await this.exercises.create(dto) };
+  async create(@Body() dto: CreateExerciseDto, @CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.exercises.create(dto, user) };
   }
 
   @Patch(':id')
   @Protected(UserRole.ADMIN, UserRole.OBSERVER)
-  async update(@Param('id') id: string, @Body() dto: Partial<CreateExerciseDto>) {
-    return { data: await this.exercises.update(id, dto) };
+  async update(
+    @Param('id') id: string,
+    @Body() dto: Partial<CreateExerciseDto>,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return { data: await this.exercises.update(id, dto, user) };
   }
 
   @Delete(':id')
   @Protected(UserRole.ADMIN, UserRole.OBSERVER)
-  async delete(@Param('id') id: string) {
-    return { data: await this.exercises.delete(id) };
+  async delete(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.exercises.delete(id, user) };
   }
 
   private async assertExerciseAccess(user: AuthenticatedUser) {

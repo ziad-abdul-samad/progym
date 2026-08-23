@@ -190,6 +190,36 @@ enum NutritionAiMessageRole {
   ASSISTANT
 }
 
+model Branch {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  slug      String   @unique
+  nameAr    String
+  nameEn    String
+  addressAr String
+  addressEn String?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members              MemberProfile[]
+  coachAssignments     CoachAssignment[]
+  coachBranches        CoachBranch[]
+  observers            ShiftObserver[]
+  registrationRequests RegistrationRequest[]
+  qrInvites            QrInvite[]
+  attendanceQrSessions AttendanceQrSession[]
+  attendanceRecords    AttendanceRecord[]
+  subscriptions        Subscription[]
+  membershipAuditLogs  MembershipAuditLog[]
+  files                FileAsset[]
+  auditLogs            AuditLog[]
+  settings             GymSettings?
+
+  @@index([isActive, sortOrder])
+}
+
 model User {
   id           String     @id @default(cuid())
   role         UserRole   @default(MEMBER)
@@ -288,6 +318,7 @@ model NutritionAiMessage {
 model MemberProfile {
   id                    String   @id @default(cuid())
   userId                String   @unique
+  homeBranchId          String
   memberCode            String   @unique
   dateOfBirth           DateTime @db.Date
   gender                Gender
@@ -302,6 +333,7 @@ model MemberProfile {
   updatedAt             DateTime @updatedAt
 
   user                    User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  homeBranch              Branch                       @relation(fields: [homeBranchId], references: [id], onDelete: Restrict)
   assignments             CoachAssignment[]
   coachSubscriptionEvents CoachSubscriptionEvent[]
   attendanceRecords       AttendanceRecord[]
@@ -317,6 +349,7 @@ model MemberProfile {
   registrationRequest     RegistrationRequest?
 
   @@index([memberCode])
+  @@index([homeBranchId, joinedAt])
   @@index([joinedAt])
 }
 
@@ -341,14 +374,28 @@ model CoachProfile {
   progressEntries    ProgressEntry[]
   workoutPlans       WorkoutPlan[]
   changeRequests     CoachProfileChangeRequest[]
+  branches           CoachBranch[]
 
   @@index([isPublic])
+}
+
+model CoachBranch {
+  coachId   String
+  branchId  String
+  createdAt DateTime @default(now())
+
+  coach  CoachProfile @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  branch Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([coachId, branchId])
+  @@index([branchId, coachId])
 }
 
 model CoachAssignment {
   id               String               @id @default(cuid())
   memberId         String
   coachId          String
+  branchId         String
   status           AssignmentStatus     @default(PAUSED)
   startedAt        DateTime             @default(now())
   endedAt          DateTime?
@@ -363,11 +410,13 @@ model CoachAssignment {
 
   member             MemberProfile            @relation(fields: [memberId], references: [id], onDelete: Cascade)
   coach              CoachProfile             @relation(fields: [coachId], references: [id], onDelete: Restrict)
+  branch             Branch                   @relation(fields: [branchId], references: [id], onDelete: Restrict)
   subscriptionEvents CoachSubscriptionEvent[]
 
   @@unique([memberId, coachId, startedAt])
   @@index([memberId, status])
   @@index([coachId, status])
+  @@index([branchId, status])
   @@index([status, coachingEndsAt])
 }
 
@@ -415,6 +464,7 @@ model MembershipPlan {
 model Subscription {
   id          String             @id @default(cuid())
   memberId    String
+  branchId    String
   planId      String?
   status      SubscriptionStatus @default(PENDING)
   startsAt    DateTime
@@ -426,11 +476,13 @@ model Subscription {
   updatedAt   DateTime           @updatedAt
 
   member    MemberProfile        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  branch    Branch               @relation(fields: [branchId], references: [id], onDelete: Restrict)
   plan      MembershipPlan?      @relation(fields: [planId], references: [id], onDelete: SetNull)
   auditLogs MembershipAuditLog[]
   payments  Payment[]
 
   @@index([memberId, status])
+  @@index([branchId, status, endsAt])
   @@index([status, endsAt])
 }
 
@@ -438,6 +490,7 @@ model MembershipAuditLog {
   id             String                @id @default(cuid())
   subscriptionId String
   memberId       String
+  branchId       String
   adminId        String?
   adminName      String
   observerId     String?
@@ -450,10 +503,12 @@ model MembershipAuditLog {
 
   subscription Subscription   @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
   member       MemberProfile  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  branch       Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
   admin        User?          @relation("MembershipAuditAdmin", fields: [adminId], references: [id], onDelete: SetNull)
   observer     ShiftObserver? @relation(fields: [observerId], references: [id], onDelete: SetNull)
 
   @@index([memberId, createdAt])
+  @@index([branchId, createdAt])
   @@index([adminId, createdAt])
   @@index([observerId, createdAt])
   @@index([subscriptionId, createdAt])
@@ -462,6 +517,7 @@ model MembershipAuditLog {
 model ShiftObserver {
   id         String         @id @default(cuid())
   userId     String?        @unique
+  branchId   String
   fullName   String
   phone      String?
   notes      String?
@@ -474,14 +530,17 @@ model ShiftObserver {
   membershipAuditLogs  MembershipAuditLog[]
   registrationRequests RegistrationRequest[]
   user                 User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  branch               Branch                @relation(fields: [branchId], references: [id], onDelete: Restrict)
 
   @@index([status, fullName])
+  @@index([branchId, status])
   @@index([createdAt])
 }
 
 model RegistrationRequest {
   id             String                    @id @default(cuid())
   memberId       String                    @unique
+  branchId       String
   status         RegistrationRequestStatus @default(PENDING)
   reviewerId     String?
   observerId     String?
@@ -495,10 +554,12 @@ model RegistrationRequest {
   updatedAt      DateTime                  @updatedAt
 
   member   MemberProfile  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  branch   Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
   reviewer User?          @relation("RegistrationRequestReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
   observer ShiftObserver? @relation(fields: [observerId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
+  @@index([branchId, status, createdAt])
   @@index([reviewerId, reviewedAt])
 }
 
@@ -525,6 +586,7 @@ model Payment {
 model QrInvite {
   id               String          @id @default(cuid())
   tokenHash        String          @unique
+  branchId         String
   purpose          QrInvitePurpose
   status           QrInviteStatus  @default(ACTIVE)
   createdById      String?
@@ -536,16 +598,19 @@ model QrInvite {
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
-  createdBy  User? @relation("QrInviteCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  consumedBy User? @relation("QrInviteConsumer", fields: [consumedByUserId], references: [id], onDelete: SetNull)
+  createdBy  User?  @relation("QrInviteCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  consumedBy User?  @relation("QrInviteConsumer", fields: [consumedByUserId], references: [id], onDelete: SetNull)
+  branch     Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
 
   @@index([purpose, status])
+  @@index([branchId, purpose, status])
   @@index([expiresAt])
 }
 
 model AttendanceQrSession {
   id          String                  @id @default(cuid())
   tokenHash   String                  @unique
+  branchId    String
   status      AttendanceSessionStatus @default(ACTIVE)
   createdById String?
   expiresAt   DateTime
@@ -555,13 +620,16 @@ model AttendanceQrSession {
 
   createdBy User?              @relation("AttendanceQrCreator", fields: [createdById], references: [id], onDelete: SetNull)
   records   AttendanceRecord[]
+  branch    Branch             @relation(fields: [branchId], references: [id], onDelete: Restrict)
 
   @@index([status, expiresAt])
+  @@index([branchId, status, expiresAt])
 }
 
 model AttendanceRecord {
   id             String           @id @default(cuid())
   memberId       String
+  branchId       String
   sessionId      String?
   source         AttendanceSource @default(QR)
   checkedInAt    DateTime         @default(now())
@@ -573,10 +641,12 @@ model AttendanceRecord {
   createdAt      DateTime         @default(now())
 
   member   MemberProfile        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  branch   Branch               @relation(fields: [branchId], references: [id], onDelete: Restrict)
   session  AttendanceQrSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
   voidedBy User?                @relation("AttendanceVoidActor", fields: [voidedById], references: [id], onDelete: SetNull)
 
   @@index([memberId, checkedInAt])
+  @@index([branchId, attendanceDate, checkedInAt])
   @@index([attendanceDate])
   @@index([voidedAt])
 }
@@ -669,6 +739,7 @@ model ProgressPhoto {
 model FileAsset {
   id              String         @id @default(cuid())
   ownerUserId     String?
+  branchId        String?
   storageProvider String         @default("local")
   storageKey      String         @unique
   originalName    String
@@ -678,10 +749,12 @@ model FileAsset {
   createdAt       DateTime       @default(now())
 
   owner         User?          @relation("FileOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  branch        Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
   progressPhoto ProgressPhoto?
   blob          FileAssetBlob?
 
   @@index([ownerUserId, createdAt])
+  @@index([branchId, createdAt])
 }
 
 model FileAssetBlob {
@@ -917,6 +990,7 @@ model Notification {
 model AuditLog {
   id         String      @id @default(cuid())
   actorId    String?
+  branchId   String?
   action     AuditAction
   entityType String
   entityId   String?
@@ -925,15 +999,18 @@ model AuditLog {
   userAgent  String?
   createdAt  DateTime    @default(now())
 
-  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actor  User?   @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
   @@index([actorId, createdAt])
+  @@index([branchId, createdAt])
   @@index([entityType, entityId])
 }
 
 model GymSettings {
   id                            String   @id @default(cuid())
   singletonKey                  String   @unique @default("primary")
+  branchId                      String   @unique
   nameAr                        String
   nameEn                        String
   descriptionAr                 String?
@@ -951,4 +1028,6 @@ model GymSettings {
   membershipCurrency            String   @default("USD")
   createdAt                     DateTime @default(now())
   updatedAt                     DateTime @updatedAt
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
 }

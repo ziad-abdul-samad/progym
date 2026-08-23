@@ -36,7 +36,7 @@ export class MembersController {
   }
 
   @Patch('profile')
-  @UseInterceptors(FileInterceptor('photo'))
+  @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 5 * 1024 * 1024 } }))
   async updateProfile(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdateMemberProfileDto,

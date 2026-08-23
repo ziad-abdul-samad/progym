@@ -33,7 +33,8 @@ type RegistrationStatus = {
 };
 
 function dashboardPath(user: SessionUser, locale: PublicLocale = 'ar'): string {
-  if (user.role === 'ADMIN' || user.role === 'OBSERVER') return '/ar/dashboard/admin';
+  if (user.role === 'ADMIN') return '/ar/dashboard/admin';
+  if (user.role === 'OBSERVER') return `/ar/dashboard/admin/${user.branch?.code ?? 'b1'}`;
   if (user.role === 'COACH') return '/ar/dashboard/coach';
   return `/${locale}/dashboard/member`;
 }
@@ -399,6 +400,8 @@ export function ImmersiveRegisterForm({ locale = 'ar' }: { locale?: PublicLocale
     const form = new FormData(event.currentTarget);
     const token = searchParams.get('token');
     if (token) form.set('registrationToken', token);
+    const branchCode = searchParams.get('branch');
+    if (branchCode) form.set('branchCode', branchCode);
     if (photo) form.set('photo', photo);
     register.mutate(form);
   }
@@ -651,6 +654,8 @@ export function RegisterForm() {
     const form = new FormData(event.currentTarget);
     const token = searchParams.get('token');
     if (token) form.set('registrationToken', token);
+    const branchCode = searchParams.get('branch');
+    if (branchCode) form.set('branchCode', branchCode);
     if (photo) form.set('photo', photo);
     register.mutate(form);
   }

@@ -96,7 +96,7 @@ export class ProgressService {
       },
       where: { id: memberId },
     });
-    const asset = await this.storage.saveImage(file, user.id);
+    const asset = await this.storage.saveImage(file, user.id, undefined, member.homeBranchId);
 
     const photo = await this.prisma.progressPhoto.create({
       data: {
@@ -171,13 +171,11 @@ export class ProgressService {
             baseline: matching.at(-1) ?? null,
             latest: matching[0] ?? null,
             monthThree:
-              matching.find(
-                (item) => item.createdAt <= new Date(Date.now() - 90 * 86_400_000),
-              ) ?? null,
+              matching.find((item) => item.createdAt <= new Date(Date.now() - 90 * 86_400_000)) ??
+              null,
             weekEight:
-              matching.find(
-                (item) => item.createdAt <= new Date(Date.now() - 56 * 86_400_000),
-              ) ?? null,
+              matching.find((item) => item.createdAt <= new Date(Date.now() - 56 * 86_400_000)) ??
+              null,
           },
         ];
       }),
