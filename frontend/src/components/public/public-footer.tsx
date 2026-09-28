@@ -2,7 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { PublicLocale } from '@progym/shared';
 
-import { brand, localizedPath, publicCopy, publicRoutes } from '@/lib/public/content';
+import { brand, localizedPath, publicBranches, publicCopy, publicRoutes } from '@/lib/public/content';
 
 export function PublicFooter({ locale }: { locale: PublicLocale }) {
   const copy = publicCopy[locale];
@@ -47,7 +47,18 @@ export function PublicFooter({ locale }: { locale: PublicLocale }) {
             <a className="transition hover:text-foreground" href={`tel:${brand.phone}`}>
               {brand.phone}
             </a>
-            <p>{brand.address[locale]}</p>
+            <p className="mt-2 font-bold text-white/75">{locale === 'ar' ? 'فروعنا في حمص' : 'Our branches in Homs'}</p>
+            {publicBranches.map((branch) => (
+              <a
+                className="block py-1 leading-7 transition hover:text-[#39ff14] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#39ff14]"
+                href={branch.mapsUrl}
+                key={branch.code}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                {branch.address[locale]}
+              </a>
+            ))}
           </div>
           <div className="mt-6 flex flex-wrap gap-2">
             {brand.social.map((item) => (

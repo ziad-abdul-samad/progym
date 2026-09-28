@@ -42,6 +42,28 @@ export const brand = {
   social: [{ href: 'https://www.instagram.com/progym.homs/', label: 'Instagram' }],
 };
 
+// Only the main branch has a confirmed map pin. Other links search the supplied address.
+export const publicBranches = [
+  {
+    code: 'b1',
+    name: { ar: 'الإنشاءات', en: 'Al-Inshaat' },
+    address: { ar: 'الإنشاءات مقابل الفرن الآلي', en: 'Al-Inshaat, opposite the automatic bakery' },
+    mapsUrl: brand.mapsUrl,
+  },
+  {
+    code: 'b2',
+    name: { ar: 'جورة الشياح', en: 'Jourat Al-Shayah' },
+    address: { ar: 'جورة الشياح مقابل المشفى الوطني', en: 'Jourat Al-Shayah, opposite the National Hospital' },
+    mapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('بروجيم حمص جورة الشياح مقابل المشفى الوطني')}`,
+  },
+  {
+    code: 'b3',
+    name: { ar: 'بروجيم 8 آذار', en: 'Pro Gym March 8' },
+    address: { ar: 'بروجيم 8 آذار — حمص', en: 'Pro Gym, March 8, Homs' },
+    mapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('بروجيم حمص 8 آذار')}`,
+  },
+] as const;
+
 export const publicImages = {
   coachFocus: {
     alt: localizedRecord({
