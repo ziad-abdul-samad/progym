@@ -25,7 +25,7 @@
 - Mobile report verified at 390px (document width = viewport); PDF financial output rendered with Poppler and both pages visually checked. Artifacts are local ignored test-results/accounting-financial.pdf, accounting-pdf-1.png, accounting-pdf-2.png.
 - Contact page confirmed all three branches in hero/address/footer and three expandable tile maps. Final visual map check underway.
 - Final frontend build (171 routes), frontend/backend typechecks, backend lint and git diff checks passed. Mobile map visually checked: all 27 tiles loaded, expandable cards work, 390px viewport has no horizontal overflow.
-- Remaining: additive production migration/deployment, production smoke checks, final worklog.
+- Implementation and production deployment complete. Render is live and Vercel production ready on 3f1f9ce. No production fixture writes. Precise B2/B3 map locations remain user-supplied follow-up only.
 
 ## Assumptions
 - Half month = 15 days; month = 30 days.
@@ -33,8 +33,8 @@
 - Observers may view financial reports for their assigned branch under this new request; owner can select any branch.
 - Days adjustments are administrative (reason required), not cash receipts. Paid extensions use renewal/plan purchase.
 
-## Remaining verification
-- Branch isolation; inactive/other-branch plan rejected; price edit doesn't change historic report; registration approval atomic and no duplicate receipts; optional photo; expense date boundaries Damascus; separate currencies; PDF RTL; mobile width; migration preservation and idempotency; production deployment and smoke checks.
+## Verified
+- Branch isolation; inactive/other-branch plan rejected; price edit doesn't change historic report; registration approval atomic and no duplicate receipts; optional photo; expense date boundaries Damascus; separate currencies; financial PDF RTL; mobile width; additive migration; idempotent paid operations; production deployment.
 
 ## Resume protocol (explicit user request)
 1. Read this file, then git status/diff. Do not restart finished implementation.
@@ -43,5 +43,15 @@
 4. New fixture database is needed for another full integration run (initial seeded counts are asserted). Existing fixture is useful for UI checks.
 5. Local UI test owner username: test.admin.b1.5d1641b9; B2 observer: test.observer.b2.5d1641b9. Password is the disposable one in backend/test/accounting.integration.cjs.
 6. Deployment targets: GitHub ziad-abdul-samad/progym; working branch codex/public-auth-redesign (Render), main (Vercel). Render service srv-d95tjh5ckfvc73bpt790; public site https://progym-homs.vercel.app.
-7. All new accounting work is still UNCOMMITTED at this checkpoint. Instagram and test-results are ignored. Do not stage generated next-env.d.ts changes.
+7. Accounting implementation committed and pushed as 3f1f9ce9007dcebe8cf5a4342401ca3f89c8e06e to codex/public-auth-redesign. Instagram and test-results remain ignored. Do not stage generated next-env.d.ts changes.
 8. Prefer final backend rollout before frontend main promotion, then verify both deployment states/commit hashes. No live fixture writes or reseeding customer data.
+
+## Deployment checkpoint
+- Render dep-datr0gnf3r2c73e2n3h0: LIVE on 3f1f9ce at 2026-09-29 12:36:47 UTC. Startup runs migrate deploy before seed/start, so the new schema migration completed. Live OpenAPI confirms /finance/report and /finance/expenses routes.
+- Vercel production dpl_C5dgWYij2M1h1CD91Tc7XWndhs3M READY on 3f1f9ce, canonical alias https://progym-homs.vercel.app verified. Both GitHub branches point to the implementation commit at verification.
+- Production health endpoint responds with six security questions; no customer records edited by testing.
+- Live Arabic/English contact pages HTTP 200. Unauthenticated financial report endpoint returns 401, as intended.
+- Final live smoke checks: /ar, /en, both contact locales, /ar/register and branch plans/expenses/reports routes all returned HTTP 200 with no Internal Server Error. Protected dashboard data was exercised locally; live business records were not changed for testing.
+- Root AGENTS.md now points future work to this checkpoint and records the user's continuity/preservation instructions.
+- A documentation-only follow-up commit records this completed checkpoint. Its application code is identical to verified 3f1f9ce; automatic deploys of that documentation commit may follow.
+- Optional extra subscriber-PDF automated download check hit browser automation connection timeout; financial PDF was already generated and both pages visually verified. Do not confuse the automation timeout with an application error.
