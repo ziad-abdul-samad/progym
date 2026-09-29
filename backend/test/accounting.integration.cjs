@@ -85,7 +85,7 @@ async function run() {
     memberships.listPlans(b),
     memberships.listPlans(c),
   ]);
-  check(p1.length === 2 && p2.length === 4 && p3.length === 3, 'Seeded plan counts 2 / 4 / 3');
+  check(p1.length === 8 && p2.length === 4 && p3.length === 3, 'Seeded plan counts 8 / 4 / 3');
   check(
     p1.find((p) => p.durationDays === 30).priceMinor === 3000 &&
       p1.find((p) => p.durationDays === 30).currency === 'USD',

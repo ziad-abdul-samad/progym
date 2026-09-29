@@ -1,5 +1,17 @@
 # Branch accounting rollout — 2026-09-29
 
+## Follow-up in progress — acceptance UX / clearer PDFs / Inshaat offers
+- User requested acceptance dialog immediate close with success notice; found onSuccess calls manual close while mutation is pending, so guard prevents close. Fixed automatic completion separately and made cache refresh non-blocking; requests-page success toast also added.
+- PDF redesign: first-page currency-separated cash-flow cards, vector icons, plain-language guide, numbered descriptive sections; keep all existing details and historical prices.
+- New B1 offers: monthly USD30 or newSYP4000, half-month USD15 or newSYP2000, daily newSYP450; women's monthly2250 / half1500 / daily350 newSYP.
+- Added one-time migration for catalog additions/daily-price update and two women's observer accounts (7 AM–3 PM, 3 PM–10 PM). Existing three observers and historical receipts untouched. Random initial credentials stored ONLY in ignored test-results/inshaat-girls-accounts.txt, never in this log; database migration contains Argon2 hashes only.
+- Assumptions: women's plans are explicitly selected by reception; both new observers share existing B1 observer permissions. No separate gender-isolation requirement was given. Month30 days / half15 days.
+- Local migration checks passed: every pre-existing User/ShiftObserver/Subscription/Payment unchanged; all 8 specified B1 catalog entries correct; two new observer shifts/roles correct; repeated migrate deploy preserves accounts. Extra custom offers retained.
+- Frontend build (171 routes), frontend typecheck/lint, backend lint and 30 unit tests passed. Acceptance dialog exercised with a disposable local registration: closed after successful approval (zero open dialogs).
+- Generated revised financial PDF (481146 bytes) and visually inspected all 3 pages with Poppler. Summary, icons, Arabic guide, original plan prices, observers and expense/void details are legible; no clipping. Artifacts ignored under test-results/followup-financial.pdf and followup-pdf-*.png.
+- All 24 accounting integration checks passed on fresh localhost:55434/accounting_followup with all 26 migrations, including new offers/accounts. Remaining: commit and backend-first rollout; verify Render migration lock recovery.
+- Remote checkpoint reverified: Vercel docs commit 51ad949 READY, but matching Render docs-only redeploy failed acquiring Prisma advisory lock (P1002) on Sept29 12:41 UTC. Prior application commit remained live. Check new deploy carefully; do not disable migration locking.
+
 ## Authorized scope
 - Branch-specific editable subscription offers: B1 daily 300.00 new SYP / monthly USD 30; B2 daily 300.00 / 15 days 1400.00 / 30 days 2000.00 / military 30 days 1400.00 new SYP; B3 daily 300.00 / 15 days 1750.00 / 30 days 2000.00 new SYP.
 - Observer chooses paid plan during registration approval, renewal and branch transfer. Selecting/confirming records receipt of payment. Owner and branch observers manage offers and expenses.

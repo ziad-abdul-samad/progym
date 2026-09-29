@@ -10,7 +10,7 @@ import {
   UserRoundPlus,
 } from 'lucide-react';
 import Image from 'next/image';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { PlanPicker } from './plan-picker';
 import { Button } from '@/components/ui/button';
@@ -82,6 +82,7 @@ export function ReceptionEventCenter() {
   const queryClient = useQueryClient();
   const { push } = useToast();
   const [activeEvent, setActiveEvent] = useState<ReceptionEvent | null>(null);
+  const dismissedEvents = useRef(new Set<string>());
   const feed = useQuery({
     queryFn: () => apiRequest<ReceptionEvent[]>('/admin/reception-feed'),
     queryKey: ['reception-feed'],
@@ -106,14 +107,19 @@ export function ReceptionEventCenter() {
         body: jsonBody(payload),
         method: 'POST',
       }),
-    onSuccess: async () => {
-      await Promise.all([
+    onSuccess: (_data, variables) => {
+      dismissActiveEvent();
+      push({
+        title: variables.approve ? 'تم قبول اللاعب وتفعيل اشتراكه بنجاح' : 'تم رفض طلب اللاعب',
+        tone: 'success',
+      });
+      void Promise.all([
         queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
         queryClient.invalidateQueries({ queryKey: ['admin-members'] }),
+        queryClient.invalidateQueries({ queryKey: ['registration-requests'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin-sidebar-badges'] }),
         queryClient.invalidateQueries({ queryKey: ['reception-feed'] }),
       ]);
-      markSeenAndClose();
-      push({ title: 'تمت مراجعة طلب اللاعب', tone: 'success' });
     },
   });
   const subscribeHere = useMutation({
@@ -129,13 +135,13 @@ export function ReceptionEventCenter() {
         body: jsonBody(payload),
         method: 'POST',
       }),
-    onSuccess: async () => {
-      await Promise.all([
+    onSuccess: () => {
+      dismissActiveEvent();
+      void Promise.all([
         queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
         queryClient.invalidateQueries({ queryKey: ['reception-feed'] }),
         queryClient.invalidateQueries({ queryKey: ['admin-overview'] }),
       ]);
-      markSeenAndClose();
       push({
         title: 'تم تفعيل الفرع. اطلب من اللاعب مسح الرمز مرة أخرى.',
         tone: 'success',
@@ -146,16 +152,30 @@ export function ReceptionEventCenter() {
   useEffect(() => {
     if (activeEvent || !feed.data?.length) return;
     const seen = new Set(readSeenEvents());
-    const next = feed.data.find((event) => !seen.has(event.id));
+    const next = feed.data.find(
+      (event) => !seen.has(event.id) && !dismissedEvents.current.has(event.id),
+    );
     if (next) setActiveEvent(next);
   }, [activeEvent, feed.data]);
 
   function markSeenAndClose() {
     if (!activeEvent || review.isPending || subscribeHere.isPending) return;
+    dismissActiveEvent();
+  }
+
+  // Successful mutations are still "pending" inside onSuccess. Closing must
+  // not use the manual-close guard or wait for unrelated background refetches.
+  function dismissActiveEvent() {
+    if (!activeEvent) return;
+    dismissedEvents.current.add(activeEvent.id);
     review.reset();
     subscribeHere.reset();
     const seen = Array.from(new Set([...readSeenEvents(), activeEvent.id])).slice(-100);
-    window.sessionStorage.setItem(SEEN_EVENTS_KEY, JSON.stringify(seen));
+    try {
+      window.sessionStorage.setItem(SEEN_EVENTS_KEY, JSON.stringify(seen));
+    } catch {
+      // Private-mode storage restrictions must never trap a completed dialog.
+    }
     setActiveEvent(null);
   }
 

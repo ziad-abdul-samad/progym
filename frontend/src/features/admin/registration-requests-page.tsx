@@ -13,6 +13,7 @@ import { Input, Textarea } from '@/components/ui/input';
 import { Pagination, type PaginatedResponse } from '@/components/ui/pagination';
 import { DashboardLoader, EmptyState, ErrorState } from '@/components/ui/state';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { useToast } from '@/components/ui/toast';
 import { apiRequest, jsonBody } from '@/lib/api/client';
 import { formatCompactDateTime } from '@/lib/utils';
 
@@ -37,6 +38,7 @@ type Request = {
 
 export function RegistrationRequestsPage() {
   const queryClient = useQueryClient();
+  const { push } = useToast();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState('');
   const [query, setQuery] = useState('');
@@ -71,17 +73,26 @@ export function RegistrationRequestsPage() {
         }),
         method: 'POST',
       }),
-    onSuccess: async () => {
+    onSuccess: (_data, variables) => {
       setSelected(null);
       setReason('');
       setPlan(null);
-      await queryClient.invalidateQueries({ queryKey: ['admin-sidebar-badges'] });
-      await queryClient.invalidateQueries({ queryKey: ['registration-requests'] });
-      await queryClient.invalidateQueries({ queryKey: ['reception-feed'] });
+      push({
+        title: variables.approve ? 'تم قبول اللاعب وتفعيل اشتراكه بنجاح' : 'تم رفض طلب اللاعب',
+        tone: 'success',
+      });
+      void Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin-sidebar-badges'] }),
+        queryClient.invalidateQueries({ queryKey: ['registration-requests'] }),
+        queryClient.invalidateQueries({ queryKey: ['reception-feed'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin-members'] }),
+        queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
+      ]);
     },
   });
 
   function open(request: Request) {
+    review.reset();
     setSelected(request);
     setObserverId(observers.data?.items[0]?.id ?? '');
     setPlan(null);
