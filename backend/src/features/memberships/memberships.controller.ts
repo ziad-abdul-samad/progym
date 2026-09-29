@@ -19,21 +19,25 @@ export class MembershipsController {
   constructor(private readonly memberships: MembershipsService) {}
 
   @Get('plans')
-  @Protected()
-  async listPlans() {
-    return { data: await this.memberships.listPlans() };
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
+  async listPlans(@CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.memberships.listPlans(user) };
   }
 
   @Post('plans')
-  @Protected(UserRole.ADMIN)
-  async createPlan(@Body() dto: CreateMembershipPlanDto) {
-    return { data: await this.memberships.createPlan(dto) };
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
+  async createPlan(@Body() dto: CreateMembershipPlanDto, @CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.memberships.createPlan(dto, user) };
   }
 
   @Patch('plans/:id')
-  @Protected(UserRole.ADMIN)
-  async updatePlan(@Param('id') id: string, @Body() dto: UpdateMembershipPlanDto) {
-    return { data: await this.memberships.updatePlan(id, dto) };
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
+  async updatePlan(
+    @Param('id') id: string,
+    @Body() dto: UpdateMembershipPlanDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return { data: await this.memberships.updatePlan(id, dto, user) };
   }
 
   @Get('subscriptions')

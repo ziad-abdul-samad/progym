@@ -5,6 +5,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { AdminModule } from './features/admin/admin.module';
+import { FinanceModule } from './features/finance/finance.module';
 import { AnalyticsModule } from './features/analytics/analytics.module';
 import { AttendanceModule } from './features/attendance/attendance.module';
 import { AuthModule } from './features/auth/auth.module';
@@ -46,6 +47,7 @@ import { StorageModule } from './storage/storage.module';
     NotificationsModule,
     AnalyticsModule,
     AdminModule,
+    FinanceModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

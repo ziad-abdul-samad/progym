@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "start": "node dist/main.js",
     "test": "vitest run --passWithNoTests",
+    "test:accounting": "node test/accounting.integration.cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

@@ -220,7 +220,7 @@ export class AnalyticsService {
       }),
       this.prisma.payment.findMany({
         orderBy: { paidAt: 'asc' },
-        select: { amountMinor: true, paidAt: true },
+        select: { amountMinor: true, paidAt: true, currency: true },
         where: {
           paidAt: { gte: from, lt: toExclusive },
           status: 'PAID',
@@ -248,6 +248,13 @@ export class AnalyticsService {
         value: 1,
       })),
     );
+    // The legacy PDF has one currency column. Never let it mislabel a mixed ledger.
+    if (
+      metrics.includes('revenue') &&
+      new Set(payments.map((payment) => payment.currency)).size > 1
+    ) {
+      throw new BadRequestException('استخدم صفحة التقارير المالية الجديدة لعرض العملات بشكل منفصل');
+    }
     const revenueByDay = this.fillDailyRange(
       from,
       toInclusive,
@@ -281,7 +288,7 @@ export class AnalyticsService {
       },
       revenue: {
         byDay: revenueByDay,
-        currency: settings.membershipCurrency,
+        currency: payments[0]?.currency ?? settings.membershipCurrency,
         monthlySubscriptionPriceMinor: settings.monthlySubscriptionPriceMinor,
         paidPayments: payments.length,
         totalMinor: payments.reduce((sum, payment) => sum + payment.amountMinor, 0),

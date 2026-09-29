@@ -1,15 +1,15 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Check, DollarSign, Download, FileText, Settings2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { CalendarDays, Check, Download, FileText } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { DashboardLoader, ErrorState } from '@/components/ui/state';
 import { useToast } from '@/components/ui/toast';
-import { apiRequest, jsonBody } from '@/lib/api/client';
+import { apiRequest } from '@/lib/api/client';
 import {
   downloadArabicGymReport,
   type GymReport,
@@ -27,7 +27,6 @@ type Preset = 'day' | 'week' | 'month' | 'custom';
 const metricOptions: Array<{ description: string; id: ReportMetric; label: string }> = [
   { description: 'الإجمالي والجدد ونسبة النمو', id: 'members', label: 'الأعضاء' },
   { description: 'الفعالة والجديدة وعمليات التجديد', id: 'subscriptions', label: 'الاشتراكات' },
-  { description: 'الدفعات والإيراد ومتوسط الدفعة', id: 'revenue', label: 'الإيرادات' },
   { description: 'الزيارات والأعضاء والحركة اليومية', id: 'attendance', label: 'الحضور' },
   { description: 'عدد المدربين والإسنادات الفعالة', id: 'coaches', label: 'المدربون' },
   { description: 'المقبولة والمرفوضة وقيد الانتظار', id: 'registrations', label: 'طلبات التسجيل' },
@@ -61,13 +60,7 @@ function Summary({ report }: { report: GymReport }) {
           جاهز وتم تنزيله PDF
         </span>
       </div>
-      <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div>
-          <p className="text-xs text-muted-foreground">الإيراد</p>
-          <strong className="text-2xl">
-            ${(report.revenue.totalMinor / 100).toLocaleString('en-US')}
-          </strong>
-        </div>
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div>
           <p className="text-xs text-muted-foreground">الأعضاء الجدد</p>
           <strong className="text-2xl">{report.members.new}</strong>
@@ -87,39 +80,15 @@ function Summary({ report }: { report: GymReport }) {
 
 export function AdminReportsPage() {
   const { push } = useToast();
-  const queryClient = useQueryClient();
   const initial = useMemo(() => presetRange('month'), []);
   const [preset, setPreset] = useState<Preset>('month');
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
-  const [price, setPrice] = useState('25');
   const [metrics, setMetrics] = useState<ReportMetric[]>(metricOptions.map((item) => item.id));
   const [lastReport, setLastReport] = useState<GymReport | null>(null);
   const settings = useQuery({
     queryFn: () => apiRequest<ReportSettings>('/analytics/report-settings'),
     queryKey: ['analytics', 'report-settings'],
-  });
-
-  useEffect(() => {
-    if (settings.data) setPrice(String(settings.data.monthlySubscriptionPriceMinor / 100));
-  }, [settings.data]);
-
-  const savePrice = useMutation({
-    mutationFn: () =>
-      apiRequest<ReportSettings>('/analytics/report-settings', {
-        body: jsonBody({ monthlySubscriptionPriceMinor: Math.round(Number(price) * 100) }),
-        method: 'PATCH',
-      }),
-    onError: (error: Error) =>
-      push({ body: error.message, title: 'تعذر حفظ السعر', tone: 'error' }),
-    onSuccess: (data) => {
-      queryClient.setQueryData(['analytics', 'report-settings'], data);
-      push({
-        body: 'سيُطبق السعر الجديد على الاشتراكات والإضافات القادمة.',
-        title: 'تم حفظ سعر الاشتراك',
-        tone: 'success',
-      });
-    },
   });
 
   const generate = useMutation({
@@ -160,7 +129,7 @@ export function AdminReportsPage() {
           <div className="flex items-center gap-2 text-xs font-black text-brand-accent">
             <FileText className="h-4 w-4" /> مركز تقارير Pro Gym
           </div>
-          <h1 className="mt-2 text-3xl font-black tracking-tight">التقارير المالية والتشغيلية</h1>
+          <h1 className="mt-2 text-3xl font-black tracking-tight">التقارير التشغيلية</h1>
           {settings.data?.branch?.nameAr ? (
             <p className="mt-1 text-sm font-black text-green-700 dark:text-brand-accent">
               {settings.data.branch.nameAr}
@@ -171,51 +140,6 @@ export function AdminReportsPage() {
           </p>
         </div>
       </div>
-
-      <Card>
-        <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-lg bg-brand-accent/15 text-brand-accent">
-            <DollarSign className="h-5 w-5" />
-          </span>
-          <div>
-            <h2 className="font-black">سعر الاشتراك الشهري</h2>
-            <p className="text-xs text-muted-foreground">
-              الافتراضي 25 دولاراً ويُستخدم في حساب الإيرادات تلقائياً.
-            </p>
-          </div>
-        </div>
-        <div className="mt-5 flex max-w-lg flex-col gap-3 sm:flex-row">
-          <label className="min-w-0 flex-1">
-            <span className="sr-only">السعر بالدولار</span>
-            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto]" dir="ltr">
-              <Input
-                className="min-w-0 rounded-e-none border-e-0 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                dir="ltr"
-                inputMode="decimal"
-                min="0"
-                onChange={(event) => setPrice(event.target.value)}
-                step="0.01"
-                type="number"
-                value={price}
-              />
-              <span className="grid min-h-11 min-w-16 shrink-0 place-items-center rounded-e-md border border-input bg-muted/45 px-3 text-sm font-black text-muted-foreground">
-                USD
-              </span>
-            </div>
-          </label>
-          <Button
-            disabled={!Number.isFinite(Number(price)) || Number(price) < 0}
-            isLoading={savePrice.isPending}
-            loadingText="جارٍ الحفظ"
-            onClick={() => savePrice.mutate()}
-          >
-            <Settings2 className="ms-2 h-4 w-4" /> حفظ السعر
-          </Button>
-        </div>
-        <p className="mt-3 text-xs text-muted-foreground">
-          مثال: اشتراك شهرين يُسجّل تلقائياً بقيمة ${(Number(price || 0) * 2).toFixed(2)}.
-        </p>
-      </Card>
 
       <div className="grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
         <Card className="min-w-0 overflow-hidden">

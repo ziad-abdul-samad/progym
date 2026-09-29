@@ -12,11 +12,13 @@ import {
 import Image from 'next/image';
 import { useEffect, useState, type ReactNode } from 'react';
 
+import { PlanPicker } from './plan-picker';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogCancelButton, DialogForm } from '@/components/ui/dialog';
-import { Input, Textarea } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/input';
 import type { PaginatedResponse } from '@/components/ui/pagination';
+import { ErrorState } from '@/components/ui/state';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { useToast } from '@/components/ui/toast';
 import { apiRequest, jsonBody } from '@/lib/api/client';
@@ -95,7 +97,8 @@ export function ReceptionEventCenter() {
   const review = useMutation({
     mutationFn: (payload: {
       approve: boolean;
-      days?: number;
+      planId?: string;
+      planUpdatedAt?: string;
       observerId?: string;
       reason: string;
     }) =>
@@ -115,7 +118,9 @@ export function ReceptionEventCenter() {
   });
   const subscribeHere = useMutation({
     mutationFn: (payload: {
-      days: number;
+      planId: string;
+      planUpdatedAt: string;
+      requestKey: string;
       memberId: string;
       observerId?: string;
       reason: string;
@@ -146,7 +151,9 @@ export function ReceptionEventCenter() {
   }, [activeEvent, feed.data]);
 
   function markSeenAndClose() {
-    if (!activeEvent) return;
+    if (!activeEvent || review.isPending || subscribeHere.isPending) return;
+    review.reset();
+    subscribeHere.reset();
     const seen = Array.from(new Set([...readSeenEvents(), activeEvent.id])).slice(-100);
     window.sessionStorage.setItem(SEEN_EVENTS_KEY, JSON.stringify(seen));
     setActiveEvent(null);
@@ -156,7 +163,7 @@ export function ReceptionEventCenter() {
     <Dialog
       description={
         activeEvent?.kind === 'REGISTRATION'
-          ? 'اكتمل تسجيل لاعب جديد. راجع البيانات وحدد مدة اشتراكه قبل إغلاق النافذة.'
+          ? 'اكتمل تسجيل لاعب جديد. راجع البيانات واختر الباقة المدفوعة قبل إغلاق النافذة.'
           : activeEvent?.kind === 'DENIED_ENTRY'
             ? 'لم يتم تسجيل حضور. راجع فرع اشتراك اللاعب، ويمكنك بدء اشتراك جديد له في هذا الفرع بعد استلام الدفع.'
             : 'تم تسجيل دخول اللاعب بنجاح. هذه البطاقة مخصصة للتحقق السريع في الاستقبال.'
@@ -291,7 +298,9 @@ export function ReceptionEventCenter() {
                   event.preventDefault();
                   const form = new FormData(event.currentTarget);
                   subscribeHere.mutate({
-                    days: Number(form.get('days')),
+                    planId: String(form.get('planId') ?? ''),
+                    planUpdatedAt: String(form.get('planUpdatedAt') ?? ''),
+                    requestKey: String(form.get('requestKey') ?? ''),
                     memberId: activeEvent.member.id,
                     observerId:
                       typeof form.get('observerId') === 'string'
@@ -306,7 +315,8 @@ export function ReceptionEventCenter() {
                   بعد التأكد من الدفع، سيُنهي النظام الاشتراك السابق ويبدأ اشتراكاً جديداً بسعر هذا
                   الفرع. سيبقى فرع التسجيل الأصلي محفوظاً ولن تضيع أي بيانات.
                 </p>
-                <Input defaultValue={30} min={1} name="days" required type="number" />
+                <PlanPicker key={activeEvent.id} />
+                {subscribeHere.error ? <ErrorState message={subscribeHere.error.message} /> : null}
                 {auth.data?.role !== 'OBSERVER' ? (
                   <select
                     className="min-h-11 w-full rounded-lg border border-input bg-background px-3 text-sm font-bold"
@@ -350,7 +360,7 @@ export function ReceptionEventCenter() {
                     isLoading={review.isPending && review.variables?.approve === true}
                     loadingText="جاري تفعيل الاشتراك"
                   >
-                    تفعيل مدة اللاعب
+                    تأكيد الدفع وتفعيل الاشتراك
                   </Button>
                 </>
               }
@@ -359,7 +369,8 @@ export function ReceptionEventCenter() {
                 const form = new FormData(event.currentTarget);
                 review.mutate({
                   approve: true,
-                  days: Number(form.get('days')),
+                  planId: String(form.get('planId') ?? ''),
+                  planUpdatedAt: String(form.get('planUpdatedAt') ?? ''),
                   observerId:
                     typeof form.get('observerId') === 'string'
                       ? (form.get('observerId') as string)
@@ -369,14 +380,8 @@ export function ReceptionEventCenter() {
                 });
               }}
             >
-              <Input
-                defaultValue={30}
-                min={1}
-                name="days"
-                placeholder="عدد أيام الاشتراك"
-                required
-                type="number"
-              />
+              <PlanPicker key={activeEvent.id} />
+              {review.error ? <ErrorState message={review.error.message} /> : null}
               {auth.data?.role !== 'OBSERVER' ? (
                 <select
                   className="min-h-11 w-full rounded-lg border border-input bg-background px-3 text-sm font-bold"

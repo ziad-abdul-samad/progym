@@ -1,7 +1,13 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   AuditAction,
   MembershipAuditAction,
+  type MembershipPlan,
   ObserverStatus,
   Prisma,
   SubscriptionStatus,
@@ -57,32 +63,78 @@ export function computeSubscriptionChargeMinor(monthlyPriceMinor: number, days: 
 export class MembershipsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listPlans() {
+  async listPlans(admin: AuthenticatedUser) {
     return this.prisma.membershipPlan.findMany({
-      orderBy: [{ sortOrder: 'asc' }, { durationDays: 'asc' }],
+      where: { branchId: requireBranchId(admin) },
+      orderBy: [{ sortOrder: 'asc' }, { durationDays: 'asc' }, { createdAt: 'asc' }],
     });
   }
 
-  async createPlan(dto: CreateMembershipPlanDto) {
-    return this.prisma.membershipPlan.create({
-      data: {
-        currency: dto.currency ?? 'SYP',
-        descriptionAr: dto.descriptionAr,
-        descriptionEn: dto.descriptionEn,
-        durationDays: dto.durationDays,
-        isActive: dto.isActive ?? true,
-        nameAr: dto.nameAr,
-        nameEn: dto.nameEn,
-        priceMinor: dto.priceMinor,
-      },
+  async createPlan(dto: CreateMembershipPlanDto, admin: AuthenticatedUser) {
+    if (!dto.nameAr.trim() || !dto.nameEn.trim()) throw new BadRequestException('اسم الباقة مطلوب');
+    return this.prisma.$transaction(async (tx) => {
+      const plan = await tx.membershipPlan.create({
+        data: {
+          ...dto,
+          nameAr: dto.nameAr.trim(),
+          nameEn: dto.nameEn.trim(),
+          branchId: requireBranchId(admin),
+          currency: dto.currency ?? 'SYP_NEW',
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: AuditAction.CREATE,
+          actorId: admin.id,
+          branchId: plan.branchId,
+          entityId: plan.id,
+          entityType: 'MembershipPlan',
+          metadata: { newValue: plan },
+        },
+      });
+      return plan;
     });
   }
 
-  async updatePlan(id: string, dto: UpdateMembershipPlanDto) {
-    return this.prisma.membershipPlan.update({
-      data: dto,
-      where: { id },
+  async updatePlan(id: string, dto: UpdateMembershipPlanDto, admin: AuthenticatedUser) {
+    if (
+      (dto.nameAr !== undefined && !dto.nameAr.trim()) ||
+      (dto.nameEn !== undefined && !dto.nameEn.trim())
+    )
+      throw new BadRequestException('اسم الباقة مطلوب');
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "MembershipPlan" WHERE id = ${id} FOR UPDATE`;
+      const previous = await tx.membershipPlan.findUnique({ where: { id } });
+      if (!previous || previous.branchId !== requireBranchId(admin))
+        throw new NotFoundException('Plan not found in this branch');
+      const plan = await tx.membershipPlan.update({ where: { id }, data: dto });
+      await tx.auditLog.create({
+        data: {
+          action: AuditAction.UPDATE,
+          actorId: admin.id,
+          branchId: plan.branchId,
+          entityId: plan.id,
+          entityType: 'MembershipPlan',
+          metadata: { previousValue: previous, newValue: plan },
+        },
+      });
+      return plan;
     });
+  }
+
+  private async paidPlan(
+    tx: Prisma.TransactionClient,
+    dto: { planId?: string; planUpdatedAt?: string },
+    branchId: string,
+  ) {
+    if (!dto.planId) throw new BadRequestException('اختر باقة الاشتراك قبل تأكيد استلام المبلغ');
+    await tx.$queryRaw`SELECT id FROM "MembershipPlan" WHERE id = ${dto.planId} FOR SHARE`;
+    const plan = await tx.membershipPlan.findUnique({ where: { id: dto.planId } });
+    if (!plan || !plan.isActive || plan.branchId !== branchId)
+      throw new BadRequestException('هذه الباقة غير متاحة لهذا الفرع');
+    if (!dto.planUpdatedAt || plan.updatedAt.toISOString() !== dto.planUpdatedAt)
+      throw new ConflictException('تغيرت بيانات الباقة. أعد اختيارها وتحقق من السعر قبل التأكيد');
+    return plan;
   }
 
   async getCurrentSubscription(memberId: string) {
@@ -275,39 +327,44 @@ export class MembershipsService {
     return paginated(items, total, query);
   }
 
-  async createSubscription(dto: CreateSubscriptionDto, admin: AuthenticatedUser) {
+  async createSubscription(
+    dto: CreateSubscriptionDto,
+    admin: AuthenticatedUser,
+    existingTx?: Prisma.TransactionClient,
+  ) {
     const branchId = requireBranchId(admin);
-    const member = await this.prisma.memberProfile.findUnique({
-      include: { user: true },
-      where: { id: dto.memberId },
-    });
-
-    if (!member) {
-      throw new NotFoundException('Member not found');
-    }
-    if (member.user.status !== 'ACTIVE') {
-      throw new BadRequestException('Only active member accounts can start a subscription');
-    }
-    const plan = dto.planId
-      ? await this.prisma.membershipPlan.findUnique({ where: { id: dto.planId } })
-      : null;
-    const days = dto.days ?? plan?.durationDays;
-
-    if (!days) {
-      throw new BadRequestException('Either planId or days is required');
-    }
-
-    const now = new Date();
     const observer = await this.requireActiveObserver(dto.observerId, admin);
-    return this.prisma.$transaction(async (transaction) => {
+    const run = async (transaction: Prisma.TransactionClient) => {
+      // Serialize purchases for a member; retrying the same request cannot charge twice.
+      await transaction.$queryRaw`SELECT id FROM "MemberProfile" WHERE id = ${dto.memberId} FOR UPDATE`;
+      const duplicate = await transaction.payment.findUnique({
+        where: { requestKey: dto.requestKey },
+      });
+      if (duplicate) {
+        if (
+          duplicate.branchIdSnapshot !== branchId ||
+          duplicate.memberIdSnapshot !== dto.memberId ||
+          duplicate.receivedById !== admin.id ||
+          duplicate.planIdSnapshot !== dto.planId
+        )
+          throw new ConflictException('Payment request already used');
+        return transaction.subscription.findUniqueOrThrow({
+          where: { id: duplicate.subscriptionId },
+        });
+      }
+      const member = await transaction.memberProfile.findUnique({
+        include: { user: true },
+        where: { id: dto.memberId },
+      });
+      if (!member) throw new NotFoundException('Member not found');
+      if (member.user.status !== 'ACTIVE')
+        throw new BadRequestException('Only active member accounts can start a subscription');
+      const plan = await this.paidPlan(transaction, dto, branchId);
+      const now = new Date();
       const current = await transaction.subscription.findFirst({
         orderBy: { endsAt: 'desc' },
-        where: {
-          memberId: member.id,
-          status: { in: ['PENDING', 'ACTIVE', 'FROZEN'] },
-        },
+        where: { memberId: member.id, status: { in: ['PENDING', 'ACTIVE', 'FROZEN'] } },
       });
-
       if (current) {
         const expired = await transaction.subscription.update({
           data: { endsAt: now, frozenAt: null, status: SubscriptionStatus.EXPIRED },
@@ -321,22 +378,20 @@ export class MembershipsService {
           newValue: subscriptionSnapshot(expired),
           observer,
           previousValue: subscriptionSnapshot(current),
-          reason: `نقل اشتراك اللاعب إلى فرع جديد: ${dto.reason}`,
+          reason: 'بدء اشتراك مدفوع جديد في الفرع المختار',
           subscriptionId: current.id,
         });
       }
-
       const subscription = await transaction.subscription.create({
         data: {
           branchId,
-          endsAt: addDays(now, days),
           memberId: member.id,
-          planId: plan?.id,
+          planId: plan.id,
           startsAt: now,
+          endsAt: addDays(now, plan.durationDays),
           status: SubscriptionStatus.ACTIVE,
         },
       });
-
       await this.writeMembershipAudit(transaction, {
         action: MembershipAuditAction.CREATE,
         admin,
@@ -345,18 +400,21 @@ export class MembershipsService {
         newValue: subscriptionSnapshot(subscription),
         observer,
         previousValue: current ? subscriptionSnapshot(current) : {},
-        reason: dto.reason,
+        reason: dto.reason || 'اشتراك مدفوع جديد',
         subscriptionId: subscription.id,
       });
-      await this.recordAutomaticPayment(transaction, {
-        adminId: admin.id,
-        branchId,
-        days,
-        reason: dto.reason,
+      await this.recordPlanPayment(transaction, {
+        admin,
+        plan,
+        observerName: observer.fullName,
+        memberId: member.id,
+        memberName: member.user.fullName,
         subscriptionId: subscription.id,
+        requestKey: dto.requestKey,
       });
       return subscription;
-    });
+    };
+    return existingTx ? run(existingTx) : this.prisma.$transaction(run);
   }
 
   async mutateSubscription(
@@ -365,89 +423,79 @@ export class MembershipsService {
     dto: MembershipMutationDto,
     admin: AuthenticatedUser,
   ) {
-    const subscription = await this.prisma.subscription.findUnique({
-      include: { member: { include: { user: true } }, plan: true },
-      where: { id },
-    });
-
-    if (!subscription) {
-      throw new NotFoundException('Subscription not found');
-    }
-    assertSameBranch(subscription.branchId, admin);
-    this.assertAllowedTransition(subscription.status, action);
-
-    const previousValue = subscriptionSnapshot(subscription);
-    const now = new Date();
-    const data: Partial<{
-      cancelledAt: Date | null;
-      endsAt: Date;
-      frozenAt: Date | null;
-      planId: string | null;
-      startsAt: Date;
-      status: SubscriptionStatus;
-    }> = {};
-    let billableDays: number | null = null;
-
-    if (action === MembershipAuditAction.ADD_DAYS) {
-      if (!dto.days) throw new BadRequestException('days is required');
-      data.endsAt = addDays(subscription.endsAt > now ? subscription.endsAt : now, dto.days);
-      data.status =
-        subscription.status === SubscriptionStatus.FROZEN
-          ? SubscriptionStatus.FROZEN
-          : SubscriptionStatus.ACTIVE;
-      billableDays = dto.days;
-    }
-
-    if (action === MembershipAuditAction.REMOVE_DAYS) {
-      if (!dto.days) throw new BadRequestException('days is required');
-      data.endsAt = addDays(subscription.endsAt, -dto.days);
-      const effectiveNow = subscription.frozenAt ?? now;
-      if (data.endsAt <= effectiveNow) {
+    const observer = await this.requireActiveObserver(dto.observerId, admin);
+    return this.prisma.$transaction(async (transaction) => {
+      const initial = await transaction.subscription.findUnique({ where: { id } });
+      if (!initial) throw new NotFoundException('Subscription not found');
+      assertSameBranch(initial.branchId, admin);
+      await transaction.$queryRaw`SELECT id FROM "MemberProfile" WHERE id = ${initial.memberId} FOR UPDATE`;
+      const subscription = await transaction.subscription.findUniqueOrThrow({
+        include: { member: { include: { user: true } } },
+        where: { id },
+      });
+      if (action === MembershipAuditAction.RENEW) {
+        const duplicate = await transaction.payment.findUnique({
+          where: { requestKey: dto.requestKey },
+        });
+        if (duplicate) {
+          if (
+            duplicate.subscriptionId !== id ||
+            duplicate.receivedById !== admin.id ||
+            duplicate.planIdSnapshot !== dto.planId
+          )
+            throw new ConflictException('Payment request already used');
+          return subscription;
+        }
+        const newer = await transaction.subscription.findFirst({
+          where: {
+            memberId: subscription.memberId,
+            id: { not: id },
+            status: { in: ['ACTIVE', 'FROZEN', 'PENDING'] },
+          },
+        });
+        if (newer) throw new ConflictException('يوجد اشتراك أحدث لهذا اللاعب. افتح اشتراكه الحالي');
+      }
+      this.assertAllowedTransition(subscription.status, action);
+      const now = new Date();
+      const data: Prisma.SubscriptionUpdateInput = {};
+      let plan: MembershipPlan | null = null;
+      if (action === MembershipAuditAction.ADD_DAYS) {
+        if (!dto.days) throw new BadRequestException('days is required');
+        data.endsAt = addDays(subscription.endsAt > now ? subscription.endsAt : now, dto.days);
+      }
+      if (action === MembershipAuditAction.REMOVE_DAYS) {
+        if (!dto.days) throw new BadRequestException('days is required');
+        data.endsAt = addDays(subscription.endsAt, -dto.days);
+        if (data.endsAt <= (subscription.frozenAt ?? now)) {
+          data.frozenAt = null;
+          data.status = SubscriptionStatus.EXPIRED;
+        }
+      }
+      if (action === MembershipAuditAction.FREEZE) {
+        data.frozenAt = now;
+        data.status = SubscriptionStatus.FROZEN;
+      }
+      if (action === MembershipAuditAction.RESUME) {
+        data.endsAt = addDays(now, diffDaysCeil(subscription.frozenAt ?? now, subscription.endsAt));
+        data.frozenAt = null;
+        data.status = SubscriptionStatus.ACTIVE;
+      }
+      if (action === MembershipAuditAction.RENEW) {
+        if (subscription.member.user.status !== 'ACTIVE')
+          throw new BadRequestException('Member account is not active');
+        plan = await this.paidPlan(transaction, dto, subscription.branchId);
+        data.endsAt = addDays(now, plan.durationDays);
+        data.startsAt = now;
+        data.frozenAt = null;
+        data.plan = { connect: { id: plan.id } };
+        data.status = SubscriptionStatus.ACTIVE;
+      }
+      if (action === MembershipAuditAction.EXPIRE) {
+        data.endsAt = now;
         data.frozenAt = null;
         data.status = SubscriptionStatus.EXPIRED;
       }
-    }
-
-    if (action === MembershipAuditAction.FREEZE) {
-      data.frozenAt = now;
-      data.status = SubscriptionStatus.FROZEN;
-    }
-
-    if (action === MembershipAuditAction.RESUME) {
-      const frozenAt = subscription.frozenAt ?? now;
-      data.endsAt = addDays(now, diffDaysCeil(frozenAt, subscription.endsAt));
-      data.frozenAt = null;
-      data.status = SubscriptionStatus.ACTIVE;
-    }
-
-    if (action === MembershipAuditAction.RENEW) {
-      const plan = dto.planId
-        ? await this.prisma.membershipPlan.findUnique({ where: { id: dto.planId } })
-        : null;
-      const days = dto.days ?? plan?.durationDays;
-
-      if (!days) throw new BadRequestException('days or planId is required');
-
-      data.endsAt = addDays(now, days);
-      data.frozenAt = null;
-      data.planId = plan?.id ?? subscription.planId;
-      data.startsAt = now;
-      data.status = SubscriptionStatus.ACTIVE;
-      billableDays = days;
-    }
-
-    if (action === MembershipAuditAction.EXPIRE) {
-      data.endsAt = now;
-      data.frozenAt = null;
-      data.status = SubscriptionStatus.EXPIRED;
-    }
-
-    const observer = await this.requireActiveObserver(dto.observerId, admin);
-    return this.prisma.$transaction(async (transaction) => {
-      const updated = await transaction.subscription.update({
-        data,
-        where: { id },
-      });
+      const updated = await transaction.subscription.update({ data, where: { id } });
       await this.writeMembershipAudit(transaction, {
         action,
         admin,
@@ -455,19 +503,21 @@ export class MembershipsService {
         memberId: subscription.memberId,
         newValue: subscriptionSnapshot(updated),
         observer,
-        previousValue,
+        previousValue: subscriptionSnapshot(subscription),
         reason: dto.reason,
-        subscriptionId: updated.id,
+        subscriptionId: id,
       });
-      if (billableDays) {
-        await this.recordAutomaticPayment(transaction, {
-          adminId: admin.id,
-          branchId: subscription.branchId,
-          days: billableDays,
-          reason: dto.reason,
-          subscriptionId: updated.id,
+      // Administrative day adjustments never invent cash income.
+      if (plan)
+        await this.recordPlanPayment(transaction, {
+          admin,
+          plan,
+          observerName: observer.fullName,
+          memberId: subscription.memberId,
+          memberName: subscription.member.user.fullName,
+          subscriptionId: id,
+          requestKey: dto.requestKey,
         });
-      }
       return updated;
     });
   }
@@ -561,31 +611,35 @@ export class MembershipsService {
     });
   }
 
-  private async recordAutomaticPayment(
+  private async recordPlanPayment(
     transaction: Prisma.TransactionClient,
     input: {
-      adminId: string;
-      branchId: string;
-      days: number;
-      reason: string;
+      admin: AuthenticatedUser;
+      plan: MembershipPlan;
+      observerName: string;
+      memberId: string;
+      memberName: string;
       subscriptionId: string;
+      requestKey: string;
     },
   ) {
-    const settings = await transaction.gymSettings.findUnique({
-      where: { branchId: input.branchId },
-    });
-    const monthlyPriceMinor = settings?.monthlySubscriptionPriceMinor ?? 2500;
-    const amountMinor = computeSubscriptionChargeMinor(monthlyPriceMinor, input.days);
-
     await transaction.payment.create({
       data: {
-        amountMinor,
-        currency: settings?.membershipCurrency ?? 'USD',
+        requestKey: input.requestKey,
+        amountMinor: input.plan.priceMinor,
+        currency: input.plan.currency,
+        branchIdSnapshot: input.plan.branchId,
+        planIdSnapshot: input.plan.id,
+        planNameSnapshot: input.plan.nameAr,
+        durationDaysSnapshot: input.plan.durationDays,
+        memberIdSnapshot: input.memberId,
+        memberNameSnapshot: input.memberName,
+        receiverNameSnapshot: input.admin.fullName,
+        observerNameSnapshot: input.observerName,
         method: 'CASH',
-        notes: `Automatic membership payment: ${input.days} days. ${input.reason}`,
-        paidAt: new Date(),
-        receivedById: input.adminId,
         status: 'PAID',
+        paidAt: new Date(),
+        receivedById: input.admin.id,
         subscriptionId: input.subscriptionId,
       },
     });

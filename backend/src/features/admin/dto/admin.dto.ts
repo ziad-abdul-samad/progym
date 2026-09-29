@@ -178,6 +178,13 @@ export class CreateRegistrationQrDto {
 }
 
 export class ReviewRegistrationRequestDto {
+  @IsOptional()
+  @IsString()
+  planId?: string;
+
+  @IsOptional()
+  @IsString()
+  planUpdatedAt?: string;
   @Type(() => Boolean)
   @IsBoolean()
   approve!: boolean;

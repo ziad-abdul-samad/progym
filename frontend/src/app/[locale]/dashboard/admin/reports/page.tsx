@@ -1,4 +1,4 @@
-import { AdminReportsPage } from '@/features/admin/admin-reports-page';
+import { BranchReportsPage as AdminReportsPage } from '@/features/admin/branch-finance-pages';
 
 export default function AdminReportsRoute() {
   return <AdminReportsPage />;

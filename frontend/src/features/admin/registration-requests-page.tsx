@@ -5,6 +5,7 @@ import { Check, Search, UserCheck, X } from 'lucide-react';
 import Image from 'next/image';
 import { useDeferredValue, useState } from 'react';
 
+import { PlanPicker, type BranchPlan } from './plan-picker';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
@@ -42,7 +43,7 @@ export function RegistrationRequestsPage() {
   const deferredQuery = useDeferredValue(query);
   const [selected, setSelected] = useState<Request | null>(null);
   const [observerId, setObserverId] = useState('');
-  const [days, setDays] = useState(30);
+  const [plan, setPlan] = useState<BranchPlan | null>(null);
   const [reason, setReason] = useState('');
 
   const requests = useQuery({
@@ -61,13 +62,19 @@ export function RegistrationRequestsPage() {
   const review = useMutation({
     mutationFn: ({ approve }: { approve: boolean }) =>
       apiRequest(`/admin/registration-requests/${selected?.id}/review`, {
-        body: jsonBody({ approve, days, observerId: approve ? observerId : undefined, reason }),
+        body: jsonBody({
+          approve,
+          planId: plan?.id,
+          planUpdatedAt: plan?.updatedAt,
+          observerId: approve ? observerId : undefined,
+          reason,
+        }),
         method: 'POST',
       }),
     onSuccess: async () => {
       setSelected(null);
       setReason('');
-      setDays(30);
+      setPlan(null);
       await queryClient.invalidateQueries({ queryKey: ['admin-sidebar-badges'] });
       await queryClient.invalidateQueries({ queryKey: ['registration-requests'] });
       await queryClient.invalidateQueries({ queryKey: ['reception-feed'] });
@@ -77,7 +84,7 @@ export function RegistrationRequestsPage() {
   function open(request: Request) {
     setSelected(request);
     setObserverId(observers.data?.items[0]?.id ?? '');
-    setDays(30);
+    setPlan(null);
     setReason('');
   }
 
@@ -229,15 +236,9 @@ export function RegistrationRequestsPage() {
                   ))}
                 </select>
               </label>
-              <label className="space-y-2 text-sm font-bold">
-                <span>عدد أيام الاشتراك</span>
-                <Input
-                  min={1}
-                  onChange={(event) => setDays(Number(event.target.value))}
-                  type="number"
-                  value={days}
-                />
-              </label>
+              <div className="sm:col-span-2">
+                <PlanPicker key={selected.id} onChange={setPlan} />
+              </div>
             </div>
             <Textarea
               onChange={(event) => setReason(event.target.value)}
@@ -247,12 +248,12 @@ export function RegistrationRequestsPage() {
             {review.error ? <ErrorState message={review.error.message} /> : null}
             <div className="grid gap-3 sm:grid-cols-2">
               <Button
-                disabled={review.isPending || !observerId || days < 1}
+                disabled={review.isPending || !observerId || !plan}
                 isLoading={review.isPending && review.variables?.approve === true}
                 loadingText="جاري القبول"
                 onClick={() => review.mutate({ approve: true })}
               >
-                <Check className="h-4 w-4" /> قبول وتفعيل الاشتراك
+                <Check className="h-4 w-4" /> تأكيد استلام المبلغ وقبول الطلب
               </Button>
               <Button
                 disabled={review.isPending}

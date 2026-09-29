@@ -286,7 +286,9 @@ function ContactHero({
               <p className="text-[0.54rem] font-black uppercase tracking-[0.18em] text-[#39ff14]">
                 {publicCopy[locale].contact.address}
               </p>
-              <p className="mt-3 text-sm font-black text-white/72">{brand.address[locale]}</p>
+              <p className="mt-3 text-sm font-black text-white/72">
+                {publicBranches.map((branch) => branch.name[locale]).join(' · ')}
+              </p>
             </div>
           </div>
         </div>
@@ -684,7 +686,12 @@ export function ContactPage({ locale }: { locale: PublicLocale }) {
   const local = labels[locale];
   const contactItems: Array<[string, string, LucideIcon, string]> = [
     [copy.contact.phone, brand.phone, Phone, `tel:${brand.phone}`],
-    [copy.contact.address, brand.address[locale], MapPin, brand.mapsUrl],
+    [
+      copy.contact.address,
+      publicBranches.map((branch) => branch.name[locale]).join(' · '),
+      MapPin,
+      '#branches',
+    ],
     [local.contactHours, local.contactHoursValue, Dumbbell, '#contact-form'],
   ];
 
@@ -734,61 +741,34 @@ export function ContactPage({ locale }: { locale: PublicLocale }) {
 
           <section aria-labelledby="branches-heading" className="mt-20 scroll-mt-28" id="branches">
             <Eyebrow>{locale === 'ar' ? 'Pro Gym / حمص' : 'Pro Gym / Homs'}</Eyebrow>
-            <h2 className="mt-4 text-3xl font-black leading-relaxed md:text-5xl" id="branches-heading">
+            <h2
+              className="mt-4 text-3xl font-black leading-relaxed md:text-5xl"
+              id="branches-heading"
+            >
               {locale === 'ar' ? 'ثلاثة فروع. نفس الشغف.' : 'Three branches. One passion.'}
             </h2>
             <p className="mt-4 text-sm leading-7 text-white/60">
-              {locale === 'ar' ? 'اختر الفرع الأقرب إليك وتعرّف على موقعه.' : 'Find your nearest branch and explore its location.'}
+              {locale === 'ar'
+                ? 'اختر الفرع الأقرب إليك وتعرّف على موقعه.'
+                : 'Find your nearest branch and explore its location.'}
             </p>
-            <div className="mt-8 grid gap-4 lg:grid-cols-3">
+            <div className="mt-8 grid items-start gap-5 lg:grid-cols-3" id="location">
               {publicBranches.map((branch, index) => (
-                <article className="flex min-w-0 flex-col border border-white/15 bg-[#0b0e0b] p-6 md:p-8" key={branch.code}>
-                  <div className="flex items-center justify-between text-[#39ff14]">
-                    <span className="text-xs font-black tracking-widest">0{index + 1}</span>
-                    <MapPin aria-hidden="true" className="h-5 w-5" />
-                  </div>
-                  <h3 className="mt-6 text-2xl font-black leading-relaxed">{branch.name[locale]}</h3>
-                  <p className="mb-8 mt-3 flex-1 text-sm leading-7 text-white/65">{branch.address[locale]}</p>
-                  <a
-                    className="flex min-h-12 items-center justify-between gap-3 border-t border-white/15 pt-4 text-sm font-bold text-[#39ff14] transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#39ff14]"
-                    href={branch.mapsUrl}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    {locale === 'ar' ? 'افتح في خرائط Google' : 'Open in Google Maps'}
-                    <ArrowUpRight aria-hidden="true" className="h-5 w-5 shrink-0" />
-                  </a>
+                <article className="min-w-0" key={branch.code}>
+                  <p className="mb-3 text-xs font-black tracking-widest text-[#39ff14]">
+                    0{index + 1} / {branch.name[locale]}
+                  </p>
+                  <ExpandedMap
+                    locale={locale}
+                    label={branch.address[locale]}
+                    latitude={34.7179977}
+                    longitude={36.6970795}
+                    mapUrl={branch.mapsUrl}
+                  />
                 </article>
               ))}
             </div>
           </section>
-          <div className="mt-10 grid gap-3 md:grid-cols-12" id="location">
-            <div className="md:col-span-8">
-              <ExpandedMap
-                locale={locale}
-                label={brand.address[locale]}
-                latitude={34.7179977}
-                longitude={36.6970795}
-                mapUrl={brand.mapsUrl}
-              />
-            </div>
-            <div className="relative flex min-h-72 flex-col justify-between overflow-hidden bg-[#39ff14] p-7 text-black md:col-span-4">
-              <div className="premium-grid absolute inset-0 opacity-25" />
-              <div className="relative">
-                <MapPin className="h-10 w-10" />
-                <p className="mt-8 text-[0.58rem] font-black uppercase tracking-[0.18em]">
-                  {locale === 'ar' ? 'موقع فرع الإنشاءات' : 'Al-Inshaat branch location'}
-                </p>
-                <h2 className="mt-4 text-3xl font-black leading-relaxed">
-                  {brand.address[locale]}
-                </h2>
-              </div>
-              <div className="relative border-t border-black/20 pt-5">
-                <p className="text-xs font-black uppercase tracking-[0.12em]">Pro Gym / Homs</p>
-                <p className="mt-2 text-sm text-black/55">{local.contactHoursValue}</p>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
       <FinalBand locale={locale} title={copy.home.cta.title} />

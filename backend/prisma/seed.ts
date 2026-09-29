@@ -35,7 +35,8 @@ const prisma = new PrismaClient({ adapter });
 const dayMs = 86_400_000;
 const demoPassword = process.env.SEED_DEMO_PASSWORD ?? 'Demo@123456';
 const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? 'Admin@123456';
-const seedDemoData = process.env.SEED_DEMO_DATA !== 'false';
+const seedDemoData =
+  process.env.NODE_ENV !== 'production' && process.env.SEED_DEMO_DATA !== 'false';
 const uploadRoot = join(process.cwd(), 'uploads');
 const observerShiftTemplates = [
   {
@@ -395,11 +396,8 @@ async function seedBaseData() {
       role: UserRole.ADMIN,
       username: process.env.SEED_ADMIN_USERNAME ?? 'admin',
     },
-    update: {
-      fullName: 'Pro Gym Admin',
-      passwordHash: await hashPassword(adminPassword),
-      status: UserStatus.ACTIVE,
-    },
+    // Existing owner credentials and profile belong to the live user, not the seed.
+    update: {},
     where: { username: process.env.SEED_ADMIN_USERNAME ?? 'admin' },
   });
 
@@ -429,13 +427,10 @@ async function seedBaseData() {
   ] as const;
 
   for (const [nameAr, nameEn, durationDays, priceMinor, sortOrder] of plans) {
-    const existing = await prisma.membershipPlan.findFirst({ where: { durationDays, nameAr } });
-    if (existing) {
-      await prisma.membershipPlan.update({
-        data: { nameEn, priceMinor, sortOrder },
-        where: { id: existing.id },
-      });
-    } else {
+    const existing = await prisma.membershipPlan.findFirst({
+      where: { durationDays, nameAr, branchId: null },
+    });
+    if (!existing) {
       await prisma.membershipPlan.create({
         data: {
           durationDays,

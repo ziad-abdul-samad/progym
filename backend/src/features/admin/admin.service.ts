@@ -998,18 +998,19 @@ export class AdminService {
     admin: AuthenticatedUser,
   ) {
     const observerId = admin.role === UserRole.OBSERVER ? admin.shiftObserverId : dto.observerId;
-    const request = await this.prisma.registrationRequest.findUnique({
-      include: { member: { include: { user: { select: safeUserSelect } } } },
-      where: { id },
-    });
-    if (!request) throw new NotFoundException('Registration request not found');
-    assertSameBranch(request.branchId, admin);
-    if (request.status !== RegistrationRequestStatus.PENDING) {
-      throw new ConflictException('Registration request was already reviewed');
-    }
+    return this.prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM "RegistrationRequest" WHERE id = ${id} FOR UPDATE`;
+      const request = await transaction.registrationRequest.findUnique({
+        include: { member: { include: { user: { select: safeUserSelect } } } },
+        where: { id },
+      });
+      if (!request) throw new NotFoundException('Registration request not found');
+      assertSameBranch(request.branchId, admin);
+      if (request.status !== RegistrationRequestStatus.PENDING) {
+        throw new ConflictException('Registration request was already reviewed');
+      }
 
-    if (!dto.approve) {
-      return this.prisma.$transaction(async (transaction) => {
+      if (!dto.approve) {
         const updated = await transaction.registrationRequest.update({
           data: {
             reviewReason: dto.reason?.trim() || null,
@@ -1031,53 +1032,61 @@ export class AdminService {
           },
         });
         return updated;
-      });
-    }
+      }
 
-    if (!observerId) {
-      throw new BadRequestException('Observer is required to approve a registration');
-    }
-    const days = dto.days ?? 30;
-    const subscription = await this.memberships.createSubscription(
-      {
-        days,
-        memberId: request.memberId,
-        observerId,
-        reason: dto.reason?.trim() || 'اعتماد طلب تسجيل لاعب جديد',
-      },
-      admin,
-    );
-
-    const updated = await this.prisma.$transaction(async (transaction) => {
-      const reviewed = await transaction.registrationRequest.update({
-        data: {
-          approvedDays: days,
-          observerId,
-          reviewReason: dto.reason?.trim() || null,
-          reviewedAt: new Date(),
-          reviewerId: admin.id,
-          status: RegistrationRequestStatus.APPROVED,
-        },
-        where: { id },
-      });
+      if (!observerId) {
+        throw new BadRequestException('Observer is required to approve a registration');
+      }
       await transaction.user.update({
         data: { status: UserStatus.ACTIVE },
         where: { id: request.member.userId },
       });
-      await transaction.auditLog.create({
-        data: {
-          action: AuditAction.UPDATE,
-          actorId: admin.id,
-          branchId: request.branchId,
-          entityId: id,
-          entityType: 'RegistrationRequest',
-          metadata: { action: 'APPROVE', days, subscriptionId: subscription.id },
+      const subscription = await this.memberships.createSubscription(
+        {
+          planId: dto.planId,
+          planUpdatedAt: dto.planUpdatedAt,
+          requestKey: `registration:${id}`,
+          memberId: request.memberId,
+          observerId,
+          reason: dto.reason?.trim() || 'اعتماد طلب تسجيل لاعب جديد',
         },
-      });
-      return reviewed;
-    });
+        admin,
+        transaction,
+      );
+      const days = Math.round(
+        (subscription.endsAt.getTime() - subscription.startsAt.getTime()) / 86400000,
+      );
+      const updated = await (async () => {
+        const reviewed = await transaction.registrationRequest.update({
+          data: {
+            approvedDays: days,
+            observerId,
+            reviewReason: dto.reason?.trim() || null,
+            reviewedAt: new Date(),
+            reviewerId: admin.id,
+            status: RegistrationRequestStatus.APPROVED,
+          },
+          where: { id },
+        });
+        await transaction.user.update({
+          data: { status: UserStatus.ACTIVE },
+          where: { id: request.member.userId },
+        });
+        await transaction.auditLog.create({
+          data: {
+            action: AuditAction.UPDATE,
+            actorId: admin.id,
+            branchId: request.branchId,
+            entityId: id,
+            entityType: 'RegistrationRequest',
+            metadata: { action: 'APPROVE', days, subscriptionId: subscription.id },
+          },
+        });
+        return reviewed;
+      })();
 
-    return { ...updated, subscription };
+      return { ...updated, subscription };
+    });
   }
 
   async createObserver(dto: CreateObserverDto, admin: AuthenticatedUser) {

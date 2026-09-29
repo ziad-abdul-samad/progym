@@ -39,6 +39,7 @@ import {
 } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { PlanPicker, RequestKey } from './plan-picker';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogCancelButton, DialogForm } from '@/components/ui/dialog';
 import { Input, Textarea } from '@/components/ui/input';
@@ -1761,7 +1762,9 @@ export function AdminMembershipsPage() {
   });
   const createSubscription = useMutation({
     mutationFn: (payload: {
-      days: string;
+      planId: string;
+      planUpdatedAt: string;
+      requestKey: string;
       memberId: string;
       observerId?: string;
       reason: string;
@@ -2020,7 +2023,9 @@ export function AdminMembershipsPage() {
       ) : null}
       <Dialog
         description="بعد استلام الدفع سيبدأ اشتراك جديد في الفرع الحالي. إذا كان هناك اشتراك فعال، سيُنهيه النظام ويحفظه في السجل قبل بدء الاشتراك الجديد."
-        onClose={() => setNewSubscriptionMember(null)}
+        onClose={() => {
+          if (!createSubscription.isPending) setNewSubscriptionMember(null);
+        }}
         open={Boolean(newSubscriptionMember)}
         title="تأكيد الاشتراك في الفرع الحالي"
       >
@@ -2028,7 +2033,11 @@ export function AdminMembershipsPage() {
           <DialogForm
             actions={
               <>
-                <DialogCancelButton onClick={() => setNewSubscriptionMember(null)} />
+                <DialogCancelButton
+                  onClick={() => {
+                    if (!createSubscription.isPending) setNewSubscriptionMember(null);
+                  }}
+                />
                 <Button isLoading={createSubscription.isPending} loadingText="جاري تفعيل الاشتراك">
                   تأكيد الدفع والاشتراك
                 </Button>
@@ -2038,7 +2047,9 @@ export function AdminMembershipsPage() {
               event.preventDefault();
               const form = objectFromForm(event.currentTarget);
               createSubscription.mutate({
-                days: formText(form.days),
+                planId: formText(form.planId),
+                planUpdatedAt: formText(form.planUpdatedAt),
+                requestKey: formText(form.requestKey),
                 memberId: newSubscriptionMember.id,
                 observerId: formText(form.observerId) || undefined,
                 reason: formText(form.reason),
@@ -2063,7 +2074,10 @@ export function AdminMembershipsPage() {
                 }
               />
             </div>
-            <Input defaultValue={30} min={1} name="days" required type="number" />
+            <PlanPicker key={newSubscriptionMember.id} />
+            {createSubscription.error ? (
+              <ErrorState message={createSubscription.error.message} />
+            ) : null}
             {auth.data?.role !== 'OBSERVER' ? (
               <SelectField name="observerId" required>
                 <option value="">اختر مراقب الشفت</option>
@@ -2118,10 +2132,12 @@ export function AdminMembershipsPage() {
       <Dialog
         description={
           subscriptionAction?.action === 'renew'
-            ? 'مدة التجديد الافتراضية 30 يوماً ويمكن تعديلها قبل التأكيد. لا حاجة لكتابة سبب عند التجديد.'
+            ? 'اختر الباقة وأكد استلام المبلغ. يبدأ اشتراك جديد من اليوم وتُحفظ الدفعة بسعرها الحالي.'
             : 'اكتب سبباً واضحاً لهذا التعديل ليظهر للمالك في سجل التدقيق.'
         }
-        onClose={() => setSubscriptionAction(null)}
+        onClose={() => {
+          if (!mutateSub.isPending) setSubscriptionAction(null);
+        }}
         open={Boolean(subscriptionAction)}
         title={
           subscriptionAction
@@ -2133,7 +2149,11 @@ export function AdminMembershipsPage() {
           <DialogForm
             actions={
               <>
-                <DialogCancelButton onClick={() => setSubscriptionAction(null)} />
+                <DialogCancelButton
+                  onClick={() => {
+                    if (!mutateSub.isPending) setSubscriptionAction(null);
+                  }}
+                />
                 <Button isLoading={mutateSub.isPending} loadingText="جاري الحفظ">
                   تأكيد التعديل
                 </Button>
@@ -2148,9 +2168,14 @@ export function AdminMembershipsPage() {
                   observerId: formText(form.observerId),
                   reason:
                     subscriptionAction.action === 'renew'
-                      ? `تجديد الاشتراك لمدة ${formText(form.days)} يوم بعد استلام الدفع`
+                      ? 'تجديد الاشتراك بعد استلام ثمن الباقة'
                       : formText(form.reason),
-                  ...(subscriptionAction.needsDays ? { days: formText(form.days) } : {}),
+                  requestKey: formText(form.requestKey),
+                  ...(subscriptionAction.action === 'renew'
+                    ? { planId: formText(form.planId), planUpdatedAt: formText(form.planUpdatedAt) }
+                    : subscriptionAction.needsDays
+                      ? { days: formText(form.days) }
+                      : {}),
                 },
                 id: subscriptionAction.subscription.id,
               });
@@ -2174,7 +2199,12 @@ export function AdminMembershipsPage() {
                 value={`${subscriptionRemainingDays(subscriptionAction.subscription.endsAt)} يوم`}
               />
             </div>
-            {subscriptionAction.needsDays ? (
+            {subscriptionAction.action === 'renew' ? (
+              <PlanPicker key={subscriptionAction.subscription.id} />
+            ) : (
+              <RequestKey />
+            )}
+            {subscriptionAction.needsDays && subscriptionAction.action !== 'renew' ? (
               <label className="grid gap-2 text-sm font-black">
                 عدد الأيام
                 <Input
@@ -2203,6 +2233,7 @@ export function AdminMembershipsPage() {
             {subscriptionAction.action !== 'renew' ? (
               <Textarea name="reason" placeholder="سبب التعديل للمالك" required />
             ) : null}
+            {mutateSub.error ? <ErrorState message={mutateSub.error.message} /> : null}
           </DialogForm>
         ) : null}
       </Dialog>

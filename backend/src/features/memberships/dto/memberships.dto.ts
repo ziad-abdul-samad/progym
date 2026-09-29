@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsInt,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -21,10 +22,12 @@ export class MembershipMemberSearchDto {
 export class CreateMembershipPlanDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(120)
   nameAr!: string;
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(120)
   nameEn!: string;
 
   @IsOptional()
@@ -44,10 +47,12 @@ export class CreateMembershipPlanDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
+  @Max(2000000000)
   priceMinor!: number;
 
   @IsOptional()
   @IsString()
+  @IsIn(['USD', 'SYP_NEW'])
   currency?: string;
 
   @IsOptional()
@@ -58,11 +63,18 @@ export class CreateMembershipPlanDto {
 
 export class UpdateMembershipPlanDto {
   @IsOptional()
+  @IsIn(['USD', 'SYP_NEW'])
+  currency?: string;
+  @IsOptional()
   @IsString()
+  @MinLength(1)
+  @MaxLength(120)
   nameAr?: string;
 
   @IsOptional()
   @IsString()
+  @MinLength(1)
+  @MaxLength(120)
   nameEn?: string;
 
   @IsOptional()
@@ -77,12 +89,14 @@ export class UpdateMembershipPlanDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(2000)
   durationDays?: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
+  @Max(2000000000)
   priceMinor?: number;
 
   @IsOptional()
@@ -91,7 +105,18 @@ export class UpdateMembershipPlanDto {
   isActive?: boolean;
 }
 
-export class CreateSubscriptionDto {
+export class PaidPlanDto {
+  @IsOptional()
+  @IsString()
+  planUpdatedAt?: string;
+
+  @IsString()
+  @MinLength(16)
+  @MaxLength(120)
+  requestKey!: string;
+}
+
+export class CreateSubscriptionDto extends PaidPlanDto {
   @IsString()
   memberId!: string;
 
@@ -114,7 +139,7 @@ export class CreateSubscriptionDto {
   reason!: string;
 }
 
-export class MembershipMutationDto {
+export class MembershipMutationDto extends PaidPlanDto {
   @IsString()
   @IsNotEmpty()
   reason!: string;

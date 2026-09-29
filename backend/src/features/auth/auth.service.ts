@@ -60,9 +60,6 @@ export class AuthService {
     if (dto.password !== dto.passwordConfirmation) {
       throw new BadRequestException('Password confirmation does not match');
     }
-    if (!photo) {
-      throw new BadRequestException('Personal photo is required');
-    }
 
     const username = normalizeUsername(dto.username);
     const dateOfBirth = new Date(dto.dateOfBirth);
@@ -114,7 +111,7 @@ export class AuthService {
     ]);
     const memberCode = `PG-${randomToken(5).toUpperCase()}`;
     const claimToken = randomToken(40);
-    const avatar = await this.storage.saveImage(photo, null, undefined, branch.id);
+    const avatar = photo ? await this.storage.saveImage(photo, null, undefined, branch.id) : null;
 
     let request;
     try {
@@ -139,7 +136,7 @@ export class AuthService {
 
         const createdUser = await transaction.user.create({
           data: {
-            avatarUrl: `/api/v1/files/${avatar.id}`,
+            avatarUrl: avatar ? `/api/v1/files/${avatar.id}` : null,
             fullName: dto.fullName,
             passwordHash,
             phone: dto.phone,
@@ -186,10 +183,11 @@ export class AuthService {
             where: { id: registrationInvite.id },
           });
         }
-        await transaction.fileAsset.update({
-          data: { ownerUserId: createdUser.id },
-          where: { id: avatar.id },
-        });
+        if (avatar)
+          await transaction.fileAsset.update({
+            data: { ownerUserId: createdUser.id },
+            where: { id: avatar.id },
+          });
 
         return transaction.registrationRequest.create({
           data: {
@@ -201,7 +199,7 @@ export class AuthService {
         });
       });
     } catch (error) {
-      await this.storage.deleteAsset(avatar.id);
+      if (avatar) await this.storage.deleteAsset(avatar.id);
       throw error;
     }
 

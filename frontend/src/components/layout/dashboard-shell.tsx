@@ -78,7 +78,9 @@ const navItems: Record<SessionUser['role'], NavItem[]> = {
     },
     { href: '/ar/dashboard/admin/coaches', icon: UserCog, label: 'المدربون' },
     { href: '/ar/dashboard/admin/memberships', icon: WalletCards, label: 'الاشتراكات' },
-    { href: '/ar/dashboard/admin/reports', icon: FileText, label: 'التقارير' },
+    { href: '/ar/dashboard/admin/plans', icon: WalletCards, label: 'باقات الاشتراك' },
+    { href: '/ar/dashboard/admin/expenses', icon: ClipboardList, label: 'المصاريف' },
+    { href: '/ar/dashboard/admin/reports', icon: FileText, label: 'التقارير المالية' },
     { href: '/ar/dashboard/admin/observers', icon: ClipboardList, label: 'المراقبون' },
     {
       badgeKey: 'attendance',
@@ -90,6 +92,9 @@ const navItems: Record<SessionUser['role'], NavItem[]> = {
     { href: '/ar/dashboard/admin/audit', icon: Shield, label: 'التدقيق' },
   ],
   OBSERVER: [
+    { href: '/ar/dashboard/admin/plans', icon: WalletCards, label: 'باقات الاشتراك' },
+    { href: '/ar/dashboard/admin/expenses', icon: ClipboardList, label: 'المصاريف' },
+    { href: '/ar/dashboard/admin/reports', icon: FileText, label: 'تقارير الفرع' },
     { href: '/ar/dashboard/admin', icon: Gauge, label: 'لوحة التشغيل' },
     { badgeKey: 'members', href: '/ar/dashboard/admin/members', icon: Users, label: 'الأعضاء' },
     {

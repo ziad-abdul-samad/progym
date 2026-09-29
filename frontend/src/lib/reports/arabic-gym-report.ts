@@ -437,20 +437,20 @@ function drawInsight(context: CanvasRenderingContext2D, report: GymReport, page:
   context.fillRect(WIDTH - PAGE_MARGIN - 10, y, 10, 150);
 
   if (page === 1) {
-    drawText(context, 'ملاحظة الإيرادات', WIDTH - PAGE_MARGIN - 35, y + 43, {
+    drawText(context, 'قراءة التقرير', WIDTH - PAGE_MARGIN - 35, y + 43, {
       fontSize: 21,
       fontWeight: 900,
     });
     drawText(
       context,
-      `سعر الاشتراك الشهري المعتمد هو ${money(report.revenue.monthlySubscriptionPriceMinor)}`,
+      'تُعرض الأرقام التشغيلية للفترة والفرع المحددين في أعلى التقرير.',
       WIDTH - PAGE_MARGIN - 35,
       y + 87,
       { color: palette.muted, fontSize: 20, fontWeight: 700, maxWidth: 950 },
     );
     drawText(
       context,
-      `اشتراك شهرين يُحتسب تلقائياً بقيمة ${money(report.revenue.monthlySubscriptionPriceMinor * 2)}`,
+      'للمقبوضات والمصاريف والعملات، استخدم التقرير المالي المفصّل.',
       WIDTH - PAGE_MARGIN - 35,
       y + 124,
       { color: palette.muted, fontSize: 20, fontWeight: 700, maxWidth: 950 },
@@ -550,13 +550,13 @@ function drawReportPage(
   return canvas;
 }
 
-async function loadLogo(url: string) {
+export async function loadLogo(url: string) {
   const response = await fetch(url);
   if (!response.ok) throw new Error('تعذر تحميل شعار النادي');
   return createImageBitmap(await response.blob());
 }
 
-async function canvasAsJpeg(canvas: HTMLCanvasElement) {
+export async function canvasAsJpeg(canvas: HTMLCanvasElement) {
   const blob = await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(
       (value) => (value ? resolve(value) : reject(new Error('تعذر تجهيز صفحة التقرير'))),
@@ -577,7 +577,7 @@ function concat(parts: Uint8Array[]) {
   return result;
 }
 
-function createPdf(images: Uint8Array[]) {
+export function createPdf(images: Uint8Array[]) {
   const objectCount = 2 + images.length * 3;
   const objects = new Map<number, Uint8Array>();
   const pageIds = images.map((_, index) => 3 + index * 3);

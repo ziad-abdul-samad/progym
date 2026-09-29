@@ -434,8 +434,8 @@ export function ImmersiveRegisterForm({ locale = 'ar' }: { locale?: PublicLocale
                 ? 'راجع موظف الاستقبال لمعرفة السبب.'
                 : 'Please ask reception for details.')
             : locale === 'ar'
-              ? 'ابقَ في هذه الصفحة. سيتم تسجيل دخولك تلقائياً بعد مراجعة بياناتك وصورتك وتحديد مدة الاشتراك.'
-              : 'Keep this page open. You will be signed in automatically after your details, photo, and membership duration are approved.'}
+              ? 'ابقَ في هذه الصفحة. سيتم تسجيل دخولك تلقائياً بعد مراجعة بياناتك واعتماد باقة اشتراكك من المراقب.'
+              : 'Keep this page open. You will be signed in automatically after the observer reviews your details and approves your membership plan.'}
         </p>
         {!rejected ? (
           <span className="mx-auto mt-7 block h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-[#39ff14]" />
@@ -565,7 +565,9 @@ export function ImmersiveRegisterForm({ locale = 'ar' }: { locale?: PublicLocale
               <Camera className="h-5 w-5" />
             </span>
             <span>
-              <span className="block text-sm font-black text-white">{copy.photo}</span>
+              <span className="block text-sm font-black text-white">
+                {copy.photo} — {locale === 'ar' ? 'اختيارية' : 'optional'}
+              </span>
               <span className="mt-1 block text-xs text-white/30">JPG / PNG / WEBP</span>
             </span>
             <span className="ms-auto max-w-44 truncate text-xs text-white/35">
@@ -576,7 +578,6 @@ export function ImmersiveRegisterForm({ locale = 'ar' }: { locale?: PublicLocale
               className="sr-only"
               name="photo"
               onChange={(event) => setPhoto(event.target.files?.[0] ?? null)}
-              required
               type="file"
             />
           </label>

@@ -217,6 +217,8 @@ model Branch {
   files                FileAsset[]
   auditLogs            AuditLog[]
   settings             GymSettings?
+  plans                MembershipPlan[]
+  expenses             Expense[]
 
   @@index([isActive, sortOrder])
 }
@@ -445,6 +447,7 @@ model CoachSubscriptionEvent {
 
 model MembershipPlan {
   id            String   @id @default(cuid())
+  branchId      String?
   nameAr        String
   nameEn        String
   descriptionAr String?
@@ -459,7 +462,9 @@ model MembershipPlan {
   updatedAt     DateTime @updatedAt
 
   subscriptions Subscription[]
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: Restrict)
 
+  @@index([branchId, isActive, sortOrder])
   @@index([isActive, sortOrder])
 }
 
@@ -571,6 +576,15 @@ model RegistrationRequest {
 
 model Payment {
   id             String        @id @default(cuid())
+  requestKey     String?       @unique
+  branchIdSnapshot String?
+  planIdSnapshot String?
+  planNameSnapshot String?
+  durationDaysSnapshot Int?
+  memberIdSnapshot String?
+  memberNameSnapshot String?
+  receiverNameSnapshot String?
+  observerNameSnapshot String?
   subscriptionId String
   receivedById   String?
   amountMinor    Int
@@ -587,6 +601,27 @@ model Payment {
 
   @@index([subscriptionId, status])
   @@index([paidAt])
+  @@index([branchIdSnapshot, status, paidAt])
+}
+
+model Expense {
+  id String @id @default(cuid())
+  requestKey String @unique
+  branchId String
+  title String
+  notes String?
+  amountMinor Int
+  currency String
+  spentAt DateTime
+  createdById String
+  createdByName String
+  createdAt DateTime @default(now())
+  voidedAt DateTime?
+  voidedById String?
+  voidReason String?
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  @@index([branchId, spentAt])
 }
 
 model QrInvite {
