@@ -12,6 +12,7 @@ import {
   MembershipAuditAction,
   NotificationType,
   ObserverStatus,
+  PlanAudience,
   PaymentMethod,
   PaymentStatus,
   PrismaClient,
@@ -754,6 +755,10 @@ async function seedObservers() {
     });
 
     const observerData = {
+      audience:
+        account.branchCode !== 'b1' && account.seedKey.endsWith(':3')
+          ? PlanAudience.WOMEN
+          : PlanAudience.MEN,
       branchId: branch.id,
       fullName: account.fullName,
       notes: account.notes,

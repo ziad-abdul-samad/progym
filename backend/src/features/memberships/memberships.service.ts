@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -9,6 +10,7 @@ import {
   MembershipAuditAction,
   type MembershipPlan,
   ObserverStatus,
+  PlanAudience,
   Prisma,
   SubscriptionStatus,
   UserRole,
@@ -63,19 +65,38 @@ export function computeSubscriptionChargeMinor(monthlyPriceMinor: number, days: 
 export class MembershipsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private observerAudience(actor: AuthenticatedUser) {
+    if (actor.role !== UserRole.OBSERVER) return undefined;
+    if (!actor.observerAudience)
+      throw new ForbiddenException('لم يتم تحديد قسم الباقات لهذا الحساب');
+    return actor.observerAudience;
+  }
+
+  private assertPlanAudience(audience: PlanAudience, actor: AuthenticatedUser) {
+    const allowed = this.observerAudience(actor);
+    if (allowed && audience !== allowed) throw new ForbiddenException('هذه الباقة مخصصة لقسم آخر');
+  }
+
   async listPlans(admin: AuthenticatedUser) {
     return this.prisma.membershipPlan.findMany({
-      where: { branchId: requireBranchId(admin), deletedAt: null },
+      where: {
+        branchId: requireBranchId(admin),
+        deletedAt: null,
+        audience: this.observerAudience(admin),
+      },
       orderBy: [{ sortOrder: 'asc' }, { durationDays: 'asc' }, { createdAt: 'asc' }],
     });
   }
 
   async createPlan(dto: CreateMembershipPlanDto, admin: AuthenticatedUser) {
     if (!dto.nameAr.trim() || !dto.nameEn.trim()) throw new BadRequestException('اسم الباقة مطلوب');
+    const audience = dto.audience ?? this.observerAudience(admin) ?? PlanAudience.MEN;
+    this.assertPlanAudience(audience, admin);
     return this.prisma.$transaction(async (tx) => {
       const plan = await tx.membershipPlan.create({
         data: {
           ...dto,
+          audience,
           nameAr: dto.nameAr.trim(),
           nameEn: dto.nameEn.trim(),
           branchId: requireBranchId(admin),
@@ -107,6 +128,8 @@ export class MembershipsService {
       const previous = await tx.membershipPlan.findUnique({ where: { id } });
       if (!previous || previous.deletedAt || previous.branchId !== requireBranchId(admin))
         throw new NotFoundException('Plan not found in this branch');
+      this.assertPlanAudience(previous.audience, admin);
+      if (dto.audience) this.assertPlanAudience(dto.audience, admin);
       const plan = await tx.membershipPlan.update({ where: { id }, data: dto });
       await tx.auditLog.create({
         data: {
@@ -129,6 +152,7 @@ export class MembershipsService {
       const previous = await tx.membershipPlan.findUnique({ where: { id } });
       if (!previous || previous.branchId !== branchId)
         throw new NotFoundException('الباقة غير موجودة في هذا الفرع');
+      this.assertPlanAudience(previous.audience, admin);
       // A repeated request is harmless and does not duplicate the audit entry.
       if (!previous.deletedAt) {
         const plan = await tx.membershipPlan.update({
@@ -154,12 +178,14 @@ export class MembershipsService {
     tx: Prisma.TransactionClient,
     dto: { planId?: string; planUpdatedAt?: string },
     branchId: string,
+    actor: AuthenticatedUser,
   ) {
     if (!dto.planId) throw new BadRequestException('اختر باقة الاشتراك قبل تأكيد استلام المبلغ');
     await tx.$queryRaw`SELECT id FROM "MembershipPlan" WHERE id = ${dto.planId} FOR SHARE`;
     const plan = await tx.membershipPlan.findUnique({ where: { id: dto.planId } });
     if (!plan || plan.deletedAt || !plan.isActive || plan.branchId !== branchId)
       throw new BadRequestException('هذه الباقة غير متاحة لهذا الفرع');
+    this.assertPlanAudience(plan.audience, actor);
     if (!dto.planUpdatedAt || plan.updatedAt.toISOString() !== dto.planUpdatedAt)
       throw new ConflictException('تغيرت بيانات الباقة. أعد اختيارها وتحقق من السعر قبل التأكيد');
     return plan;
@@ -387,7 +413,7 @@ export class MembershipsService {
       if (!member) throw new NotFoundException('Member not found');
       if (member.user.status !== 'ACTIVE')
         throw new BadRequestException('Only active member accounts can start a subscription');
-      const plan = await this.paidPlan(transaction, dto, branchId);
+      const plan = await this.paidPlan(transaction, dto, branchId, admin);
       const now = new Date();
       const current = await transaction.subscription.findFirst({
         orderBy: { endsAt: 'desc' },
@@ -511,7 +537,7 @@ export class MembershipsService {
       if (action === MembershipAuditAction.RENEW) {
         if (subscription.member.user.status !== 'ACTIVE')
           throw new BadRequestException('Member account is not active');
-        plan = await this.paidPlan(transaction, dto, subscription.branchId);
+        plan = await this.paidPlan(transaction, dto, subscription.branchId, admin);
         data.endsAt = addDays(now, plan.durationDays);
         data.startsAt = now;
         data.frozenAt = null;

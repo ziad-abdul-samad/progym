@@ -40,6 +40,7 @@ export type SessionUser = {
   } | null;
   role: 'MEMBER' | 'COACH' | 'ADMIN' | 'OBSERVER';
   shiftObserver: {
+    audience: 'MEN' | 'WOMEN';
     branch: {
       code: string;
       id: string;

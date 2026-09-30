@@ -1,4 +1,4 @@
-import type { UserRole } from '@prisma/client';
+import type { PlanAudience, UserRole } from '@prisma/client';
 
 export interface AuthenticatedUser {
   id: string;
@@ -8,6 +8,7 @@ export interface AuthenticatedUser {
   memberProfileId?: string;
   coachProfileId?: string;
   shiftObserverId?: string;
+  observerAudience?: PlanAudience;
   branchId?: string;
   branchCode?: string;
   branchName?: string;

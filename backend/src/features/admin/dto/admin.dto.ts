@@ -78,6 +78,10 @@ export class AdminUpdateUserDto {
 }
 
 export class CreateObserverDto {
+  @IsOptional()
+  @IsIn(['MEN', 'WOMEN'])
+  audience?: 'MEN' | 'WOMEN';
+
   @IsString()
   fullName!: string;
 
@@ -106,6 +110,10 @@ export class CreateObserverDto {
 }
 
 export class UpdateObserverDto {
+  @IsOptional()
+  @IsIn(['MEN', 'WOMEN'])
+  audience?: 'MEN' | 'WOMEN';
+
   @IsOptional()
   @IsString()
   fullName?: string;

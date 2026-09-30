@@ -10,13 +10,17 @@ import { Input } from '@/components/ui/input';
 import { DashboardLoader, ErrorState } from '@/components/ui/state';
 import { useToast } from '@/components/ui/toast';
 import { apiRequest, jsonBody } from '@/lib/api/client';
-import { money, useBranchPlans, type BranchPlan } from './plan-picker';
+import { useAuth } from '@/lib/auth/use-auth';
+import { money, PlanAudienceField, useBranchPlans, type BranchPlan } from './plan-picker';
 
 export function BranchPlansPage() {
   const params = useParams();
   return <BranchPlansContent key={String(params.branchCode)} />;
 }
 function BranchPlansContent() {
+  const auth = useAuth();
+  const observerAudience =
+    auth.data?.role === 'OBSERVER' ? auth.data.shiftObserver?.audience : undefined;
   const plans = useBranchPlans(),
     client = useQueryClient();
   const [editing, setEditing] = useState<BranchPlan | 'new' | null>(null);
@@ -43,6 +47,7 @@ function BranchPlansContent() {
           durationDays: Number(form.get('days')),
           priceMinor: Math.round(Number(form.get('price')) * 100),
           currency: form.get('currency'),
+          audience: observerAudience ?? form.get('audience'),
           isActive: form.get('active') === 'on',
         }),
       }),
@@ -60,6 +65,11 @@ function BranchPlansContent() {
             PRO GYM / الباقات
           </p>
           <h1 className="mt-2 text-2xl font-black">باقات الاشتراك</h1>
+          {observerAudience ? (
+            <p className="mt-2 text-sm font-bold text-green-700 dark:text-brand-accent">
+              {observerAudience === 'WOMEN' ? 'قسم السيدات' : 'قسم الرجال'}
+            </p>
+          ) : null}
           <p className="mt-2 max-w-2xl text-sm leading-7 text-muted-foreground">
             أسعار ومدد خاصة بهذا الفرع. تعديل الباقة يؤثر على الدفعات الجديدة فقط؛ السجلات القديمة
             تبقى محفوظة. يمكنك إيقاف الباقة مؤقتاً أو حذفها من القائمة دون التأثير على المشتركين
@@ -93,6 +103,9 @@ function BranchPlansContent() {
                 </span>
               </div>
               <h2 className="mt-5 text-lg font-black">{plan.nameAr}</h2>
+              <p className="mt-2 text-xs font-bold text-muted-foreground">
+                {plan.audience === 'WOMEN' ? 'السيدات' : 'الرجال'}
+              </p>
               <p className="mt-3 text-2xl font-black" dir="ltr">
                 {money(plan.priceMinor, plan.currency)}
               </p>
@@ -152,6 +165,13 @@ function BranchPlansContent() {
               اسم الباقة
               <Input name="name" maxLength={120} required defaultValue={current?.nameAr} />
             </label>
+            {observerAudience ? (
+              <p className="text-sm font-bold">
+                هذه الباقة مخصصة لقسم {observerAudience === 'WOMEN' ? 'السيدات' : 'الرجال'}.
+              </p>
+            ) : (
+              <PlanAudienceField defaultValue={current?.audience ?? 'MEN'} />
+            )}
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="grid min-w-0 gap-2 text-sm">
                 المدة بالأيام

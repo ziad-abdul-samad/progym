@@ -27,11 +27,18 @@ function check(value, message) {
   console.log('PASS', message);
 }
 const key = () => randomUUID();
-async function actor(branch, role = 'OBSERVER') {
+async function actor(branch, role = 'OBSERVER', audience = 'MEN') {
   const user = await db.user.create({
     data: {
-      username: 'test.' + role.toLowerCase() + '.' + branch + '.' + stamp,
-      phone: role + branch + stamp,
+      username:
+        'test.' +
+        role.toLowerCase() +
+        '.' +
+        branch +
+        '.' +
+        stamp +
+        (audience === 'WOMEN' ? '.women' : ''),
+      phone: role + branch + stamp + audience,
       fullName: role === 'ADMIN' ? 'المالك التجريبي' : 'مراقب الاختبار ' + branch,
       role,
       passwordHash: await hashPassword('TestOnly!2026'),
@@ -40,6 +47,7 @@ async function actor(branch, role = 'OBSERVER') {
   const observer = await db.shiftObserver.create({
     data: {
       branchId: 'branch_' + branch,
+      audience,
       userId: role === 'OBSERVER' ? user.id : null,
       fullName: user.fullName,
       phone: user.phone,
@@ -52,6 +60,7 @@ async function actor(branch, role = 'OBSERVER') {
     branchId: 'branch_' + branch,
     branchCode: branch,
     shiftObserverId: observer.id,
+    observerAudience: audience,
   };
 }
 async function register(branch, suffix) {
@@ -85,7 +94,47 @@ async function run() {
     memberships.listPlans(b),
     memberships.listPlans(c),
   ]);
-  check(p1.length === 8 && p2.length === 4 && p3.length === 3, 'Seeded plan counts 8 / 4 / 3');
+  check(p1.length === 5 && p2.length === 4 && p3.length === 3, 'Men catalog counts 5 / 4 / 3');
+  const women = await Promise.all(
+    ['b1', 'b2', 'b3'].map((branch) => actor(branch, 'OBSERVER', 'WOMEN')),
+  );
+  const womenPlans = await Promise.all(women.map((w) => memberships.listPlans(w)));
+  check(
+    womenPlans[0].length === 3 &&
+      womenPlans[1].length === 4 &&
+      womenPlans[2].length === 3 &&
+      womenPlans.flat().every((p) => p.audience === 'WOMEN'),
+    'Women see only their own branch women offers',
+  );
+  check(
+    [...p1, ...p2, ...p3].every((p) => p.audience === 'MEN'),
+    'Men never receive women offers',
+  );
+  for (const [index, menPlans] of [p2, p3].entries()) {
+    check(
+      menPlans.every((p) =>
+        womenPlans[index + 1].some(
+          (w) =>
+            w.id === p.id + '_women_20261001' &&
+            w.priceMinor === p.priceMinor &&
+            w.durationDays === p.durationDays &&
+            w.currency === p.currency,
+        ),
+      ),
+      'B' + (index + 2) + ' women start at identical current branch prices',
+    );
+  }
+  check((await memberships.listPlans(owner)).length === 8, 'Owner sees both audiences');
+  await assert.rejects(memberships.listPlans({ ...a, observerAudience: undefined }));
+  await assert.rejects(memberships.updatePlan(womenPlans[0][0].id, { priceMinor: 1 }, a));
+  await assert.rejects(memberships.deletePlan(p1[0].id, women[0]));
+  await assert.rejects(
+    memberships.createPlan(
+      { nameAr: 'غير مسموح', nameEn: 'Denied', durationDays: 30, priceMinor: 1, audience: 'WOMEN' },
+      a,
+    ),
+  );
+  check(true, 'Missing audience and cross-audience create/edit/delete rejected');
   check(
     p1.find((p) => p.durationDays === 30).priceMinor === 3000 &&
       p1.find((p) => p.durationDays === 30).currency === 'USD',
@@ -289,14 +338,103 @@ async function run() {
   const paidBeforeDelete = await db.payment.findMany({ where: { subscriptionId: transfer.id } });
   const subscribedBeforeDelete = await db.subscription.findUnique({ where: { id: transfer.id } });
   await Promise.all([memberships.deletePlan(newPlan.id, a), memberships.deletePlan(newPlan.id, a)]);
-  check(!(await memberships.listPlans(a)).some(p => p.id === newPlan.id), 'Deleted offer removed from catalog');
-  assert.deepEqual(await db.payment.findMany({ where: { subscriptionId: transfer.id } }), paidBeforeDelete);
-  assert.deepEqual(await db.subscription.findUnique({ where: { id: transfer.id } }), subscribedBeforeDelete);
-  check((await finance.report(reportRange, a)).totals[0].incomeMinor === 6000, 'Deleted paid offer preserves subscriptions, receipts and reports');
+  check(
+    !(await memberships.listPlans(a)).some((p) => p.id === newPlan.id),
+    'Deleted offer removed from catalog',
+  );
+  assert.deepEqual(
+    await db.payment.findMany({ where: { subscriptionId: transfer.id } }),
+    paidBeforeDelete,
+  );
+  assert.deepEqual(
+    await db.subscription.findUnique({ where: { id: transfer.id } }),
+    subscribedBeforeDelete,
+  );
+  check(
+    (await finance.report(reportRange, a)).totals[0].incomeMinor === 6000,
+    'Deleted paid offer preserves subscriptions, receipts and reports',
+  );
   await assert.rejects(memberships.updatePlan(newPlan.id, { isActive: true }, a));
-  await assert.rejects(memberships.createSubscription({ memberId: request.memberId, planId: newPlan.id, planUpdatedAt: newPlan.updatedAt.toISOString(), requestKey: key(), reason: 'test deleted offer' }, a));
+  await assert.rejects(
+    memberships.createSubscription(
+      {
+        memberId: request.memberId,
+        planId: newPlan.id,
+        planUpdatedAt: newPlan.updatedAt.toISOString(),
+        requestKey: key(),
+        reason: 'test deleted offer',
+      },
+      a,
+    ),
+  );
   check(true, 'Deleted offer cannot be reactivated or purchased from stale form');
-  check(await db.auditLog.count({ where: { entityId: newPlan.id, entityType: 'MembershipPlan', action: 'DELETE' } }) === 1, 'Concurrent delete is idempotent and audited once');
+  check(
+    (await db.auditLog.count({
+      where: { entityId: newPlan.id, entityType: 'MembershipPlan', action: 'DELETE' },
+    })) === 1,
+    'Concurrent delete is idempotent and audited once',
+  );
+  const womenRegistration = await register('b2', 'women');
+  const womenRequest = await db.registrationRequest.findUniqueOrThrow({
+    where: { id: womenRegistration.requestId },
+  });
+  await assert.rejects(
+    admin.reviewRegistrationRequest(
+      womenRequest.id,
+      { approve: true, planId: p2[0].id, planUpdatedAt: p2[0].updatedAt.toISOString() },
+      women[1],
+    ),
+  );
+  check(
+    (
+      await db.user.findUnique({
+        where: {
+          id: (await db.memberProfile.findUnique({ where: { id: womenRequest.memberId } })).userId,
+        },
+      })
+    ).status === 'INACTIVE',
+    'Cross-audience approval rolls back member activation',
+  );
+  const womenMonthly = womenPlans[1].find((p) => p.durationDays === 30 && p.priceMinor === 200000);
+  const acceptedWomen = await admin.reviewRegistrationRequest(
+    womenRequest.id,
+    { approve: true, planId: womenMonthly.id, planUpdatedAt: womenMonthly.updatedAt.toISOString() },
+    women[1],
+  );
+  check(
+    acceptedWomen.subscription.planId === womenMonthly.id,
+    'Women observer can accept using women plan',
+  );
+  const receiptCount = await db.payment.count();
+  await assert.rejects(
+    memberships.mutateSubscription(
+      acceptedWomen.subscription.id,
+      'RENEW',
+      { planId: p2[0].id, planUpdatedAt: p2[0].updatedAt.toISOString(), requestKey: key() },
+      women[1],
+    ),
+  );
+  check((await db.payment.count()) === receiptCount, 'Forbidden renewal creates no payment');
+  const customWomen = await memberships.createPlan(
+    {
+      nameAr: 'عرض نسائي خاص',
+      nameEn: 'Women offer',
+      durationDays: 30,
+      priceMinor: 120000,
+      currency: 'SYP_NEW',
+    },
+    women[2],
+  );
+  check(customWomen.audience === 'WOMEN', 'Women-created offers automatically belong to women');
+  await assert.rejects(memberships.updatePlan(customWomen.id, { audience: 'MEN' }, women[2]));
+  const ownerB3 = { ...owner, branchId: 'branch_b3', branchCode: 'b3' };
+  await memberships.updatePlan(customWomen.id, { priceMinor: 130000 }, ownerB3);
+  check(true, 'Owner manages both audiences while observer cannot switch plan audience');
+  await admin.updateObserver(women[2].shiftObserverId, { audience: 'MEN' }, ownerB3);
+  check(
+    (await auth.getSessionUser(women[2].id)).shiftObserver.audience === 'MEN',
+    'Owner CRUD changes observer audience returned by session',
+  );
   console.log(
     JSON.stringify({ checks, owner: owner.username, observer: b.username, reportDay: day }),
   );

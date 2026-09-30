@@ -1,5 +1,14 @@
 # Branch accounting rollout — 2026-09-29
 
+## Current task — observer audience and plan selection (Oct1)
+- Improve paid-plan selection UI across approval, renewal and transfer. Restrict catalog/purchases/plan management to each observer's MEN/WOMEN audience; owner sees/manages both.
+- B1 existing two women observers -> WOMEN; existing three men observers -> MEN. B2/B3 seeded third account -> WOMEN, first/second -> MEN. Preserve credentials, shifts, existing users and all financial records.
+- User confirmed B2/B3 women's offers use the same current prices as each branch. Add separate women's copies of the current non-deleted offers once; subsequent edits stay independent. Existing B1 women's offers retain their own prices.
+- Implemented owner-editable audience in plans and observer CRUD; guard loads audience from current DB each request, session exposes it. Server restricts listing/create/edit/delete/purchase/renewal; owner has both audiences. Shared picker uses radio cards, price/duration, search for larger catalogs, scoped cache and re-confirmation if price changes.
+- Verification passed: backend build/lint + 26 unit tests; frontend production build (171 routes), typecheck/lint; 41 real PostgreSQL checks on isolated audience_checks. Migration tested against existing local plan_delete_checks: all User (including password hash), Subscription, Payment rows and existing plan prices/observer shifts preserved; B1 women's and B2/B3 third-account mappings correct.
+- UI checked using separate local men/women browser sessions. Men catalog excludes women; women renewal shows four women's B2 offers. Mobile 390px document width390; selecting card works and exposes receipt confirmation. Screenshot ignored: test-results/audience-picker-mobile.png. Preserved women's shift options in owner editor.
+- Pre-rollout remote checkpoint reverified: both GitHub branches c3d9788; Render dep-daug165g1s2s73878qmg LIVE; Vercel dpl_ACPBUwSdDwTnX2Lt5MWHz8VBKzYn READY. Remaining: backend-first deploy, verify migration/LIVE, promote main, verify Vercel and read-only live account scopes.
+
 ## Current task — delete offers and actual JolyUI maps (Sept30)
 - Requested: delete specific plan with confirmation, preserve all historical subscriptions/receipts; supplied B2/B3 Google Maps links; use actual official JolyUI Expanded Map, not previous approximation.
 - WIP uncommitted: MembershipPlan.deletedAt additive migration, branch-scoped audited idempotent soft-delete endpoint and confirmation UI; list/update/purchase reject deleted offers.
@@ -10,7 +19,13 @@
 - Verification: backend build/lint and 26 unit tests passed; frontend production build (171 routes), typecheck/lint passed; all 29 isolated PostgreSQL checks passed. Remote working branch/main and Render LIVE reverified at 440fb3b before rollout.
 - Visual verification caught the official default CARTO tiles returning API-key warning images despite HTTP success. Switched the component's supported default to OpenStreetMap (no API key), preserving actual JolyUI interaction; attribution and direct Google directions remain visible. Only expanded maps load tiles using normal browser cache/referrer.
 - Visual checks passed: actual OSM streets/landmarks loaded (no API warning), mobile 390px and desktop 1440px have no horizontal overflow. Screenshots ignored under test-results/joly-osm-*.png. Branch coordinates and Google directions verified. Final lint/diff check passed.
-- Remaining: backend-first rollout, then main/Vercel promotion and read-only production checks. No live customer records mutated for testing.
+- Committed c3d97883ddb2e0bc55a027b2e7dbf4e00ca6f5ee, pushed working branch. Render dep-daug165g1s2s73878qmg BUILD_IN_PROGRESS (2026-09-30 12:29 UTC). Main still 440fb3b until backend/migration confirmed LIVE. No live customer records mutated for testing.
+- Render dep-daug165g1s2s73878qmg LIVE on c3d9788 at 12:31:56 UTC. Logs confirm archive_membership_plans migration applied successfully 12:31:06 UTC. No financial records removed or reset.
+- Local observer UI: cancel preserved offer; confirmed delete removed it and closed modal (zero open dialogs); success-toast handler implemented. All three map locations loaded in AR/EN with actual streets (27 tiles total tested).
+- Both GitHub branches now c3d9788. Vercel production dpl_ACPBUwSdDwTnX2Lt5MWHz8VBKzYn BUILDING; same-commit preview dpl_BUUw87zkxpkjZJrh8u4uqduZAF8S already READY.
+- Production backend: public security-questions HTTP200; protected catalog401; OpenAPI lists DELETE /api/v1/memberships/plans/{id}. Render error log scan since LIVE returned no errors.
+- COMPLETE: Vercel production dpl_ACPBUwSdDwTnX2Lt5MWHz8VBKzYn READY on c3d9788 with canonical alias progym-homs.vercel.app. Arabic/English live contact HTTP200, exact B2/B3 directions links present, no Internal Server Error. Render LIVE on same commit, both remote branches synchronized.
+- Final local worklog-only changes record deployment IDs/check results and are intentionally not pushed as another unnecessary application redeploy. No pending implementation; no Instagram files or ignored artifacts uploaded.
 
 ## Follow-up in progress — acceptance UX / clearer PDFs / Inshaat offers
 - User requested acceptance dialog immediate close with success notice; found onSuccess calls manual close while mutation is pending, so guard prevents close. Fixed automatic completion separately and made cache refresh non-blocking; requests-page success toast also added.

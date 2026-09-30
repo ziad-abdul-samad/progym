@@ -1114,6 +1114,7 @@ export class AdminService {
         data: {
           branchId,
           fullName: dto.fullName.trim(),
+          audience: dto.audience ?? 'MEN',
           notes: dto.notes?.trim() || null,
           phone,
           shiftEnd: dto.shiftEnd,
@@ -1130,6 +1131,7 @@ export class AdminService {
       shiftEnd: observer.shiftEnd,
       shiftStart: observer.shiftStart,
       username,
+      audience: observer.audience,
     });
 
     return observer;
@@ -1162,6 +1164,7 @@ export class AdminService {
       const updated = await transaction.shiftObserver.update({
         data: {
           ...(dto.fullName ? { fullName: dto.fullName.trim() } : {}),
+          ...(dto.audience ? { audience: dto.audience } : {}),
           ...(dto.phone ? { phone: dto.phone.trim() } : {}),
           ...(dto.notes !== undefined ? { notes: dto.notes.trim() || null } : {}),
           ...(dto.shiftEnd ? { shiftEnd: dto.shiftEnd } : {}),
@@ -1186,6 +1189,8 @@ export class AdminService {
     await this.audit(admin, AuditAction.UPDATE, 'ShiftObserver', id, {
       fullName: dto.fullName,
       passwordChanged: Boolean(dto.newPassword),
+      previousAudience: target.audience,
+      audience: observer.audience,
       phone: dto.phone,
       shiftEnd: dto.shiftEnd,
       shiftStart: dto.shiftStart,

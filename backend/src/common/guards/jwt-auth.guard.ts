@@ -76,7 +76,11 @@ export class JwtAuthGuard implements CanActivate {
         },
         coachProfile: { select: { id: true } },
         shiftObserver: {
-          select: { id: true, branch: { select: { code: true, id: true, nameAr: true } } },
+          select: {
+            id: true,
+            audience: true,
+            branch: { select: { code: true, id: true, nameAr: true } },
+          },
         },
       },
       where: { id: payload.sub },
@@ -119,6 +123,7 @@ export class JwtAuthGuard implements CanActivate {
       memberProfileId: user.memberProfile?.id,
       coachProfileId: user.coachProfile?.id,
       shiftObserverId: user.shiftObserver?.id,
+      observerAudience: user.shiftObserver?.audience,
       branchId: selectedBranch?.id,
       branchCode: selectedBranch?.code,
       branchName: selectedBranch?.nameAr,

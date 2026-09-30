@@ -418,6 +418,7 @@ export class AuthService {
         ? {
             branch: user.shiftObserver.branch,
             id: user.shiftObserver.id,
+            audience: user.shiftObserver.audience,
             shiftEnd: user.shiftObserver.shiftEnd,
             shiftStart: user.shiftObserver.shiftStart,
           }

@@ -30,6 +30,11 @@ enum ObserverStatus {
   INACTIVE
 }
 
+enum PlanAudience {
+  MEN
+  WOMEN
+}
+
 enum Gender {
   MALE
   FEMALE
@@ -457,6 +462,7 @@ model MembershipPlan {
   currency      String   @default("SYP")
   features      Json?
   isActive      Boolean  @default(true)
+  audience      PlanAudience @default(MEN)
   deletedAt     DateTime?
   sortOrder     Int      @default(0)
   createdAt     DateTime @default(now())
@@ -534,6 +540,7 @@ model ShiftObserver {
   shiftStart String?
   shiftEnd   String?
   status     ObserverStatus @default(ACTIVE)
+  audience   PlanAudience   @default(MEN)
   deletedAt  DateTime?
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt

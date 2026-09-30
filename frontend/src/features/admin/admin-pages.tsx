@@ -39,7 +39,7 @@ import {
 } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { PlanPicker, RequestKey } from './plan-picker';
+import { PlanAudienceField, PlanPicker, RequestKey } from './plan-picker';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogCancelButton, DialogForm } from '@/components/ui/dialog';
 import { Input, Textarea } from '@/components/ui/input';
@@ -142,6 +142,7 @@ type MemberProfileChangeRequest = {
 };
 
 type ShiftObserver = {
+  audience: 'MEN' | 'WOMEN';
   _count?: { membershipAuditLogs: number };
   createdAt: string;
   fullName: string;
@@ -3053,6 +3054,9 @@ export function AdminObserversPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="font-black text-foreground">{observer.fullName}</p>
+                    <p className="mt-1 text-xs font-bold text-green-700 dark:text-brand-accent">
+                      {observer.audience === 'WOMEN' ? 'قسم السيدات' : 'قسم الرجال'}
+                    </p>
                     <p className="mt-1 text-sm font-semibold text-muted-foreground">
                       {observer.phone ?? 'لا يوجد هاتف'}
                     </p>
@@ -3134,6 +3138,7 @@ export function AdminObserversPage() {
             const shiftStart = shiftParts[0] ?? '07:00';
             const shiftEnd = shiftParts[1] ?? '14:00';
             createObserver.mutate({
+              audience: formText(form.audience),
               fullName: formText(form.fullName),
               notes: formText(form.notes),
               password: formText(form.password),
@@ -3156,10 +3161,13 @@ export function AdminObserversPage() {
             type="password"
           />
           <Input dir="ltr" name="phone" placeholder="رقم الهاتف" required />
+          <PlanAudienceField />
           <SelectField defaultValue="07:00|14:00" name="shiftPreset" required>
             <option value="07:00|14:00">7:00 AM — 2:00 PM</option>
             <option value="14:00|19:00">2:00 PM — 7:00 PM</option>
             <option value="19:00|00:00">7:00 PM — 12:00 AM</option>
+            <option value="07:00|15:00">7:00 AM — 3:00 PM</option>
+            <option value="15:00|22:00">3:00 PM — 10:00 PM</option>
           </SelectField>
           <Textarea name="notes" placeholder="ملاحظات اختيارية" />
         </DialogForm>
@@ -3178,6 +3186,10 @@ export function AdminObserversPage() {
                 value={selectedObserver.user?.username ? `@${selectedObserver.user.username}` : '-'}
               />
               <DetailRow label="الهاتف" value={selectedObserver.phone ?? 'لا يوجد'} />
+              <DetailRow
+                label="قسم الباقات"
+                value={selectedObserver.audience === 'WOMEN' ? 'السيدات' : 'الرجال'}
+              />
               <DetailRow label="الحالة" value={<StatusBadge status={selectedObserver.status} />} />
               <DetailRow
                 label="الوردية"
@@ -3248,6 +3260,7 @@ export function AdminObserversPage() {
               updateObserver.mutate({
                 id: editingObserver.id,
                 payload: {
+                  audience: formText(form.audience),
                   fullName: formText(form.fullName),
                   notes: formText(form.notes),
                   phone: formText(form.phone),
@@ -3266,6 +3279,7 @@ export function AdminObserversPage() {
               required
             />
             <Input defaultValue={editingObserver.phone ?? ''} name="phone" placeholder="الهاتف" />
+            <PlanAudienceField defaultValue={editingObserver.audience} />
             <Input
               defaultValue={editingObserver.user?.username ?? ''}
               dir="ltr"
@@ -3289,6 +3303,8 @@ export function AdminObserversPage() {
               <option value="07:00|14:00">7:00 AM — 2:00 PM</option>
               <option value="14:00|19:00">2:00 PM — 7:00 PM</option>
               <option value="19:00|00:00">7:00 PM — 12:00 AM</option>
+              <option value="07:00|15:00">7:00 AM — 3:00 PM</option>
+              <option value="15:00|22:00">3:00 PM — 10:00 PM</option>
             </SelectField>
             <Textarea
               defaultValue={editingObserver.notes ?? ''}

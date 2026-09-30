@@ -20,6 +20,10 @@ export class MembershipMemberSearchDto {
 }
 
 export class CreateMembershipPlanDto {
+  @IsOptional()
+  @IsIn(['MEN', 'WOMEN'])
+  audience?: 'MEN' | 'WOMEN';
+
   @IsString()
   @IsNotEmpty()
   @MaxLength(120)
@@ -62,6 +66,10 @@ export class CreateMembershipPlanDto {
 }
 
 export class UpdateMembershipPlanDto {
+  @IsOptional()
+  @IsIn(['MEN', 'WOMEN'])
+  audience?: 'MEN' | 'WOMEN';
+
   @IsOptional()
   @IsIn(['USD', 'SYP_NEW'])
   currency?: string;
