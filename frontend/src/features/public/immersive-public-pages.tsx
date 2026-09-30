@@ -18,7 +18,7 @@ import type { PublicLocale } from '@progym/shared';
 import { ContactForm } from '@/components/public/contact-form';
 import { JsonLd } from '@/components/public/json-ld';
 import { brand, coaches, publicBranches, publicCopy } from '@/lib/public/content';
-import { ExpandedMap } from '@/components/ui/expanded-map';
+import { LocationMap } from '@/components/ui/expanded-map';
 import { breadcrumbJsonLd, coachesJsonLd, membershipJsonLd } from '@/lib/public/seo';
 import { cn } from '@/lib/utils';
 
@@ -758,11 +758,11 @@ export function ContactPage({ locale }: { locale: PublicLocale }) {
                   <p className="mb-3 text-xs font-black tracking-widest text-[#39ff14]">
                     0{index + 1} / {branch.name[locale]}
                   </p>
-                  <ExpandedMap
+                  <LocationMap
                     locale={locale}
-                    label={branch.address[locale]}
-                    latitude={34.7179977}
-                    longitude={36.6970795}
+                    location={branch.address[locale]}
+                    latitude={branch.latitude}
+                    longitude={branch.longitude}
                     mapUrl={branch.mapsUrl}
                   />
                 </article>

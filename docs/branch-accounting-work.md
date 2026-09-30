@@ -1,5 +1,17 @@
 # Branch accounting rollout — 2026-09-29
 
+## Current task — delete offers and actual JolyUI maps (Sept30)
+- Requested: delete specific plan with confirmation, preserve all historical subscriptions/receipts; supplied B2/B3 Google Maps links; use actual official JolyUI Expanded Map, not previous approximation.
+- WIP uncommitted: MembershipPlan.deletedAt additive migration, branch-scoped audited idempotent soft-delete endpoint and confirmation UI; list/update/purchase reject deleted offers.
+- Official MIT JolyUI registry source fetched from https://jolyui.dev/r/expanded-map and installed in expanded-map.tsx; local accessibility/mobile/RTL/exact-pin adaptations pending. THIRD_PARTY_NOTICES.md holds upstream MIT license.
+- B2 supplied link verified in Google Maps: Pro GYM, 34.7393643,36.7113847 (ftid 0x15230f0055f09fad:0xb8fd19f9f7de18de). B3 supplied link verified: professional gym, 34.7048545,36.7113036 (ftid 0x15230f354f18f935:0x44a21776dd26f180). Branch content now holds exact coordinates and user links; contact maps and footer links share this source.
+- JolyUI official source installed and adapted: original compact 240x140 to 360x280 card, spring tilt/reveal, coordinates/underline; public palette, AR/EN, keyboard/Escape, max-width mobile, unique SVG IDs, tile attribution, lazy tile preload, corrected fractional tile positioning.
+- Backend build and 29 PostgreSQL integration checks passed on fresh localhost:55434/plan_delete_checks, including deleting a paid offer while preserving subscription/receipt/report and concurrent deletion audit. Test owner test.admin.b1.0ae638bc, B2 observer test.observer.b2.0ae638bc; disposable password from test script.
+- Verification: backend build/lint and 26 unit tests passed; frontend production build (171 routes), typecheck/lint passed; all 29 isolated PostgreSQL checks passed. Remote working branch/main and Render LIVE reverified at 440fb3b before rollout.
+- Visual verification caught the official default CARTO tiles returning API-key warning images despite HTTP success. Switched the component's supported default to OpenStreetMap (no API key), preserving actual JolyUI interaction; attribution and direct Google directions remain visible. Only expanded maps load tiles using normal browser cache/referrer.
+- Visual checks passed: actual OSM streets/landmarks loaded (no API warning), mobile 390px and desktop 1440px have no horizontal overflow. Screenshots ignored under test-results/joly-osm-*.png. Branch coordinates and Google directions verified. Final lint/diff check passed.
+- Remaining: backend-first rollout, then main/Vercel promotion and read-only production checks. No live customer records mutated for testing.
+
 ## Follow-up in progress — acceptance UX / clearer PDFs / Inshaat offers
 - User requested acceptance dialog immediate close with success notice; found onSuccess calls manual close while mutation is pending, so guard prevents close. Fixed automatic completion separately and made cache refresh non-blocking; requests-page success toast also added.
 - PDF redesign: first-page currency-separated cash-flow cards, vector icons, plain-language guide, numbered descriptive sections; keep all existing details and historical prices.
@@ -9,7 +21,12 @@
 - Local migration checks passed: every pre-existing User/ShiftObserver/Subscription/Payment unchanged; all 8 specified B1 catalog entries correct; two new observer shifts/roles correct; repeated migrate deploy preserves accounts. Extra custom offers retained.
 - Frontend build (171 routes), frontend typecheck/lint, backend lint and 30 unit tests passed. Acceptance dialog exercised with a disposable local registration: closed after successful approval (zero open dialogs).
 - Generated revised financial PDF (481146 bytes) and visually inspected all 3 pages with Poppler. Summary, icons, Arabic guide, original plan prices, observers and expense/void details are legible; no clipping. Artifacts ignored under test-results/followup-financial.pdf and followup-pdf-*.png.
-- All 24 accounting integration checks passed on fresh localhost:55434/accounting_followup with all 26 migrations, including new offers/accounts. Remaining: commit and backend-first rollout; verify Render migration lock recovery.
+- All 24 accounting integration checks passed on fresh localhost:55434/accounting_followup with all 26 migrations, including new offers/accounts.
+- COMPLETED: implementation committed/pushed to BOTH working branch and main as 440fb3bae65a2a6ef1f39f0fcdbec627c308db48. Render dep-dau0iqrbc2fs73c2sd3g LIVE at 18:57:20 UTC. Vercel production dpl_GZcjkmGpnmLWMswPDNWQHRJxidhT READY with canonical alias progym-homs.vercel.app. Credentials file remains local/ignored.
+- Production logs confirmed new Inshaat migration successfully applied at 2026-09-29 18:56:39 UTC; no lock error on this deploy. Checking new accounts via login + read-only catalog/observer endpoints, no test registrations/payments on production.
+- Also generated and visually inspected the revised subscriber PDF; player names, plan, amount, payment date/time and receipt ID are clear. Browser console has no errors.
+- Production verification passed for BOTH new observer logins, exact eight Inshaat prices, own-shift times and observer-directory scoping. Logged the test sessions out. No production registration/payment/expense test records created.
+- No pending implementation in this follow-up. Latest local worklog edits document verified deployment states; application code is committed and deployed. Preserve this checkpoint if a future task starts after a token reset.
 - Remote checkpoint reverified: Vercel docs commit 51ad949 READY, but matching Render docs-only redeploy failed acquiring Prisma advisory lock (P1002) on Sept29 12:41 UTC. Prior application commit remained live. Check new deploy carefully; do not disable migration locking.
 
 ## Authorized scope

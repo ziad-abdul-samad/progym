@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { MembershipAuditAction, UserRole } from '@prisma/client';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -44,6 +44,12 @@ export class MembershipsController {
   @Protected(UserRole.ADMIN, UserRole.OBSERVER)
   async listSubscriptions(@Query() query: PaginationDto, @CurrentUser() user: AuthenticatedUser) {
     return { data: await this.memberships.listSubscriptions(query, user) };
+  }
+
+  @Delete('plans/:id')
+  @Protected(UserRole.ADMIN, UserRole.OBSERVER)
+  async deletePlan(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return { data: await this.memberships.deletePlan(id, user) };
   }
 
   @Get('members/search')

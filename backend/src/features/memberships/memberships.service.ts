@@ -65,7 +65,7 @@ export class MembershipsService {
 
   async listPlans(admin: AuthenticatedUser) {
     return this.prisma.membershipPlan.findMany({
-      where: { branchId: requireBranchId(admin) },
+      where: { branchId: requireBranchId(admin), deletedAt: null },
       orderBy: [{ sortOrder: 'asc' }, { durationDays: 'asc' }, { createdAt: 'asc' }],
     });
   }
@@ -105,7 +105,7 @@ export class MembershipsService {
     return this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "MembershipPlan" WHERE id = ${id} FOR UPDATE`;
       const previous = await tx.membershipPlan.findUnique({ where: { id } });
-      if (!previous || previous.branchId !== requireBranchId(admin))
+      if (!previous || previous.deletedAt || previous.branchId !== requireBranchId(admin))
         throw new NotFoundException('Plan not found in this branch');
       const plan = await tx.membershipPlan.update({ where: { id }, data: dto });
       await tx.auditLog.create({
@@ -122,6 +122,34 @@ export class MembershipsService {
     });
   }
 
+  async deletePlan(id: string, admin: AuthenticatedUser) {
+    const branchId = requireBranchId(admin);
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "MembershipPlan" WHERE id = ${id} FOR UPDATE`;
+      const previous = await tx.membershipPlan.findUnique({ where: { id } });
+      if (!previous || previous.branchId !== branchId)
+        throw new NotFoundException('الباقة غير موجودة في هذا الفرع');
+      // A repeated request is harmless and does not duplicate the audit entry.
+      if (!previous.deletedAt) {
+        const plan = await tx.membershipPlan.update({
+          where: { id },
+          data: { deletedAt: new Date(), isActive: false },
+        });
+        await tx.auditLog.create({
+          data: {
+            action: AuditAction.DELETE,
+            actorId: admin.id,
+            branchId,
+            entityId: id,
+            entityType: 'MembershipPlan',
+            metadata: { previousValue: previous, newValue: plan, preservesHistory: true },
+          },
+        });
+      }
+      return { id, deleted: true };
+    });
+  }
+
   private async paidPlan(
     tx: Prisma.TransactionClient,
     dto: { planId?: string; planUpdatedAt?: string },
@@ -130,7 +158,7 @@ export class MembershipsService {
     if (!dto.planId) throw new BadRequestException('اختر باقة الاشتراك قبل تأكيد استلام المبلغ');
     await tx.$queryRaw`SELECT id FROM "MembershipPlan" WHERE id = ${dto.planId} FOR SHARE`;
     const plan = await tx.membershipPlan.findUnique({ where: { id: dto.planId } });
-    if (!plan || !plan.isActive || plan.branchId !== branchId)
+    if (!plan || plan.deletedAt || !plan.isActive || plan.branchId !== branchId)
       throw new BadRequestException('هذه الباقة غير متاحة لهذا الفرع');
     if (!dto.planUpdatedAt || plan.updatedAt.toISOString() !== dto.planUpdatedAt)
       throw new ConflictException('تغيرت بيانات الباقة. أعد اختيارها وتحقق من السعر قبل التأكيد');

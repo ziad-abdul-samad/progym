@@ -284,6 +284,19 @@ async function run() {
     { priceMinor: military.priceMinor, nameAr: military.nameAr },
     b,
   );
+  await assert.rejects(memberships.deletePlan(newPlan.id, b));
+  check(true, 'Other branch cannot delete an offer');
+  const paidBeforeDelete = await db.payment.findMany({ where: { subscriptionId: transfer.id } });
+  const subscribedBeforeDelete = await db.subscription.findUnique({ where: { id: transfer.id } });
+  await Promise.all([memberships.deletePlan(newPlan.id, a), memberships.deletePlan(newPlan.id, a)]);
+  check(!(await memberships.listPlans(a)).some(p => p.id === newPlan.id), 'Deleted offer removed from catalog');
+  assert.deepEqual(await db.payment.findMany({ where: { subscriptionId: transfer.id } }), paidBeforeDelete);
+  assert.deepEqual(await db.subscription.findUnique({ where: { id: transfer.id } }), subscribedBeforeDelete);
+  check((await finance.report(reportRange, a)).totals[0].incomeMinor === 6000, 'Deleted paid offer preserves subscriptions, receipts and reports');
+  await assert.rejects(memberships.updatePlan(newPlan.id, { isActive: true }, a));
+  await assert.rejects(memberships.createSubscription({ memberId: request.memberId, planId: newPlan.id, planUpdatedAt: newPlan.updatedAt.toISOString(), requestKey: key(), reason: 'test deleted offer' }, a));
+  check(true, 'Deleted offer cannot be reactivated or purchased from stale form');
+  check(await db.auditLog.count({ where: { entityId: newPlan.id, entityType: 'MembershipPlan', action: 'DELETE' } }) === 1, 'Concurrent delete is idempotent and audited once');
   console.log(
     JSON.stringify({ checks, owner: owner.username, observer: b.username, reportDay: day }),
   );

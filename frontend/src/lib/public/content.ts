@@ -42,13 +42,15 @@ export const brand = {
   social: [{ href: 'https://www.instagram.com/progym.homs/', label: 'Instagram' }],
 };
 
-// Temporary, owner-approved pins: replace B2/B3 when their confirmed coordinates arrive.
+// Coordinates from the owner's verified Google Maps place links.
 export const publicBranches = [
   {
     code: 'b1',
     name: { ar: 'الإنشاءات', en: 'Al-Inshaat' },
     address: { ar: 'الإنشاءات مقابل الفرن الآلي', en: 'Al-Inshaat, opposite the automatic bakery' },
     mapsUrl: brand.mapsUrl,
+    latitude: 34.7179977,
+    longitude: 36.6970795,
   },
   {
     code: 'b2',
@@ -57,13 +59,17 @@ export const publicBranches = [
       ar: 'جورة الشياح مقابل المشفى الوطني',
       en: 'Jourat Al-Shayah, opposite the National Hospital',
     },
-    mapsUrl: brand.mapsUrl,
+    mapsUrl: 'https://maps.app.goo.gl/aUKbwZf7JtJfMWfv5?g_st=ic',
+    latitude: 34.7393643,
+    longitude: 36.7113847,
   },
   {
     code: 'b3',
     name: { ar: 'بروجيم 8 آذار', en: 'Pro Gym March 8' },
     address: { ar: 'بروجيم 8 آذار — حمص', en: 'Pro Gym, March 8, Homs' },
-    mapsUrl: brand.mapsUrl,
+    mapsUrl: 'https://maps.app.goo.gl/DpGuLCTXDT6rvFGs7?g_st=ic',
+    latitude: 34.7048545,
+    longitude: 36.7113036,
   },
 ] as const;
 

@@ -2,12 +2,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Plus, Pencil, CalendarDays } from 'lucide-react';
+import { Plus, Pencil, CalendarDays, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogForm, DialogCancelButton } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { DashboardLoader, ErrorState } from '@/components/ui/state';
+import { useToast } from '@/components/ui/toast';
 import { apiRequest, jsonBody } from '@/lib/api/client';
 import { money, useBranchPlans, type BranchPlan } from './plan-picker';
 
@@ -19,6 +20,19 @@ function BranchPlansContent() {
   const plans = useBranchPlans(),
     client = useQueryClient();
   const [editing, setEditing] = useState<BranchPlan | 'new' | null>(null);
+  const [deleting, setDeleting] = useState<BranchPlan | null>(null);
+  const { push } = useToast();
+  const remove = useMutation({
+    mutationFn: (id: string) => apiRequest('/memberships/plans/' + id, { method: 'DELETE' }),
+    onSuccess: (_data, id) => {
+      client.setQueriesData<BranchPlan[]>({ queryKey: ['branch-plans'] }, (old) =>
+        old?.filter((p) => p.id !== id),
+      );
+      setDeleting(null);
+      push({ title: 'تم حذف الباقة مع الحفاظ على الاشتراكات والسجلات السابقة', tone: 'success' });
+      void client.invalidateQueries({ queryKey: ['branch-plans'] });
+    },
+  });
   const save = useMutation({
     mutationFn: (form: FormData) =>
       apiRequest('/memberships/plans' + (editing && editing !== 'new' ? '/' + editing.id : ''), {
@@ -48,7 +62,8 @@ function BranchPlansContent() {
           <h1 className="mt-2 text-2xl font-black">باقات الاشتراك</h1>
           <p className="mt-2 max-w-2xl text-sm leading-7 text-muted-foreground">
             أسعار ومدد خاصة بهذا الفرع. تعديل الباقة يؤثر على الدفعات الجديدة فقط؛ السجلات القديمة
-            تبقى محفوظة. لإيقاف عرض باقة، ألغِ تفعيلها.
+            تبقى محفوظة. يمكنك إيقاف الباقة مؤقتاً أو حذفها من القائمة دون التأثير على المشتركين
+            الحاليين.
           </p>
         </div>
         <Button
@@ -93,6 +108,16 @@ function BranchPlansContent() {
                 }}
               >
                 <Pencil className="h-4 w-4" /> تعديل الباقة
+              </Button>
+              <Button
+                className="mt-2 w-full"
+                variant="danger"
+                onClick={() => {
+                  remove.reset();
+                  setDeleting(plan);
+                }}
+              >
+                <Trash2 className="h-4 w-4" /> حذف الباقة
               </Button>
             </Card>
           ))}
@@ -172,6 +197,41 @@ function BranchPlansContent() {
               لن يتم تعديل أي دفعة سابقة. يتم توثيق التعديل باسم حسابك في سجل المالك.
             </p>
             {save.error ? <ErrorState message={save.error.message} /> : null}
+          </DialogForm>
+        ) : null}
+      </Dialog>
+      <Dialog
+        open={!!deleting}
+        title="حذف باقة الاشتراك؟"
+        onClose={() => {
+          if (!remove.isPending) setDeleting(null);
+        }}
+      >
+        {deleting ? (
+          <DialogForm
+            onSubmit={(e) => {
+              e.preventDefault();
+              remove.mutate(deleting.id);
+            }}
+            actions={
+              <>
+                <DialogCancelButton
+                  onClick={() => {
+                    if (!remove.isPending) setDeleting(null);
+                  }}
+                />
+                <Button variant="danger" isLoading={remove.isPending} loadingText="جاري الحذف">
+                  تأكيد حذف الباقة
+                </Button>
+              </>
+            }
+          >
+            <p className="text-lg font-bold">{deleting.nameAr}</p>
+            <p className="text-sm leading-7 text-muted-foreground">
+              ستختفي الباقة من القائمة ولن يمكن اختيارها لاشتراك جديد. اشتراكات اللاعبين الحالية
+              والدفعات والتقارير السابقة لن تتغيّر. سيتم توثيق الحذف باسم حسابك.
+            </p>
+            {remove.error ? <ErrorState message={remove.error.message} /> : null}
           </DialogForm>
         ) : null}
       </Dialog>

@@ -457,6 +457,7 @@ model MembershipPlan {
   currency      String   @default("SYP")
   features      Json?
   isActive      Boolean  @default(true)
+  deletedAt     DateTime?
   sortOrder     Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
