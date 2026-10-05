@@ -818,7 +818,7 @@ export function DashboardShell({
 
   return (
     <div className={cn('min-h-screen bg-background text-foreground lg:grid', sidebarWidth)}>
-      {(user.role === 'ADMIN' || user.role === 'OBSERVER') && selectedBranchCode ? (
+      {user.role === 'OBSERVER' && selectedBranchCode ? (
         <ReceptionEventCenter />
       ) : null}
       <aside className="relative hidden h-screen p-3 lg:sticky lg:top-0 lg:block">

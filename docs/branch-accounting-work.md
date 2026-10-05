@@ -1,5 +1,12 @@
 # Branch accounting rollout — 2026-09-29
 
+## Current task — observer-only automatic reception popups (Oct6)
+- User confirmed automatic account-registration and daily-scan popups should not interrupt the owner. Changed DashboardShell to mount ReceptionEventCenter only for OBSERVER with a selected branch (also covers denied-entry reception popups).
+- Owner ADMIN keeps manual request review, attendance pages, sidebar badges, notification list, all branch selection and all permissions. No backend/API authorization or database changes needed. Owner no longer starts the reception-feed polling component.
+- Verification pending. Prior demo batch presentation_20261006 remains intact. No cleanup/reseed and no service changes.
+- Implementation complete locally: frontend typecheck/lint and all4 existing frontend tests passed; actual JSX mounting condition verified for16 role/branch combinations (ADMIN never mounted; OBSERVER only with branch; MEMBER/COACH unchanged). git diff --check passed. No database mutation.
+- Not deployed/pushed in this turn: user requested implementation only. Production remains previously verified7e6328 until a sync/deploy request. Do not tell user it is live; future sync must include the local presentation-tooling checkpoint eca89eb safely, never its ignored credentials/artifacts.
+
 ## COMPLETED — reversible presentation data (Oct6)
 - User explicitly requested ADDITIVE demo players/coaches, paid subscriptions/income and expenses in all three live branches for owner/observer presentations. Existing accounts, credentials, subscriptions, prices and all other data must remain unchanged. Removal is deferred until a separate explicit request.
 - Batch anchor: presentation_20261006. Plan: tagged names/IDs, immutable receipt snapshots, demo dates across today/week/month, database audit manifest plus ignored local manifest/credentials. Do not run the existing demo seed or reset/reseed production.
@@ -15,6 +22,7 @@
 - COMPLETE: 13 live sessions verified and logged out: all6 fake coaches each have1 coached client/active workout/nutrition; all6 coached-player examples load dashboard/training/nutrition; existing B1 women observer loads daily/full-range financial report with fake details and separate USD/newSYP totals. Login verification only changed normal last-login/session audit state; no financial mutations beyond the explicitly requested one-time dataset addition.
 - Second fresh isolated presentation_verify_20261006 repeated all34 checks successfully after final generator changes. Final lint and git diff --check passed. Public Arabic homepage HTTP200; Render security-questions HTTP200. Initial free Render wake-up/login timed out once, retry succeeded; Render log connector returned504, but actual backend session/report checks passed. No service settings altered.
 - Total906 inserted rows including persistent audit manifest. Source/tooling/worklog saved locally; frontend/backend remain on previously verified 7e6328 (data-only task, no code deploy necessary). Connection/private credentials/local test artifacts/Instagram folder confirmed ignored. No pending implementation or data removal; future removal requires user's explicit request and exact manifest/dependency preview.
+- Local Git checkpoint: eca89eb (reversible presentation tooling, test, cleanup guidance and verified live batch record). Not pushed: no application deployment requested/needed for this data-only task. This final commit-ID note remains as a local worklog-only change for continuity.
 
 ## Current task — observer audience and plan selection (Oct1)
 - Improve paid-plan selection UI across approval, renewal and transfer. Restrict catalog/purchases/plan management to each observer's MEN/WOMEN audience; owner sees/manages both.
