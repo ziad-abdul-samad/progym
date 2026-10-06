@@ -1,5 +1,11 @@
 # Branch accounting rollout — 2026-09-29
 
+## Authorized production sync — payroll and observer-only popups (Oct6)
+- User explicitly confirmed deployment. Local payroll db1ada7 and observer-popup205ecf5 previously completed/tested; presentation toolingeca89eb additive scripts only, not invoked by deployment. No Instagram/credentials/test artifacts staged.
+- Reverified live Render dep-daupftgae00c73f4sjv0 on7e6328; Vercel latest canonical production READY dpl_ri99q1D48MoeoK1eZkcm6Ru23iso. Git remote main/working both7e632814bca573b98ca1e830bde9a3244f42db74. Existing service auto-deploy/start pipeline migrates before starting, production seed preserves existing owner/observer identities and does not run demo cleanup in production.
+- Read-only production baseline saved to ignored test-results/payroll-deploy-baseline.json:120users,12ShiftObservers,97subscriptions,98payments,27plans,26expenses, plus exact per-table digests excluding additive expense columns. Original AND demo rows must remain. No live test payments or recipient additions. Neon connector unavailable this session; official existing Neon serverless driver used read-only.
+- Pending: push working branch, confirm Render migration/LIVE, verify baseline preservation, push same commit to main, verify Vercel READY/canonical frontend assets, live read-only payroll/report routes.
+
 ## Current task — branch payroll inside expenses (Oct6)
 - Requested: Expenses tab for workers/observers' paid salaries, saved editable names per branch, correct inclusion in expenses/reports. Implement branch-scoped independent salary recipients (not login accounts), reference salary/currency, edit/archive/restore and actual dated payment entries.
 - Accounting design: actual paid salary is ONE Expense row, salary recipient/name/job/month snapshots immutable. No expense from saving a person or auto-accrual; installments allowed with explicit confirmation of previous payments and concurrent-payment guard. Price/name edits/archive never rewrite previous payments. Voiding excludes salary from all expense/report totals using existing audited void flow.
@@ -13,6 +19,7 @@
 - COMPLETE locally: final fresh payroll_final_20261006 repeated45 payroll PostgreSQL checks, now including20-row pagination and specific-name search across pages. Prior41 accounting checks passed on separate local fixture. All27 backend/4 frontend unit tests, backend build/lint, frontend final full171-route build/typecheck/lint and diff checks passed.
 - Actual post-polish PDF838304bytes/4pages generated with real local report, all4 rendered pages visually inspected. No clipped Arabic, currency mixing, duplicate salary expense, or orphan normal-record identifiers. Browser native automation download was canceled; captured the identical generated Blob via local QA collector, without modifying application download behavior. QA files remain ignored under test-results/payroll-*.
 - No pending implementation. Local commit/checkpoint pending below; no push/deploy this task. Production original AND demo data remain untouched. Future sync must deploy additive migration/backend FIRST, then frontend, and include pending observer-only popup205ecf5. Never rerun demo generator or seed financial fixtures on production.
+- Local implementation checkpoint db1ada7 (branch payroll). Remote working branch/main reverified both7e632814bca573b98ca1e830bde9a3244f42db74 via git ls-remote; no new service rollout claimed. This final commit-ID note remains worklog-only/uncommitted. No pending coding/tests. Test servers3000/4000 use isolated payroll_checks_20261006, not production; no environment files changed.
 
 ## Current task — observer-only automatic reception popups (Oct6)
 - User confirmed automatic account-registration and daily-scan popups should not interrupt the owner. Changed DashboardShell to mount ReceptionEventCenter only for OBSERVER with a selected branch (also covers denied-entry reception popups).
