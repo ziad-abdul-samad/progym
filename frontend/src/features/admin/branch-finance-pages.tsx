@@ -12,6 +12,9 @@ import { Input, Textarea } from '@/components/ui/input';
 import { DashboardLoader, EmptyState, ErrorState } from '@/components/ui/state';
 import { apiRequest, jsonBody } from '@/lib/api/client';
 import { money, RequestKey } from './plan-picker';
+import { PayrollTab } from './payroll-tab';
+import { businessDate, financialTime, salaryMonthLabel } from './finance-format';
+export { businessDate, financialTime } from './finance-format';
 
 export type Receipt = {
   id: string;
@@ -37,12 +40,31 @@ export type Expense = {
   createdByName: string;
   voidedAt: string | null;
   voidReason: string | null;
+  kind: 'GENERAL' | 'SALARY';
+  salaryNameSnapshot: string | null;
+  salaryJobSnapshot: string | null;
+  salaryMonth: string | null;
 };
 export type FinanceReport = {
   branch: { code: string; nameAr: string };
   range: { from: string; to: string };
   generatedAt: string;
-  totals: { currency: string; incomeMinor: number; expenseMinor: number; netMinor: number }[];
+  totals: {
+    currency: string;
+    incomeMinor: number;
+    expenseMinor: number;
+    netMinor: number;
+    salaryMinor: number;
+    otherExpenseMinor: number;
+  }[];
+  salaries: {
+    name: string;
+    jobTitle: string | null;
+    month: string;
+    currency: string;
+    count: number;
+    totalMinor: number;
+  }[];
   plans: {
     name: string;
     currency: string;
@@ -60,25 +82,6 @@ export type FinanceReport = {
   page: number;
   pageSize: number;
 };
-export function businessDate(date = new Date()) {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Damascus',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(date);
-}
-export function financialTime(value: string) {
-  return new Intl.DateTimeFormat('ar-SY', {
-    timeZone: 'Asia/Damascus',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(new Date(value));
-}
 function rangeFor(days: number) {
   const to = businessDate(),
     from = businessDate(new Date(Date.now() - (days - 1) * 86400000));
@@ -186,6 +189,12 @@ function ExpenseCards({
             <h3 className="font-black">{expense.title}</h3>
             <strong dir="ltr">{money(expense.amountMinor, expense.currency)}</strong>
           </div>
+          {expense.kind === 'SALARY' && expense.salaryMonth ? (
+            <p className="mt-3 inline-block rounded-lg bg-green-100 px-3 py-1 text-xs font-bold text-green-900 dark:bg-green-950 dark:text-green-200">
+              راتب {salaryMonthLabel(expense.salaryMonth)}
+              {expense.salaryJobSnapshot ? ` · ${expense.salaryJobSnapshot}` : ''}
+            </p>
+          ) : null}
           <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-7 text-muted-foreground">
             {expense.notes}
           </p>
@@ -216,16 +225,19 @@ function ExpensesContent() {
     client = useQueryClient();
   const [range, setRange] = useState(() => rangeFor(30)),
     [page, setPage] = useState(1);
+  const [tab, setTab] = useState<'expenses' | 'payroll'>('expenses');
   const [adding, setAdding] = useState(false),
     [voiding, setVoiding] = useState<Expense | null>(null);
   const report = useQuery({
     queryKey: ['finance-expenses', params.branchCode, range, page],
     queryFn: () => apiRequest<FinanceReport>(reportUrl(range, page)),
+    enabled: tab === 'expenses',
   });
-  const refresh = async () => {
-    await client.invalidateQueries({ queryKey: ['finance-expenses'] });
+  const refresh = () => {
     setAdding(false);
     setVoiding(null);
+    void client.invalidateQueries({ queryKey: ['finance-expenses'] });
+    void client.invalidateQueries({ queryKey: ['salary-recipients'] });
   };
   const add = useMutation({
     mutationFn: (form: FormData) =>
@@ -264,55 +276,83 @@ function ExpensesContent() {
               بسبب موثّق ثم إضافة الصحيح.
             </p>
           </div>
-          <Button
-            onClick={() => {
-              add.reset();
-              setAdding(true);
-            }}
-          >
-            <Plus className="h-4 w-4" /> تسجيل مصروف
-          </Button>
+          {tab === 'expenses' ? (
+            <Button
+              onClick={() => {
+                add.reset();
+                setAdding(true);
+              }}
+            >
+              <Plus className="h-4 w-4" /> تسجيل مصروف
+            </Button>
+          ) : null}
         </div>
       </Card>
-      <Card>
-        <RangeControls
-          value={range}
-          onChange={(value) => {
-            setRange(value);
-            setPage(1);
-          }}
-        />
-      </Card>
-      {report.isLoading ? (
-        <DashboardLoader />
-      ) : report.error ? (
-        <ErrorState message={report.error.message} />
-      ) : report.data ? (
+      <div className="flex flex-wrap gap-2" role="group" aria-label="أقسام المصاريف">
+        <Button
+          variant={tab === 'expenses' ? 'primary' : 'secondary'}
+          aria-pressed={tab === 'expenses'}
+          onClick={() => setTab('expenses')}
+        >
+          سجل المصاريف والرواتب
+        </Button>
+        <Button
+          variant={tab === 'payroll' ? 'primary' : 'secondary'}
+          aria-pressed={tab === 'payroll'}
+          onClick={() => setTab('payroll')}
+        >
+          رواتب العاملين والمراقبين
+        </Button>
+      </div>
+      {tab === 'payroll' ? (
+        <PayrollTab />
+      ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {report.data.totals.map((total) => (
-              <Card key={total.currency}>
-                <p className="text-sm text-muted-foreground">المصاريف خلال الفترة</p>
-                <strong className="mt-2 block text-2xl" dir="ltr">
-                  {money(total.expenseMinor, total.currency)}
-                </strong>
-              </Card>
-            ))}
-          </div>
-          {report.data.expenses.length ? (
-            <ExpenseCards
-              expenses={report.data.expenses}
-              onVoid={(e) => {
-                cancel.reset();
-                setVoiding(e);
+          <Card>
+            <RangeControls
+              value={range}
+              onChange={(value) => {
+                setRange(value);
+                setPage(1);
               }}
             />
-          ) : (
-            <EmptyState title="لا توجد مصاريف في هذه الفترة" />
-          )}
-          <Pager page={page} count={report.data.expenseCount} onChange={setPage} />
+          </Card>
+          {report.isLoading ? (
+            <DashboardLoader />
+          ) : report.error ? (
+            <ErrorState message={report.error.message} />
+          ) : report.data ? (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {report.data.totals.map((total) => (
+                  <Card key={total.currency}>
+                    <p className="text-sm text-muted-foreground">المصاريف خلال الفترة</p>
+                    <strong className="mt-2 block text-2xl" dir="ltr">
+                      {money(total.expenseMinor, total.currency)}
+                    </strong>
+                    <p className="mt-3 text-xs leading-6 text-muted-foreground">
+                      منها رواتب: {money(total.salaryMinor ?? 0, total.currency)} · مصاريف أخرى:{' '}
+                      {money(total.otherExpenseMinor ?? total.expenseMinor, total.currency)}
+                    </p>
+                  </Card>
+                ))}
+              </div>
+              {report.data.expenses.length ? (
+                <ExpenseCards
+                  expenses={report.data.expenses}
+                  onVoid={(e) => {
+                    cancel.reset();
+                    setVoiding(e);
+                  }}
+                />
+              ) : (
+                <EmptyState title="لا توجد مصاريف في هذه الفترة" />
+              )}
+              <Pager page={page} count={report.data.expenseCount} onChange={setPage} />
+            </>
+          ) : null}
         </>
-      ) : null}
+      )}
       <Dialog
         open={adding}
         onClose={() => {
@@ -609,6 +649,29 @@ function BranchReportsContent() {
                 </div>
               </Card>
               <h3 className="font-black">تفاصيل المصاريف</h3>
+              {report.salaries?.length ? (
+                <Card>
+                  <h3 className="font-black">الرواتب المدفوعة ضمن هذه الفترة</h3>
+                  <p className="mt-2 text-xs leading-6 text-muted-foreground">
+                    هذه مبالغ ضمن إجمالي المصاريف أعلاه، وليست مصاريف إضافية. تُحتسب بتاريخ الدفع،
+                    حتى لو كانت عن شهر سابق.
+                  </p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {report.salaries.map((salary, i) => (
+                      <div key={i} className="min-w-0 rounded-lg border border-border p-3">
+                        <strong className="break-words">{salary.name}</strong>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {salary.jobTitle || 'عامل بالفرع'} · عن {salaryMonthLabel(salary.month)} ·{' '}
+                          {salary.count} دفعة
+                        </p>
+                        <p className="mt-3 font-black" dir="ltr">
+                          {money(salary.totalMinor, salary.currency)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              ) : null}
               <ExpenseCards expenses={report.expenses} />
             </>
           ) : (

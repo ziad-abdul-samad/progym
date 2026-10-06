@@ -96,6 +96,11 @@ enum PaymentMethod {
   OTHER
 }
 
+enum ExpenseKind {
+  GENERAL
+  SALARY
+}
+
 enum QrInvitePurpose {
   MEMBER_REGISTRATION
   COACH_INVITE
@@ -224,6 +229,7 @@ model Branch {
   settings             GymSettings?
   plans                MembershipPlan[]
   expenses             Expense[]
+  salaryRecipients     SalaryRecipient[]
 
   @@index([isActive, sortOrder])
 }
@@ -627,9 +633,39 @@ model Expense {
   voidedAt DateTime?
   voidedById String?
   voidReason String?
+  kind ExpenseKind @default(GENERAL)
+  salaryRecipientId String?
+  salaryNameSnapshot String?
+  salaryJobSnapshot String?
+  salaryMonth String?
   branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  salaryRecipient SalaryRecipient? @relation(fields: [salaryRecipientId, branchId], references: [id, branchId], onDelete: Restrict)
 
   @@index([branchId, spentAt])
+  @@index([branchId, kind, spentAt])
+  @@index([salaryRecipientId, salaryMonth, voidedAt])
+}
+
+// Payroll directory is independent of login accounts. Archive, never erase payment history.
+model SalaryRecipient {
+  id String @id @default(cuid())
+  branchId String
+  name String
+  nameKey String
+  jobTitle String?
+  salaryMinor Int @default(0)
+  currency String @default("SYP_NEW")
+  archivedAt DateTime?
+  createdById String
+  createdByName String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  expenses Expense[]
+
+  @@unique([branchId, nameKey])
+  @@unique([id, branchId])
+  @@index([branchId, archivedAt, name])
 }
 
 model QrInvite {

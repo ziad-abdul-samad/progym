@@ -1,5 +1,6 @@
 import type { FinanceReport } from '@/features/admin/branch-finance-pages';
 import { canvasAsJpeg, createPdf, loadLogo } from './arabic-gym-report';
+import { salaryMonthLabel } from '@/features/admin/finance-format';
 
 type Row = { title: string; lines: string[] };
 type ReportIcon = 'income' | 'expense' | 'balance' | 'plans' | 'people' | 'receipt';
@@ -120,6 +121,24 @@ export async function downloadFinanceReport(report: FinanceReport, kind: 'financ
             })),
           },
           {
+            title: 'كم دُفع من الرواتب ولمن؟',
+            hint: 'دفعات الرواتب جزء من إجمالي المصروفات، وليست مبلغاً يضاف إليه مرة ثانية. تُحسب بتاريخ الدفع الفعلي.',
+            icon: 'people',
+            rows: (report.salaries ?? []).map((salary) => ({
+              title: salary.name,
+              lines: [
+                'الوظيفة: ' +
+                  (salary.jobTitle || 'عامل بالفرع') +
+                  '  |  الراتب عن: ' +
+                  salaryMonthLabel(salary.month),
+                'عدد الدفعات: ' +
+                  salary.count +
+                  '  |  المدفوع: ' +
+                  money(salary.totalMinor, salary.currency),
+              ],
+            })),
+          },
+          {
             title: 'على ماذا صُرفت الأموال؟',
             hint: 'اسم المصروف، قيمته، يوم الدفع ومن سجّله. القيود الملغاة لا تدخل في الحساب.',
             icon: 'expense',
@@ -133,6 +152,9 @@ export async function downloadFinanceReport(report: FinanceReport, kind: 'financ
                     new Date(e.spentAt),
                   ),
                 'سجّله: ' + e.createdByName + '  |  وقت التسجيل: ' + time(e.createdAt),
+                ...(e.kind === 'SALARY' && e.salaryMonth
+                  ? ['نوع المصروف: راتب  |  عن شهر: ' + salaryMonthLabel(e.salaryMonth)]
+                  : []),
                 ...(e.notes ? ['التفاصيل: ' + e.notes] : []),
                 ...(e.voidReason ? ['سبب الإلغاء: ' + e.voidReason] : []),
                 'رقم القيد: ' + e.id,
@@ -247,7 +269,9 @@ export async function downloadFinanceReport(report: FinanceReport, kind: 'financ
     ctx.fill();
   };
   const sectionHeader = (section: Section, index: number, continuation = false) => {
-    panel(64, y, 1112, 108, '#e7eee4');
+    const hints = wrap(section.hint, 20);
+    const extraHeight = (hints.length - 1) * 26;
+    panel(64, y, 1112, 108 + extraHeight, '#e7eee4');
     drawIcon(ctx, section.icon, 1120, y + 22, '#256d3d');
     text(
       `${String(index + 1).padStart(2, '0')}  ${section.title}${continuation ? ' — تابع' : ''}`,
@@ -256,8 +280,8 @@ export async function downloadFinanceReport(report: FinanceReport, kind: 'financ
       29,
       true,
     );
-    text(section.hint, 1100, y + 79, 20, false, '#51634f');
-    y += 130;
+    hints.forEach((hint, i) => text(hint, 1100, y + 79 + i * 26, 20, false, '#51634f'));
+    y += 130 + extraHeight;
   };
   const finish = async () => {
     ctx.fillStyle = '#dce3d9';
@@ -320,7 +344,7 @@ export async function downloadFinanceReport(report: FinanceReport, kind: 'financ
           },
           {
             label: 'المصروفات',
-            hint: 'ما دُفع لتكاليف النادي',
+            hint: 'الرواتب وباقي تكاليف النادي',
             amount: total.expenseMinor,
             icon: 'expense',
             color: '#a23a26',
@@ -349,7 +373,17 @@ export async function downloadFinanceReport(report: FinanceReport, kind: 'financ
           text(value, x + 334, y + 105, size, true, card.color);
           text(card.hint, x + 334, y + 147, 20, false, card.color);
         });
-        y += 209;
+        const expenseBreakdown = wrap(
+          'من المصروفات: رواتب ' +
+            money(total.salaryMinor ?? 0, total.currency) +
+            '  |  مصاريف أخرى ' +
+            money(total.otherExpenseMinor ?? total.expenseMinor, total.currency),
+          19,
+        );
+        expenseBreakdown.forEach((line, i) =>
+          text(line, 1170, y + 195 + i * 26, 19, false, '#51634f'),
+        );
+        y += 209 + (expenseBreakdown.length - 1) * 26;
       }
       if (y > 1240) {
         await finish();
@@ -362,7 +396,7 @@ export async function downloadFinanceReport(report: FinanceReport, kind: 'financ
         '٢  المصروفات: المبالغ المدفوعة حسب يوم المصروف، باستثناء القيود الملغاة.',
         '٣  صافي الحركة ليس رصيد الصندوق الكلي؛ لا يشمل رصيداً سابقاً أو تكاليف غير مسجّلة.',
         '٤  كل عملة مستقلة. الأسعار المعروضة هي أسعار الدفع الأصلية ولا تتغير بأثر رجعي.',
-        'في الصفحات التالية: الباقات ← المراقبون ← تفاصيل المصاريف.',
+        'في الصفحات التالية: الباقات ← المراقبون ← الرواتب ← تفاصيل المصاريف.',
       ].forEach((line, i) => text(line, 1145, y + 103 + i * 39, 21, false, '#51634f'));
       await finish();
       begin();
@@ -392,14 +426,21 @@ export async function downloadFinanceReport(report: FinanceReport, kind: 'financ
       }
       for (const row of section.rows) {
         const lines = [
-          ...wrap(row.title, 25, true).map((value) => ({ value, bold: true })),
+          ...wrap(row.title, 26, true).map((value) => ({ value, bold: true })),
           ...row.lines.flatMap((l) => wrap(l).map((value) => ({ value, bold: false }))),
         ];
         // Split very long notes across pages without cropping the record.
         let offset = 0;
+        const pageCapacity = Math.floor(
+          (1600 - 295 - 130 - (wrap(section.hint, 20).length - 1) * 26 - 35) / 38,
+        );
         while (offset < lines.length) {
           const available = Math.floor((1600 - y - 35) / 38);
-          if (available < 2) {
+          // Keep ordinary records intact; split only notes too long for a whole page.
+          if (
+            available < 2 ||
+            (offset === 0 && lines.length <= pageCapacity && available < lines.length)
+          ) {
             await finish();
             begin();
             sectionHeader(section, index, true);

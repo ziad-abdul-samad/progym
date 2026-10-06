@@ -1,13 +1,7 @@
 'use client';
 
 import { X } from 'lucide-react';
-import {
-  type FormHTMLAttributes,
-  type ReactNode,
-  useEffect,
-  useId,
-  useRef,
-} from 'react';
+import { type FormHTMLAttributes, type ReactNode, useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
 import { Button } from '@/components/ui/button';
@@ -47,8 +41,12 @@ export function Dialog({
     window.requestAnimationFrame(() => {
       const dialog = dialogRef.current;
       const initialFocus =
-        dialog?.querySelector<HTMLElement>('input:not([disabled]), textarea:not([disabled]), select:not([disabled])') ??
-        dialog?.querySelector<HTMLElement>('button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+        dialog?.querySelector<HTMLElement>(
+          'input:not([disabled]), textarea:not([disabled]), select:not([disabled])',
+        ) ??
+        dialog?.querySelector<HTMLElement>(
+          'button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
       initialFocus?.focus();
     });
 
@@ -125,12 +123,14 @@ export function DialogForm({
 export function DialogCancelButton({
   label = 'إلغاء',
   onClick,
+  disabled,
 }: {
   label?: string;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
-    <Button onClick={onClick} type="button" variant="secondary">
+    <Button disabled={disabled} onClick={onClick} type="button" variant="secondary">
       {label}
     </Button>
   );

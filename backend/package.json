@@ -14,6 +14,7 @@
     "start": "node dist/main.js",
     "test": "vitest run --passWithNoTests",
     "test:accounting": "node test/accounting.integration.cjs",
+    "test:payroll": "node test/payroll.integration.cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import { businessRange } from './finance.service';
-import { ExpenseDto, FinanceRangeDto } from './finance.dto';
+import {
+  ExpenseDto,
+  FinanceRangeDto,
+  SalaryPaymentDto,
+  SalaryRecipientDto,
+  SalaryRecipientsQueryDto,
+} from './finance.dto';
 
 describe('financial date and amount validation', () => {
   it('includes the entire final Damascus day and excludes the next midnight', () => {
@@ -40,6 +46,44 @@ describe('financial date and amount validation', () => {
       validateSync(
         plainToInstance(FinanceRangeDto, { from: '2026-09-01', to: '2026-09-30', page: 0 }),
       ).length,
+    ).toBeGreaterThan(0);
+  });
+  it('validates salary periods, cash amounts and revision/count guards', () => {
+    const payment = {
+      recipientId: 'worker',
+      month: '2026-09',
+      amountMinor: 1000,
+      currency: 'USD',
+      spentOn: '2026-10-01',
+      requestKey: 'salary-test-payment-123',
+      expectedUpdatedAt: '2026-10-01T09:00:00.000Z',
+      previousPaymentCount: 0,
+    };
+    expect(validateSync(plainToInstance(SalaryPaymentDto, payment))).toHaveLength(0);
+    for (const bad of [
+      { month: '2026-13' },
+      { amountMinor: 0 },
+      { amountMinor: 1.5 },
+      { previousPaymentCount: -1 },
+      { expectedUpdatedAt: undefined },
+      { confirmAdditional: 'true' },
+      { currency: 'SYP' },
+    ])
+      expect(
+        validateSync(plainToInstance(SalaryPaymentDto, { ...payment, ...bad })).length,
+      ).toBeGreaterThan(0);
+    expect(
+      validateSync(
+        plainToInstance(SalaryRecipientDto, {
+          name: 'عامل تجريبي',
+          salaryMinor: 0,
+          currency: 'SYP_NEW',
+        }),
+      ),
+    ).toHaveLength(0);
+    expect(plainToInstance(SalaryRecipientsQueryDto, { month: '2026-09' }).page).toBe(1);
+    expect(
+      validateSync(plainToInstance(SalaryRecipientsQueryDto, { month: '2026-00' })).length,
     ).toBeGreaterThan(0);
   });
 });

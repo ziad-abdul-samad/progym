@@ -41,6 +41,7 @@ export class FinanceService {
       if (existing) {
         if (
           existing.branchId !== branchId ||
+          existing.kind !== 'GENERAL' ||
           existing.createdById !== actor.id ||
           existing.amountMinor !== dto.amountMinor ||
           existing.currency !== dto.currency ||
@@ -129,6 +130,8 @@ export class FinanceService {
           expenses,
           receiptCount,
           expenseCount,
+          expenseKinds,
+          salaries,
         ] = await Promise.all([
           tx.branch.findUniqueOrThrow({
             where: { id: branchId },
@@ -202,6 +205,28 @@ export class FinanceService {
           }),
           tx.payment.count({ where: paidWhere }),
           tx.expense.count({ where: expenseWhere }),
+          tx.expense.groupBy({
+            by: ['kind', 'currency'],
+            where: { ...expenseWhere, voidedAt: null },
+            _sum: { amountMinor: true },
+            _count: { _all: true },
+          }),
+          tx.$queryRaw<
+            Array<{
+              name: string;
+              jobTitle: string | null;
+              month: string;
+              currency: string;
+              count: number;
+              totalMinor: number;
+            }>
+          >`
+            SELECT "salaryNameSnapshot" AS name,"salaryJobSnapshot" AS "jobTitle","salaryMonth" AS month,currency,
+              COUNT(*)::int AS count,SUM("amountMinor")::float8 AS "totalMinor"
+            FROM "Expense" WHERE "branchId"=${branchId} AND kind='SALARY' AND "voidedAt" IS NULL
+              AND "spentAt">=${range.gte} AND "spentAt"<${range.lt}
+            GROUP BY "salaryRecipientId","salaryNameSnapshot","salaryJobSnapshot","salaryMonth",currency
+            ORDER BY month,name,currency`,
         ]);
         const currencies = [
           ...new Set([...income.map((x) => x.currency), ...spending.map((x) => x.currency)].sort()),
@@ -214,10 +239,21 @@ export class FinanceService {
             const incomeMinor = income.find((x) => x.currency === currency)?._sum.amountMinor ?? 0;
             const expenseMinor =
               spending.find((x) => x.currency === currency)?._sum.amountMinor ?? 0;
-            return { currency, incomeMinor, expenseMinor, netMinor: incomeMinor - expenseMinor };
+            const salaryMinor =
+              expenseKinds.find((x) => x.currency === currency && x.kind === 'SALARY')?._sum
+                .amountMinor ?? 0;
+            return {
+              currency,
+              incomeMinor,
+              expenseMinor,
+              salaryMinor,
+              otherExpenseMinor: expenseMinor - salaryMinor,
+              netMinor: incomeMinor - expenseMinor,
+            };
           }),
           plans,
           receivers,
+          salaries,
           receipts,
           expenses,
           receiptCount,
