@@ -106,6 +106,8 @@ async function preservation() {
     return result;
   }
   const before = await snapshot();
+  const hadPayroll = (await db.$queryRaw`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Expense' AND column_name='kind') AS present`)[0].present;
+  const previousSalaryCount = hadPayroll ? await db.expense.count({ where: { kind: 'SALARY' } }) : 0;
   await db.$disconnect();
   execFileSync(process.execPath, [require.resolve('prisma/build/index.js'), 'migrate', 'deploy'], {
     cwd: process.cwd(),
@@ -118,8 +120,8 @@ async function preservation() {
     'Additive payroll migration preserves all previous accounts, plans, subscriptions, payments and expense fields',
   );
   check(
-    (await db.expense.count({ where: { kind: 'SALARY' } })) === 0,
-    'Existing expenses default to GENERAL; no invented payroll',
+    (await db.expense.count({ where: { kind: 'SALARY' } })) === previousSalaryCount,
+    'Migration preserves previously paid salaries and invents no payroll',
   );
 }
 async function run() {

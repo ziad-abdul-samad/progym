@@ -230,6 +230,7 @@ model Branch {
   plans                MembershipPlan[]
   expenses             Expense[]
   salaryRecipients     SalaryRecipient[]
+  ownerWithdrawals      OwnerWithdrawal[]
 
   @@index([isActive, sortOrder])
 }
@@ -616,6 +617,27 @@ model Payment {
   @@index([subscriptionId, status])
   @@index([paidAt])
   @@index([branchIdSnapshot, status, paidAt])
+}
+
+// Cash handed to the owner is not an operating expense. One visit may use two currencies.
+model OwnerWithdrawal {
+  id                String   @id @default(cuid())
+  branchId          String
+  requestKey        String   @unique
+  ownerNameSnapshot String
+  usdMinor          Int      @default(0)
+  sypNewMinor       Int      @default(0)
+  withdrawnAt       DateTime
+  notes             String?
+  createdById       String
+  createdByName     String
+  createdAt         DateTime @default(now())
+  voidedAt          DateTime?
+  voidedById        String?
+  voidReason        String?
+  branch            Branch   @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  @@index([branchId, withdrawnAt])
 }
 
 model Expense {

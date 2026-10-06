@@ -117,6 +117,7 @@ export class FinanceService {
       paidAt: range,
     };
     const expenseWhere: Prisma.ExpenseWhereInput = { branchId, spentAt: range };
+    const withdrawalWhere: Prisma.OwnerWithdrawalWhereInput = { branchId, withdrawnAt: range };
     // One repeatable-read snapshot keeps totals and detail rows internally consistent.
     return this.prisma.$transaction(
       async (tx) => {
@@ -132,6 +133,9 @@ export class FinanceService {
           expenseCount,
           expenseKinds,
           salaries,
+          withdrawals,
+          withdrawalCount,
+          withdrawalAmounts,
         ] = await Promise.all([
           tx.branch.findUniqueOrThrow({
             where: { id: branchId },
@@ -227,9 +231,27 @@ export class FinanceService {
               AND "spentAt">=${range.gte} AND "spentAt"<${range.lt}
             GROUP BY "salaryRecipientId","salaryNameSnapshot","salaryJobSnapshot","salaryMonth",currency
             ORDER BY month,name,currency`,
+          tx.ownerWithdrawal.findMany({
+            where: withdrawalWhere,
+            orderBy: [{ withdrawnAt: 'desc' }, { id: 'desc' }],
+            skip: (query.page - 1) * 50,
+            take: 50,
+          }),
+          tx.ownerWithdrawal.count({ where: withdrawalWhere }),
+          tx.ownerWithdrawal.aggregate({
+            where: { ...withdrawalWhere, voidedAt: null },
+            _sum: { usdMinor: true, sypNewMinor: true },
+          }),
         ]);
         const currencies = [
-          ...new Set([...income.map((x) => x.currency), ...spending.map((x) => x.currency)].sort()),
+          ...new Set(
+            [
+              ...income.map((x) => x.currency),
+              ...spending.map((x) => x.currency),
+              ...(withdrawalAmounts._sum.usdMinor ? ['USD'] : []),
+              ...(withdrawalAmounts._sum.sypNewMinor ? ['SYP_NEW'] : []),
+            ].sort(),
+          ),
         ];
         return {
           branch,
@@ -242,6 +264,12 @@ export class FinanceService {
             const salaryMinor =
               expenseKinds.find((x) => x.currency === currency && x.kind === 'SALARY')?._sum
                 .amountMinor ?? 0;
+            const ownerWithdrawalMinor =
+              currency === 'USD'
+                ? (withdrawalAmounts._sum.usdMinor ?? 0)
+                : currency === 'SYP_NEW'
+                  ? (withdrawalAmounts._sum.sypNewMinor ?? 0)
+                  : 0;
             return {
               currency,
               incomeMinor,
@@ -249,6 +277,8 @@ export class FinanceService {
               salaryMinor,
               otherExpenseMinor: expenseMinor - salaryMinor,
               netMinor: incomeMinor - expenseMinor,
+              ownerWithdrawalMinor,
+              cashMovementMinor: incomeMinor - expenseMinor - ownerWithdrawalMinor,
             };
           }),
           plans,
@@ -258,6 +288,8 @@ export class FinanceService {
           expenses,
           receiptCount,
           expenseCount,
+          withdrawals,
+          withdrawalCount,
           page: query.page,
           pageSize: 50,
         };

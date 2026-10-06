@@ -12,9 +12,11 @@ import {
   UpdateSalaryRecipientDto,
   SalaryRecipientStatusDto,
   SalaryPaymentDto,
+  OwnerWithdrawalDto,
 } from './finance.dto';
 import { FinanceService } from './finance.service';
 import { PayrollService } from './payroll.service';
+import { OwnerWithdrawalsService } from './owner-withdrawals.service';
 
 @Controller('finance')
 @Protected(UserRole.ADMIN, UserRole.OBSERVER)
@@ -22,6 +24,7 @@ class FinanceController {
   constructor(
     private readonly finance: FinanceService,
     private readonly payroll: PayrollService,
+    private readonly withdrawals: OwnerWithdrawalsService,
   ) {}
   @Get('report')
   async report(@Query() query: FinanceRangeDto, @CurrentUser() actor: AuthenticatedUser) {
@@ -45,6 +48,18 @@ class FinanceController {
     @CurrentUser() actor: AuthenticatedUser,
   ) {
     return { data: await this.payroll.recipients(query, actor) };
+  }
+  @Post('owner-withdrawals')
+  async withdrawal(@Body() dto: OwnerWithdrawalDto, @CurrentUser() actor: AuthenticatedUser) {
+    return { data: await this.withdrawals.add(dto, actor) };
+  }
+  @Patch('owner-withdrawals/:id/void')
+  async voidWithdrawal(
+    @Param('id') id: string,
+    @Body() dto: VoidExpenseDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return { data: await this.withdrawals.void(id, dto.reason, actor) };
   }
   @Post('salary-recipients')
   async createRecipient(@Body() dto: SalaryRecipientDto, @CurrentUser() actor: AuthenticatedUser) {
@@ -71,5 +86,8 @@ class FinanceController {
     return { data: await this.payroll.pay(dto, actor) };
   }
 }
-@Module({ controllers: [FinanceController], providers: [FinanceService, PayrollService] })
+@Module({
+  controllers: [FinanceController],
+  providers: [FinanceService, PayrollService, OwnerWithdrawalsService],
+})
 export class FinanceModule {}

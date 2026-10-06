@@ -55,6 +55,33 @@ export class VoidExpenseDto {
   reason!: string;
 }
 
+export class OwnerWithdrawalDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  ownerName!: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(2000000000)
+  usdMinor: number = 0;
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(2000000000)
+  sypNewMinor: number = 0;
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  withdrawnOn!: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  notes?: string;
+  @IsString()
+  @MinLength(16)
+  @MaxLength(120)
+  requestKey!: string;
+}
+
 export class SalaryRecipientsQueryDto {
   @Matches(/^\d{4}-(0[1-9]|1[0-2])$/)
   month!: string;

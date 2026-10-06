@@ -15,6 +15,7 @@
     "test": "vitest run --passWithNoTests",
     "test:accounting": "node test/accounting.integration.cjs",
     "test:payroll": "node test/payroll.integration.cjs",
+    "test:withdrawals": "node test/withdrawals.integration.cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

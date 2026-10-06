@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Alexandria, IBM_Plex_Sans_Arabic, Manrope } from 'next/font/google';
+import localFont from 'next/font/local';
 import type { ReactNode } from 'react';
 import { Analytics } from '@vercel/analytics/next';
 
@@ -8,25 +8,30 @@ import { siteUrl } from '@/lib/public/content';
 
 import '../styles/globals.css';
 
-const arabicFont = IBM_Plex_Sans_Arabic({
+// Vendored OFL fonts keep builds deterministic, without a Google Fonts network dependency.
+const arabicFont = localFont({
+  src: [
+    { path: './fonts/IBMPlexSansArabic-Regular.ttf', weight: '400' },
+    { path: './fonts/IBMPlexSansArabic-Medium.ttf', weight: '500' },
+    { path: './fonts/IBMPlexSansArabic-SemiBold.ttf', weight: '600' },
+    { path: './fonts/IBMPlexSansArabic-Bold.ttf', weight: '700' },
+  ],
   display: 'swap',
-  subsets: ['arabic', 'latin'],
   variable: '--font-ar',
-  weight: ['400', '500', '600', '700'],
 });
 
-const arabicDisplayFont = Alexandria({
+const arabicDisplayFont = localFont({
+  src: './fonts/Alexandria.ttf',
   display: 'swap',
-  subsets: ['arabic', 'latin'],
   variable: '--font-ar-display',
-  weight: ['500', '600', '700', '800'],
+  weight: '100 900',
 });
 
-const englishFont = Manrope({
+const englishFont = localFont({
+  src: './fonts/Manrope.ttf',
   display: 'swap',
-  subsets: ['latin'],
   variable: '--font-en',
-  weight: ['400', '500', '600', '700', '800'],
+  weight: '200 800',
 });
 
 export const metadata: Metadata = {

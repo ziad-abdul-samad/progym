@@ -4,7 +4,15 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth/use-auth';
 import { useState } from 'react';
-import { Download, Plus, ReceiptText, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
+import {
+  Download,
+  Plus,
+  ReceiptText,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  ArrowUpFromLine,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogCancelButton, DialogForm } from '@/components/ui/dialog';
@@ -13,6 +21,11 @@ import { DashboardLoader, EmptyState, ErrorState } from '@/components/ui/state';
 import { apiRequest, jsonBody } from '@/lib/api/client';
 import { money, RequestKey } from './plan-picker';
 import { PayrollTab } from './payroll-tab';
+import {
+  OwnerWithdrawalsTab,
+  WithdrawalCards,
+  type OwnerWithdrawal,
+} from './owner-withdrawals-tab';
 import { businessDate, financialTime, salaryMonthLabel } from './finance-format';
 export { businessDate, financialTime } from './finance-format';
 
@@ -56,6 +69,8 @@ export type FinanceReport = {
     netMinor: number;
     salaryMinor: number;
     otherExpenseMinor: number;
+    ownerWithdrawalMinor: number;
+    cashMovementMinor: number;
   }[];
   salaries: {
     name: string;
@@ -79,6 +94,8 @@ export type FinanceReport = {
   expenses: Expense[];
   receiptCount: number;
   expenseCount: number;
+  withdrawals: OwnerWithdrawal[];
+  withdrawalCount: number;
   page: number;
   pageSize: number;
 };
@@ -225,13 +242,13 @@ function ExpensesContent() {
     client = useQueryClient();
   const [range, setRange] = useState(() => rangeFor(30)),
     [page, setPage] = useState(1);
-  const [tab, setTab] = useState<'expenses' | 'payroll'>('expenses');
+  const [tab, setTab] = useState<'expenses' | 'payroll' | 'withdrawals'>('expenses');
   const [adding, setAdding] = useState(false),
     [voiding, setVoiding] = useState<Expense | null>(null);
   const report = useQuery({
     queryKey: ['finance-expenses', params.branchCode, range, page],
     queryFn: () => apiRequest<FinanceReport>(reportUrl(range, page)),
-    enabled: tab === 'expenses',
+    enabled: tab !== 'payroll',
   });
   const refresh = () => {
     setAdding(false);
@@ -303,6 +320,16 @@ function ExpensesContent() {
         >
           رواتب العاملين والمراقبين
         </Button>
+        <Button
+          variant={tab === 'withdrawals' ? 'primary' : 'secondary'}
+          aria-pressed={tab === 'withdrawals'}
+          onClick={() => {
+            setTab('withdrawals');
+            setPage(1);
+          }}
+        >
+          سحوبات المالك
+        </Button>
       </div>
       {tab === 'payroll' ? (
         <PayrollTab />
@@ -323,32 +350,41 @@ function ExpensesContent() {
             <ErrorState message={report.error.message} />
           ) : report.data ? (
             <>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {report.data.totals.map((total) => (
-                  <Card key={total.currency}>
-                    <p className="text-sm text-muted-foreground">المصاريف خلال الفترة</p>
-                    <strong className="mt-2 block text-2xl" dir="ltr">
-                      {money(total.expenseMinor, total.currency)}
-                    </strong>
-                    <p className="mt-3 text-xs leading-6 text-muted-foreground">
-                      منها رواتب: {money(total.salaryMinor ?? 0, total.currency)} · مصاريف أخرى:{' '}
-                      {money(total.otherExpenseMinor ?? total.expenseMinor, total.currency)}
-                    </p>
-                  </Card>
-                ))}
-              </div>
-              {report.data.expenses.length ? (
-                <ExpenseCards
-                  expenses={report.data.expenses}
-                  onVoid={(e) => {
-                    cancel.reset();
-                    setVoiding(e);
-                  }}
-                />
+              {tab === 'withdrawals' ? (
+                <>
+                  <OwnerWithdrawalsTab withdrawals={report.data.withdrawals ?? []} />
+                  <Pager page={page} count={report.data.withdrawalCount ?? 0} onChange={setPage} />
+                </>
               ) : (
-                <EmptyState title="لا توجد مصاريف في هذه الفترة" />
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {report.data.totals.map((total) => (
+                      <Card key={total.currency}>
+                        <p className="text-sm text-muted-foreground">المصاريف خلال الفترة</p>
+                        <strong className="mt-2 block text-2xl" dir="ltr">
+                          {money(total.expenseMinor, total.currency)}
+                        </strong>
+                        <p className="mt-3 text-xs leading-6 text-muted-foreground">
+                          منها رواتب: {money(total.salaryMinor ?? 0, total.currency)} · مصاريف أخرى:{' '}
+                          {money(total.otherExpenseMinor ?? total.expenseMinor, total.currency)}
+                        </p>
+                      </Card>
+                    ))}
+                  </div>
+                  {report.data.expenses.length ? (
+                    <ExpenseCards
+                      expenses={report.data.expenses}
+                      onVoid={(e) => {
+                        cancel.reset();
+                        setVoiding(e);
+                      }}
+                    />
+                  ) : (
+                    <EmptyState title="لا توجد مصاريف في هذه الفترة" />
+                  )}
+                  <Pager page={page} count={report.data.expenseCount} onChange={setPage} />
+                </>
               )}
-              <Pager page={page} count={report.data.expenseCount} onChange={setPage} />
             </>
           ) : null}
         </>
@@ -491,25 +527,30 @@ function BranchReportsContent() {
     mutationFn: async () => {
       if (!report) return;
       // Export a consistent bounded detail set; do not silently truncate a report.
-      const count = Math.max(report.receiptCount, report.expenseCount);
+      const count = Math.max(report.receiptCount, report.expenseCount, report.withdrawalCount ?? 0);
       if (count > 3000)
         throw new Error(
           'للحفاظ على سرعة تنزيل PDF، اختر فترة أقصر تحتوي على 3000 سجل أو أقل. الملخص على الشاشة يشمل الفترة كاملة.',
         );
       const fresh = await apiRequest<FinanceReport>(reportUrl(report.range));
-      if (Math.max(fresh.receiptCount, fresh.expenseCount) > 3000)
+      if (Math.max(fresh.receiptCount, fresh.expenseCount, fresh.withdrawalCount ?? 0) > 3000)
         throw new Error('ازدادت السجلات أثناء التصدير. اختر فترة أقصر ثم أعد إنشاء التقرير.');
       const receipts = [...fresh.receipts],
-        expenses = [...fresh.expenses];
+        expenses = [...fresh.expenses],
+        withdrawals = [...(fresh.withdrawals ?? [])];
       for (
         let page = 2;
-        page <= Math.ceil(Math.max(fresh.receiptCount, fresh.expenseCount) / 50);
+        page <=
+        Math.ceil(
+          Math.max(fresh.receiptCount, fresh.expenseCount, fresh.withdrawalCount ?? 0) / 50,
+        );
         page++
       ) {
         const next = await apiRequest<FinanceReport>(reportUrl(report.range, page));
         if (
           next.receiptCount !== fresh.receiptCount ||
           next.expenseCount !== fresh.expenseCount ||
+          next.withdrawalCount !== fresh.withdrawalCount ||
           JSON.stringify(next.totals) !== JSON.stringify(fresh.totals)
         )
           throw new Error(
@@ -517,9 +558,10 @@ function BranchReportsContent() {
           );
         receipts.push(...next.receipts);
         expenses.push(...next.expenses);
+        withdrawals.push(...(next.withdrawals ?? []));
       }
       const { downloadFinanceReport } = await import('@/lib/reports/branch-finance-report');
-      await downloadFinanceReport({ ...fresh, receipts, expenses }, tab);
+      await downloadFinanceReport({ ...fresh, receipts, expenses, withdrawals }, tab);
     },
   });
   return (
@@ -590,11 +632,16 @@ function BranchReportsContent() {
             <>
               {report.totals.length ? (
                 report.totals.map((total) => (
-                  <div key={total.currency} className="grid gap-3 sm:grid-cols-3">
+                  <div key={total.currency} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     {[
                       [TrendingUp, 'الإيرادات', total.incomeMinor],
-                      [TrendingDown, 'المصاريف', total.expenseMinor],
-                      [Wallet, 'الصافي', total.netMinor],
+                      [TrendingDown, 'المصاريف التشغيلية', total.expenseMinor],
+                      [ArrowUpFromLine, 'سحوبات المالك', total.ownerWithdrawalMinor ?? 0],
+                      [
+                        Wallet,
+                        'صافي النقد بعد السحوبات',
+                        total.cashMovementMinor ?? total.netMinor,
+                      ],
                     ].map(([Icon, label, value]) => {
                       const Symbol = Icon as typeof Wallet;
                       return (
@@ -612,6 +659,11 @@ function BranchReportsContent() {
               ) : (
                 <EmptyState title="لا توجد حركة مالية في الفترة المختارة" />
               )}
+              <p className="text-sm leading-7 text-muted-foreground">
+                صافي حركة الفترة = الإيرادات − المصاريف التشغيلية − سحوبات المالك. ليس رصيد الصندوق
+                الفعلي؛ لا يشمل رصيد بداية الفترة. السحوبات منفصلة عن الرواتب والمصاريف، والعملات لا
+                تُجمع.
+              </p>
               <Card>
                 <h3 className="mb-4 text-lg font-black">الإيراد حسب الباقة والسعر وقت الدفع</h3>
                 <div className="grid gap-3 lg:grid-cols-2">
@@ -673,6 +725,10 @@ function BranchReportsContent() {
                 </Card>
               ) : null}
               <ExpenseCards expenses={report.expenses} />
+              <h3 className="font-black">
+                الأموال التي سحبها المالك — {report.withdrawalCount ?? 0} عملية
+              </h3>
+              <WithdrawalCards withdrawals={report.withdrawals ?? []} />
             </>
           ) : (
             <>
@@ -714,7 +770,11 @@ function BranchReportsContent() {
           )}
           <Pager
             page={report.page}
-            count={tab === 'financial' ? report.expenseCount : report.receiptCount}
+            count={
+              tab === 'financial'
+                ? Math.max(report.expenseCount, report.withdrawalCount ?? 0)
+                : report.receiptCount
+            }
             onChange={(page) => generate.mutate({ page, dates: report.range })}
           />
         </>

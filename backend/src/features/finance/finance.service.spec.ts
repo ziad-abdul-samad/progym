@@ -8,9 +8,32 @@ import {
   SalaryPaymentDto,
   SalaryRecipientDto,
   SalaryRecipientsQueryDto,
+  OwnerWithdrawalDto,
 } from './finance.dto';
 
 describe('financial date and amount validation', () => {
+  it('validates dual-currency owner handovers independently without fractional cents', () => {
+    const base = {
+      ownerName: 'مالك النادي',
+      usdMinor: 10000,
+      sypNewMinor: 100000,
+      withdrawnOn: '2026-10-01',
+      requestKey: 'owner-handover-test-123',
+    };
+    expect(validateSync(plainToInstance(OwnerWithdrawalDto, base))).toHaveLength(0);
+    expect(plainToInstance(OwnerWithdrawalDto, { ...base, usdMinor: undefined }).sypNewMinor).toBe(
+      100000,
+    );
+    for (const bad of [
+      { usdMinor: -1 },
+      { sypNewMinor: 1.5 },
+      { usdMinor: 2000000001 },
+      { ownerName: 'x' },
+    ])
+      expect(
+        validateSync(plainToInstance(OwnerWithdrawalDto, { ...base, ...bad })).length,
+      ).toBeGreaterThan(0);
+  });
   it('includes the entire final Damascus day and excludes the next midnight', () => {
     const range = businessRange('2026-09-01', '2026-09-30');
     expect(range.gte.toISOString()).toBe('2026-08-31T21:00:00.000Z');
