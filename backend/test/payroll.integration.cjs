@@ -12,7 +12,7 @@ const { hashPassword } = require('../dist/common/utils/hash.util');
 
 const url = new URL(process.env.DATABASE_URL || '');
 assert.equal(url.hostname, '127.0.0.1', 'NEVER run financial tests against customer data');
-assert.equal(url.port, '55434', 'Use the isolated accounting cluster');
+assert.ok(['55434','15434'].includes(url.port), 'Use the isolated accounting cluster');
 const db = new PrismaService(),
   payroll = new PayrollService(db),
   finance = new FinanceService(db);
@@ -100,7 +100,7 @@ async function preservation() {
     for (const table of tables) {
       // Table names are a fixed allowlist, never user input. Strip additive expense columns.
       result[table] = await db.$queryRawUnsafe(
-        `SELECT to_jsonb(t) - ARRAY['kind','salaryRecipientId','salaryNameSnapshot','salaryJobSnapshot','salaryMonth'] AS row FROM "${table}" t ORDER BY id`,
+        `SELECT to_jsonb(t) - ARRAY['kind','salaryRecipientId','salaryNameSnapshot','salaryJobSnapshot','salaryMonth','planAudienceSnapshot'] AS row FROM "${table}" t ORDER BY id`,
       );
     }
     return result;

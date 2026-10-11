@@ -685,6 +685,7 @@ export class MembershipsService {
         branchIdSnapshot: input.plan.branchId,
         planIdSnapshot: input.plan.id,
         planNameSnapshot: input.plan.nameAr,
+        planAudienceSnapshot: input.plan.audience,
         durationDaysSnapshot: input.plan.durationDays,
         memberIdSnapshot: input.memberId,
         memberNameSnapshot: input.memberName,

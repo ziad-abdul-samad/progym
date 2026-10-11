@@ -231,6 +231,9 @@ model Branch {
   expenses             Expense[]
   salaryRecipients     SalaryRecipient[]
   ownerWithdrawals      OwnerWithdrawal[]
+  barProducts           BarProduct[]
+  barSales              BarSale[]
+  barCashEntries        BarCashEntry[]
 
   @@index([isActive, sortOrder])
 }
@@ -595,6 +598,7 @@ model Payment {
   branchIdSnapshot String?
   planIdSnapshot String?
   planNameSnapshot String?
+  planAudienceSnapshot PlanAudience?
   durationDaysSnapshot Int?
   memberIdSnapshot String?
   memberNameSnapshot String?
@@ -620,6 +624,68 @@ model Payment {
 }
 
 // Cash handed to the owner is not an operating expense. One visit may use two currencies.
+model BarProduct {
+  id String @id @default(cuid())
+  branchId String
+  name String
+  nameKey String
+  currency String @default("SYP_NEW")
+  prices Json
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  sales BarSale[]
+  @@unique([branchId, nameKey])
+  @@unique([id, branchId])
+  @@index([branchId, isActive, name])
+}
+
+model BarSale {
+  id String @id @default(cuid())
+  branchId String
+  productId String
+  requestKey String @unique
+  productNameSnapshot String
+  priceLabelSnapshot String
+  quantity Int
+  unitPriceMinor Int
+  amountMinor Int
+  currency String
+  soldAt DateTime
+  notes String?
+  createdById String
+  createdByName String
+  createdAt DateTime @default(now())
+  voidedAt DateTime?
+  voidedById String?
+  voidReason String?
+  product BarProduct @relation(fields: [productId, branchId], references: [id, branchId], onDelete: Restrict)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  @@index([branchId, soldAt])
+}
+
+// EXPENSE is cash paid for the bar; OPENING is a known balance before that business day.
+model BarCashEntry {
+  id String @id @default(cuid())
+  branchId String
+  requestKey String @unique
+  kind String
+  title String
+  amountMinor Int
+  currency String
+  spentAt DateTime
+  notes String?
+  createdById String
+  createdByName String
+  createdAt DateTime @default(now())
+  voidedAt DateTime?
+  voidedById String?
+  voidReason String?
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  @@index([branchId, kind, spentAt])
+}
+
 model OwnerWithdrawal {
   id                String   @id @default(cuid())
   branchId          String

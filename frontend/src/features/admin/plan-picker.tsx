@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils';
 import { ErrorState } from '@/components/ui/state';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { money } from './finance-format';
+export { money } from './finance-format';
 
 export type BranchPlan = {
   id: string;
@@ -21,17 +23,6 @@ export type BranchPlan = {
   audience: 'MEN' | 'WOMEN';
   updatedAt: string;
 };
-export function money(minor: number, currency: string) {
-  const label =
-    currency === 'USD'
-      ? '$'
-      : currency === 'SYP_NEW'
-        ? 'ل.س جديدة'
-        : currency === 'SYP'
-          ? 'ل.س (سجل سابق)'
-          : currency;
-  return `${(minor / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${label}`;
-}
 export function useBranchPlans() {
   const params = useParams();
   const auth = useAuth();

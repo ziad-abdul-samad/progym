@@ -1,6 +1,6 @@
 import type { FinanceReport } from '@/features/admin/branch-finance-pages';
 import { canvasAsJpeg, createPdf, loadLogo } from './arabic-gym-report';
-import { salaryMonthLabel } from '@/features/admin/finance-format';
+import { familiarReportSections } from '@/features/admin/finance-report-content';
 
 type Row = { title: string; lines: string[] };
 type ReportIcon = 'income' | 'expense' | 'withdrawal' | 'balance' | 'plans' | 'people' | 'receipt';
@@ -88,102 +88,7 @@ export async function downloadFinanceReport(report: FinanceReport, kind: 'financ
   const title = kind === 'financial' ? 'التقرير المالي للفرع' : 'تقرير اشتراكات اللاعبين';
   const sections: Section[] =
     kind === 'financial'
-      ? [
-          {
-            title: 'من أين جاءت المقبوضات؟',
-            hint: 'كل بطاقة تجمع الاشتراكات ذات الباقة والسعر نفسيهما وقت الدفع.',
-            icon: 'plans',
-            rows: report.plans.map((p) => ({
-              title: p.name,
-              lines: [
-                'المدة: ' +
-                  (p.durationDays ?? 'غير محفوظة') +
-                  ' يوم  |  سعر الدفعة: ' +
-                  money(p.unitPriceMinor, p.currency),
-                'عدد اللاعبين: ' +
-                  p.players +
-                  '  |  عمليات الدفع: ' +
-                  p.count +
-                  '  |  الإجمالي: ' +
-                  money(p.totalMinor, p.currency),
-              ],
-            })),
-          },
-          {
-            title: 'من استلم المبالغ؟',
-            hint: 'المبالغ المسجّلة باسم كل مراقب، مع عدد الدفعات التي استلمها.',
-            icon: 'people',
-            rows: report.receivers.map((r) => ({
-              title: r.name,
-              lines: [
-                'عدد الدفعات: ' + r.count + '  |  المستلم: ' + money(r.totalMinor, r.currency),
-              ],
-            })),
-          },
-          {
-            title: 'كم دُفع من الرواتب ولمن؟',
-            hint: 'دفعات الرواتب جزء من إجمالي المصروفات، وليست مبلغاً يضاف إليه مرة ثانية. تُحسب بتاريخ الدفع الفعلي.',
-            icon: 'people',
-            rows: (report.salaries ?? []).map((salary) => ({
-              title: salary.name,
-              lines: [
-                'الوظيفة: ' +
-                  (salary.jobTitle || 'عامل بالفرع') +
-                  '  |  الراتب عن: ' +
-                  salaryMonthLabel(salary.month),
-                'عدد الدفعات: ' +
-                  salary.count +
-                  '  |  المدفوع: ' +
-                  money(salary.totalMinor, salary.currency),
-              ],
-            })),
-          },
-          {
-            title: 'كم سحب المالك من الفرع؟',
-            hint: 'أموال سُلّمت للمالك؛ تُطرح من صافي حركة النقد، ولا تدخل ضمن المصاريف التشغيلية أو الرواتب.',
-            icon: 'withdrawal',
-            rows: (report.withdrawals ?? []).map((w) => ({
-              title: 'استلم: ' + w.ownerNameSnapshot + (w.voidedAt ? ' — ملغى / غير محتسب' : ''),
-              lines: [
-                ...(w.usdMinor > 0 ? ['المبلغ بالدولار: ' + money(w.usdMinor, 'USD')] : []),
-                ...(w.sypNewMinor > 0
-                  ? ['المبلغ بالليرة: ' + money(w.sypNewMinor, 'SYP_NEW')]
-                  : []),
-                'تاريخ التسليم: ' +
-                  new Intl.DateTimeFormat('ar-SY', { timeZone: 'Asia/Damascus' }).format(
-                    new Date(w.withdrawnAt),
-                  ),
-                'سجّله: ' + w.createdByName + '  |  وقت التسجيل: ' + time(w.createdAt),
-                ...(w.notes ? ['التفاصيل: ' + w.notes] : []),
-                ...(w.voidReason ? ['سبب الإلغاء: ' + w.voidReason] : []),
-                'رقم القيد: ' + w.id,
-              ],
-            })),
-          },
-          {
-            title: 'على ماذا صُرفت الأموال؟',
-            hint: 'اسم المصروف، قيمته، يوم الدفع ومن سجّله. القيود الملغاة لا تدخل في الحساب.',
-            icon: 'expense',
-            rows: report.expenses.map((e) => ({
-              title: e.title + (e.voidedAt ? ' — ملغى / غير محتسب' : ''),
-              lines: [
-                'المبلغ: ' +
-                  money(e.amountMinor, e.currency) +
-                  '  |  تاريخ الدفع: ' +
-                  new Intl.DateTimeFormat('ar-SY', { timeZone: 'Asia/Damascus' }).format(
-                    new Date(e.spentAt),
-                  ),
-                'سجّله: ' + e.createdByName + '  |  وقت التسجيل: ' + time(e.createdAt),
-                ...(e.kind === 'SALARY' && e.salaryMonth
-                  ? ['نوع المصروف: راتب  |  عن شهر: ' + salaryMonthLabel(e.salaryMonth)]
-                  : []),
-                ...(e.notes ? ['التفاصيل: ' + e.notes] : []),
-                ...(e.voidReason ? ['سبب الإلغاء: ' + e.voidReason] : []),
-                'رقم القيد: ' + e.id,
-              ],
-            })),
-          },
-        ]
+      ? familiarReportSections(report)
       : [
           {
             title: 'اللاعبون والباقات وتواريخ الدفع',
@@ -194,10 +99,10 @@ export async function downloadFinanceReport(report: FinanceReport, kind: 'financ
               lines: [
                 'الباقة: ' +
                   (r.planNameSnapshot ?? 'اشتراك سابق — غير محفوظة') +
-                  '  |  المدة: ' +
+                  ' · المدة: ' +
                   (r.durationDaysSnapshot ?? '—') +
                   ' يوم',
-                'الدفعة: ' + money(r.amountMinor, r.currency) + '  |  التاريخ: ' + time(r.paidAt),
+                'الدفعة: ' + money(r.amountMinor, r.currency) + ' · التاريخ: ' + time(r.paidAt),
                 'المراقب: ' + (r.observerNameSnapshot ?? r.receiverNameSnapshot ?? 'سجل سابق'),
                 'رقم الدفعة: ' + r.id,
               ],
@@ -220,7 +125,7 @@ export async function downloadFinanceReport(report: FinanceReport, kind: 'financ
   ) => {
     ctx.font = `${bold ? 700 : 400} ${size}px Tahoma, Arial, sans-serif`;
     ctx.textAlign = 'right';
-    ctx.direction = direction;
+    ctx.direction = value.includes(' ÷ ') || value.includes(' × 0.03 ') ? 'ltr' : direction;
     ctx.fillStyle = color;
     ctx.fillText(value, x, baseline);
   };
@@ -317,130 +222,7 @@ export async function downloadFinanceReport(report: FinanceReport, kind: 'financ
   };
   try {
     begin();
-    if (kind === 'financial') {
-      text('حركة الصندوق في نظرة واحدة', 1170, y + 32, 34, true);
-      text(
-        'المقبوضات − المصروفات − سحوبات المالك = صافي حركة النقد',
-        1170,
-        y + 78,
-        24,
-        false,
-        '#51634f',
-      );
-      y += 110;
-      if (!report.totals.length) {
-        text('لا توجد حركة مالية ضمن هذه الفترة.', 1170, y + 35);
-        y += 90;
-      }
-      for (const total of report.totals) {
-        if (y > 1110) {
-          await finish();
-          begin();
-        }
-        text(
-          total.currency === 'USD'
-            ? 'الدولار الأمريكي'
-            : total.currency === 'SYP_NEW'
-              ? 'الليرة السورية الجديدة'
-              : `عملة السجل: ${total.currency}`,
-          1170,
-          y + 25,
-          26,
-          true,
-        );
-        y += 48;
-        const cards: {
-          label: string;
-          hint: string;
-          amount: number;
-          icon: ReportIcon;
-          color: string;
-          bg: string;
-        }[] = [
-          {
-            label: 'المقبوضات',
-            hint: 'ما استُلم من الاشتراكات',
-            amount: total.incomeMinor,
-            icon: 'income',
-            color: '#17643a',
-            bg: '#e5f3e9',
-          },
-          {
-            label: 'المصروفات',
-            hint: 'الرواتب وباقي تكاليف النادي',
-            amount: total.expenseMinor,
-            icon: 'expense',
-            color: '#a23a26',
-            bg: '#fff0e9',
-          },
-          {
-            label: 'سحوبات المالك',
-            hint: 'ما سُلّم للمالك، وليس مصروفاً',
-            amount: total.ownerWithdrawalMinor ?? 0,
-            icon: 'withdrawal',
-            color: '#7142a3',
-            bg: '#f1eafa',
-          },
-          {
-            label: 'صافي الحركة',
-            hint: 'بعد المصروفات وسحوبات المالك',
-            amount: total.cashMovementMinor ?? total.netMinor,
-            icon: 'balance',
-            color: '#235d91',
-            bg: '#e9f1fc',
-          },
-        ];
-        cards.forEach((card, i) => {
-          const x = 64 + (1 - (i % 2)) * 564,
-            top = y + Math.floor(i / 2) * 170;
-          panel(x, top, 548, 154, card.bg);
-          drawIcon(ctx, card.icon, x + 491, top + 18, card.color);
-          text(card.label, x + 474, top + 42, 27, true, card.color);
-          ctx.font = '700 37px Tahoma, Arial, sans-serif';
-          const value = (card.amount / 100).toLocaleString('en-US', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          });
-          const size = Math.min(37, (37 * 500) / Math.max(1, ctx.measureText(value).width));
-          text(value, x + 522, top + 96, size, true, card.color, 'ltr');
-          text(card.hint, x + 522, top + 130, 20, false, card.color);
-        });
-        const expenseBreakdown = wrap(
-          'من المصروفات: رواتب ' +
-            money(total.salaryMinor ?? 0, total.currency) +
-            '  |  مصاريف أخرى ' +
-            money(total.otherExpenseMinor ?? total.expenseMinor, total.currency),
-          19,
-        );
-        expenseBreakdown.forEach((line, i) =>
-          text(line, 1170, y + 350 + i * 26, 19, false, '#51634f'),
-        );
-        text(
-          'صافي قبل سحوبات المالك: ' + money(total.netMinor, total.currency),
-          1170,
-          y + 350 + expenseBreakdown.length * 26,
-          19,
-          false,
-          '#51634f',
-        );
-        y += 390 + (expenseBreakdown.length - 1) * 26;
-      }
-      if (y > 1300) {
-        await finish();
-        begin();
-      }
-      panel(64, y + 12, 1112, 288, '#ffffff');
-      text('كيف تقرأ هذا التقرير؟', 1145, y + 55, 28, true);
-      [
-        '١  المقبوضات: دفعات الاشتراكات المسجّلة خلال هذه الفترة، وليس عدد اللاعبين الحالي.',
-        '٢  المصروفات: المبالغ المدفوعة حسب يوم المصروف، باستثناء القيود الملغاة.',
-        '٣  سحوبات المالك مستقلة عن المصروفات؛ الصافي بعد السحوبات لا يشمل رصيد بداية الفترة.',
-        '٤  كل عملة مستقلة. الأسعار المعروضة هي أسعار الدفع الأصلية ولا تتغير بأثر رجعي.',
-        'في الصفحات التالية: الباقات ← المراقبون ← الرواتب ← سحوبات المالك ← المصاريف.',
-      ].forEach((line, i) => text(line, 1145, y + 103 + i * 39, 21, false, '#51634f'));
-      await finish();
-      begin();
-    } else {
+    if (kind === 'members') {
       panel(64, y, 1112, 108, '#e5f3e9');
       drawIcon(ctx, 'receipt', 1115, y + 25, '#17643a');
       text(
@@ -465,6 +247,27 @@ export async function downloadFinanceReport(report: FinanceReport, kind: 'financ
         y += 80;
       }
       for (const row of section.rows) {
+        ctx.font = '700 24px Tahoma, Arial, sans-serif';
+        const shortTitle = ctx.measureText(row.title).width <= 690;
+        ctx.font = '400 22px Tahoma, Arial, sans-serif';
+        if (
+          kind === 'financial' &&
+          row.lines.length === 1 &&
+          shortTitle &&
+          ctx.measureText(row.lines[0] ?? '').width <= 330
+        ) {
+          if (y + 58 > 1600) {
+            await finish();
+            begin();
+            sectionHeader(section, index, true);
+          }
+          panel(64, y, 1112, 58);
+          text(row.title, 1145, y + 37, 24, true);
+          text(row.lines[0] ?? '', 400, y + 37, 22);
+          y += 66;
+          continue;
+        }
+        const lineHeight = kind === 'financial' ? 32 : 38;
         const lines = [
           ...wrap(row.title, 26, true).map((value) => ({ value, bold: true })),
           ...row.lines.flatMap((l) => wrap(l).map((value) => ({ value, bold: false }))),
@@ -472,10 +275,10 @@ export async function downloadFinanceReport(report: FinanceReport, kind: 'financ
         // Split very long notes across pages without cropping the record.
         let offset = 0;
         const pageCapacity = Math.floor(
-          (1600 - 295 - 130 - (wrap(section.hint, 20).length - 1) * 26 - 35) / 38,
+          (1600 - 295 - 130 - (wrap(section.hint, 20).length - 1) * 26 - 35) / lineHeight,
         );
         while (offset < lines.length) {
-          const available = Math.floor((1600 - y - 35) / 38);
+          const available = Math.floor((1600 - y - 35) / lineHeight);
           // Keep ordinary records intact; split only notes too long for a whole page.
           if (
             available < 2 ||
@@ -487,7 +290,7 @@ export async function downloadFinanceReport(report: FinanceReport, kind: 'financ
             continue;
           }
           const part = lines.slice(offset, offset + available),
-            height = part.length * 38 + 32;
+            height = part.length * lineHeight + 28;
           panel(64, y, 1112, height);
           ctx.fillStyle = '#36ac29';
           ctx.fillRect(1170, y, 6, height);
@@ -497,13 +300,13 @@ export async function downloadFinanceReport(report: FinanceReport, kind: 'financ
             text(
               line.value,
               1145,
-              y + 36 + i * 38,
+              y + 34 + i * lineHeight,
               line.bold ? 26 : isIdentifier ? 18 : 23,
               line.bold,
               isIdentifier ? '#6e7e70' : '#233129',
             );
           });
-          y += height + 15;
+          y += height + (kind === 'financial' ? 8 : 15);
           offset += part.length;
         }
       }

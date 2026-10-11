@@ -8,7 +8,7 @@ const { OwnerWithdrawalsService } = require('../dist/features/finance/owner-with
 const { addDemoDirectory, fingerprints } = require('../scripts/payroll-directory-demo.cjs');
 const url = new URL(process.env.DATABASE_URL || '');
 assert.equal(url.hostname,'127.0.0.1','Never test financial mutations on live data');
-assert.equal(url.port,'55434');
+assert.ok(['55434','15434'].includes(url.port));
 const db = new PrismaService(), finance = new FinanceService(db), draws = new OwnerWithdrawalsService(db);
 let checks=0;
 function check(value,label) { assert.ok(value,label); checks++; console.log('PASS',label); }

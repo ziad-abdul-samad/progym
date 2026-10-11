@@ -6,6 +6,17 @@ export function businessDate(date = new Date()) {
     day: '2-digit',
   }).format(date);
 }
+export function money(minor: number, currency: string) {
+  const label =
+    currency === 'USD'
+      ? '$'
+      : currency === 'SYP_NEW'
+        ? 'ل.س جديدة'
+        : currency === 'SYP'
+          ? 'ل.س (سجل سابق)'
+          : currency;
+  return `${(minor / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${label}`;
+}
 export function financialTime(value: string) {
   return new Intl.DateTimeFormat('ar-SY', {
     timeZone: 'Asia/Damascus',

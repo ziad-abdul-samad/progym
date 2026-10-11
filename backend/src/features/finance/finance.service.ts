@@ -9,22 +9,12 @@ import type { AuthenticatedUser } from '../../common/types/authenticated-user';
 import { requireBranchId } from '../../common/utils/branch.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { ExpenseDto, FinanceRangeDto } from './finance.dto';
+import { businessRange } from './finance-date';
+import { barReport } from './bar.service';
+import { reportDistribution } from './report-calculations';
+export { businessRange } from './finance-date';
 
 // Gym business dates are Damascus dates, independent of the browser/server timezone.
-export function businessRange(from: string, to: string) {
-  const date = (s: string) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) throw new BadRequestException('Invalid date');
-    const utc = new Date(s + 'T00:00:00Z');
-    if (Number.isNaN(utc.getTime()) || utc.toISOString().slice(0, 10) !== s)
-      throw new BadRequestException('Invalid date');
-    return new Date(s + 'T00:00:00+03:00');
-  };
-  const start = date(from),
-    end = new Date(date(to).getTime() + 86400000);
-  if (end <= start || end.getTime() - start.getTime() > 366 * 86400000)
-    throw new BadRequestException('اختر فترة صحيحة لا تتجاوز سنة');
-  return { gte: start, lt: end };
-}
 
 @Injectable()
 export class FinanceService {
@@ -136,6 +126,10 @@ export class FinanceService {
           withdrawals,
           withdrawalCount,
           withdrawalAmounts,
+          bar,
+          catalog,
+          unpaidStaff,
+          clubExpenseGroups,
         ] = await Promise.all([
           tx.branch.findUniqueOrThrow({
             where: { id: branchId },
@@ -162,16 +156,21 @@ export class FinanceService {
               count: number;
               players: number;
               totalMinor: number;
+              planId: string | null;
+              audience: string;
+              inferredAudienceCount: number;
             }>
           >`
-          SELECT COALESCE("planNameSnapshot", 'اشتراكات سابقة — الباقة غير محفوظة') AS name, currency,
-            "durationDaysSnapshot" AS "durationDays", "amountMinor" AS "unitPriceMinor",
-            COUNT(*)::int AS count, COUNT(DISTINCT "memberIdSnapshot")::int AS players,
-            SUM("amountMinor")::float8 AS "totalMinor"
-          FROM "Payment" WHERE "branchIdSnapshot" = ${branchId} AND status = 'PAID'
-            AND "paidAt" >= ${range.gte} AND "paidAt" < ${range.lt}
-          GROUP BY "planIdSnapshot", "planNameSnapshot", currency, "durationDaysSnapshot", "amountMinor"
-          ORDER BY name, currency, "unitPriceMinor"`,
+          SELECT COALESCE(p."planNameSnapshot", 'اشتراكات سابقة — الباقة غير محفوظة') AS name,p.currency,
+            p."planIdSnapshot" AS "planId",COALESCE(p."planAudienceSnapshot"::text,m.audience::text,'UNKNOWN') AS audience,
+            p."durationDaysSnapshot" AS "durationDays",p."amountMinor" AS "unitPriceMinor",
+            COUNT(*)::int AS count,COUNT(DISTINCT p."memberIdSnapshot")::int AS players,
+            COUNT(*) FILTER (WHERE p."planAudienceSnapshot" IS NULL AND m.id IS NOT NULL)::int AS "inferredAudienceCount",
+            SUM(p."amountMinor")::float8 AS "totalMinor"
+          FROM "Payment" p LEFT JOIN "MembershipPlan" m ON m.id=p."planIdSnapshot"
+          WHERE p."branchIdSnapshot"=${branchId} AND p.status='PAID' AND p."paidAt">=${range.gte} AND p."paidAt"<${range.lt}
+          GROUP BY p."planIdSnapshot",p."planNameSnapshot",p.currency,p."durationDaysSnapshot",p."amountMinor",COALESCE(p."planAudienceSnapshot"::text,m.audience::text,'UNKNOWN')
+          ORDER BY audience,name,p.currency,"unitPriceMinor"`,
           tx.$queryRaw<
             Array<{ name: string; currency: string; count: number; totalMinor: number }>
           >`
@@ -242,17 +241,71 @@ export class FinanceService {
             where: { ...withdrawalWhere, voidedAt: null },
             _sum: { usdMinor: true, sypNewMinor: true },
           }),
+          barReport(tx, branchId, range, query.page),
+          tx.membershipPlan.findMany({
+            where: { branchId, isActive: true, deletedAt: null },
+            select: {
+              id: true,
+              nameAr: true,
+              audience: true,
+              currency: true,
+              durationDays: true,
+              priceMinor: true,
+            },
+          }),
+          tx.$queryRaw<
+            Array<{
+              name: string;
+              jobTitle: string | null;
+              currency: string;
+              count: number;
+              totalMinor: number;
+            }>
+          >`SELECT s.name,s."jobTitle",s.currency,0::int count,0::float8 AS "totalMinor" FROM "SalaryRecipient" s WHERE s."branchId"=${branchId} AND s."archivedAt" IS NULL AND NOT EXISTS (SELECT 1 FROM "Expense" e WHERE e."salaryRecipientId"=s.id AND e."branchId"=${branchId} AND e.kind='SALARY' AND e."voidedAt" IS NULL AND e."spentAt">=${range.gte} AND e."spentAt"<${range.lt}) ORDER BY s.name`,
+          tx.$queryRaw<
+            Array<{ title: string; currency: string; count: number; totalMinor: number }>
+          >`SELECT title,currency,COUNT(*)::int count,SUM("amountMinor")::float8 AS "totalMinor" FROM "Expense" WHERE "branchId"=${branchId} AND kind='GENERAL' AND "voidedAt" IS NULL AND "spentAt">=${range.gte} AND "spentAt"<${range.lt} GROUP BY title,currency ORDER BY title,currency`,
         ]);
         const currencies = [
           ...new Set(
             [
               ...income.map((x) => x.currency),
               ...spending.map((x) => x.currency),
+              ...bar.totals.map((t) => t.currency),
+              ...catalog.map((t) => t.currency),
               ...(withdrawalAmounts._sum.usdMinor ? ['USD'] : []),
               ...(withdrawalAmounts._sum.sypNewMinor ? ['SYP_NEW'] : []),
             ].sort(),
           ),
         ];
+        for (const plan of catalog)
+          if (
+            !plans.some(
+              (p) =>
+                p.planId === plan.id &&
+                p.unitPriceMinor === plan.priceMinor &&
+                p.currency === plan.currency &&
+                p.audience === plan.audience,
+            )
+          )
+            plans.push({
+              planId: plan.id,
+              name: plan.nameAr,
+              audience: plan.audience,
+              currency: plan.currency,
+              durationDays: plan.durationDays,
+              unitPriceMinor: plan.priceMinor,
+              count: 0,
+              players: 0,
+              totalMinor: 0,
+              inferredAudienceCount: 0,
+            });
+        plans.sort(
+          (a, b) =>
+            a.audience.localeCompare(b.audience) ||
+            a.name.localeCompare(b.name, 'ar') ||
+            a.unitPriceMinor - b.unitPriceMinor,
+        );
         return {
           branch,
           range: { from: query.from, to: query.to },
@@ -279,11 +332,22 @@ export class FinanceService {
               netMinor: incomeMinor - expenseMinor,
               ownerWithdrawalMinor,
               cashMovementMinor: incomeMinor - expenseMinor - ownerWithdrawalMinor,
+              barIncomeMinor: bar.totals.find((t) => t.currency === currency)?.incomeMinor ?? 0,
+              barExpenseMinor: bar.totals.find((t) => t.currency === currency)?.expenseMinor ?? 0,
+              ...reportDistribution(
+                branch.code,
+                incomeMinor - expenseMinor,
+                bar.totals.find((t) => t.currency === currency)?.netMinor ?? 0,
+                ownerWithdrawalMinor,
+              ),
             };
           }),
           plans,
           receivers,
           salaries,
+          salaryRoster: [...salaries, ...unpaidStaff],
+          clubExpenseGroups,
+          bar,
           receipts,
           expenses,
           receiptCount,

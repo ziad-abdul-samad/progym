@@ -4,15 +4,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth/use-auth';
 import { useState } from 'react';
-import {
-  Download,
-  Plus,
-  ReceiptText,
-  TrendingUp,
-  TrendingDown,
-  Wallet,
-  ArrowUpFromLine,
-} from 'lucide-react';
+import { Download, Plus, ReceiptText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogCancelButton, DialogForm } from '@/components/ui/dialog';
@@ -21,11 +13,10 @@ import { DashboardLoader, EmptyState, ErrorState } from '@/components/ui/state';
 import { apiRequest, jsonBody } from '@/lib/api/client';
 import { money, RequestKey } from './plan-picker';
 import { PayrollTab } from './payroll-tab';
-import {
-  OwnerWithdrawalsTab,
-  WithdrawalCards,
-  type OwnerWithdrawal,
-} from './owner-withdrawals-tab';
+import { BarTab, type BarReport } from './bar-tab';
+import { familiarReportSections, financialReportMessage } from './finance-report-content';
+import { useToast } from '@/components/ui/toast';
+import { OwnerWithdrawalsTab, type OwnerWithdrawal } from './owner-withdrawals-tab';
 import { businessDate, financialTime, salaryMonthLabel } from './finance-format';
 export { businessDate, financialTime } from './finance-format';
 
@@ -71,6 +62,14 @@ export type FinanceReport = {
     otherExpenseMinor: number;
     ownerWithdrawalMinor: number;
     cashMovementMinor: number;
+    barIncomeMinor: number;
+    barExpenseMinor: number;
+    combinedNetMinor: number;
+    fixedBaseMinor: number;
+    fixedMinor: number;
+    remainingMinor: number;
+    halfMinor: number;
+    roundingMinor: number;
   }[];
   salaries: {
     name: string;
@@ -80,8 +79,19 @@ export type FinanceReport = {
     count: number;
     totalMinor: number;
   }[];
+  salaryRoster: {
+    name: string;
+    jobTitle: string | null;
+    currency: string;
+    count: number;
+    totalMinor: number;
+  }[];
+  clubExpenseGroups: { title: string; currency: string; count: number; totalMinor: number }[];
+  bar: BarReport;
   plans: {
     name: string;
+    audience: string;
+    inferredAudienceCount: number;
     currency: string;
     durationDays: number | null;
     unitPriceMinor: number;
@@ -242,7 +252,7 @@ function ExpensesContent() {
     client = useQueryClient();
   const [range, setRange] = useState(() => rangeFor(30)),
     [page, setPage] = useState(1);
-  const [tab, setTab] = useState<'expenses' | 'payroll' | 'withdrawals'>('expenses');
+  const [tab, setTab] = useState<'expenses' | 'payroll' | 'withdrawals' | 'bar'>('expenses');
   const [adding, setAdding] = useState(false),
     [voiding, setVoiding] = useState<Expense | null>(null);
   const report = useQuery({
@@ -330,6 +340,16 @@ function ExpensesContent() {
         >
           سحوبات المالك
         </Button>
+        <Button
+          variant={tab === 'bar' ? 'primary' : 'secondary'}
+          aria-pressed={tab === 'bar'}
+          onClick={() => {
+            setTab('bar');
+            setPage(1);
+          }}
+        >
+          البار والمنتجات
+        </Button>
       </div>
       {tab === 'payroll' ? (
         <PayrollTab />
@@ -354,6 +374,15 @@ function ExpensesContent() {
                 <>
                   <OwnerWithdrawalsTab withdrawals={report.data.withdrawals ?? []} />
                   <Pager page={page} count={report.data.withdrawalCount ?? 0} onChange={setPage} />
+                </>
+              ) : tab === 'bar' ? (
+                <>
+                  <BarTab report={report.data.bar} />
+                  <Pager
+                    page={page}
+                    count={Math.max(report.data.bar.saleCount, report.data.bar.cashCount)}
+                    onChange={setPage}
+                  />
                 </>
               ) : (
                 <>
@@ -515,6 +544,8 @@ export function BranchReportsPage() {
 function BranchReportsContent() {
   const params = useParams();
   const auth = useAuth();
+  const { push } = useToast();
+  const [message, setMessage] = useState<string | null>(null);
   const [range, setRange] = useState(() => rangeFor(30)),
     [report, setReport] = useState<FinanceReport | null>(null);
   const [tab, setTab] = useState<'financial' | 'members'>('financial');
@@ -522,6 +553,18 @@ function BranchReportsContent() {
     mutationFn: ({ page, dates }: { page: number; dates: { from: string; to: string } }) =>
       apiRequest<FinanceReport>(reportUrl(dates, page)),
     onSuccess: setReport,
+  });
+  const copy = useMutation({
+    mutationFn: async () => {
+      if (!report) return;
+      const value = financialReportMessage(report);
+      try {
+        await navigator.clipboard.writeText(value);
+        push({ title: 'تم نسخ التقرير كرسالة جاهزة للمشاركة', tone: 'success' });
+      } catch {
+        setMessage(value);
+      }
+    },
   });
   const pdf = useMutation({
     mutationFn: async () => {
@@ -630,105 +673,44 @@ function BranchReportsContent() {
           </div>
           {tab === 'financial' ? (
             <>
-              {report.totals.length ? (
-                report.totals.map((total) => (
-                  <div key={total.currency} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    {[
-                      [TrendingUp, 'الإيرادات', total.incomeMinor],
-                      [TrendingDown, 'المصاريف التشغيلية', total.expenseMinor],
-                      [ArrowUpFromLine, 'سحوبات المالك', total.ownerWithdrawalMinor ?? 0],
-                      [
-                        Wallet,
-                        'صافي النقد بعد السحوبات',
-                        total.cashMovementMinor ?? total.netMinor,
-                      ],
-                    ].map(([Icon, label, value]) => {
-                      const Symbol = Icon as typeof Wallet;
-                      return (
-                        <Card key={String(label)} className="border-brand-accent/20">
-                          <Symbol className="mb-3 h-5 w-5 text-green-700 dark:text-brand-accent" />
-                          <p className="text-sm text-muted-foreground">{String(label)}</p>
-                          <strong className="mt-2 block break-words text-xl" dir="ltr">
-                            {money(Number(value), total.currency)}
-                          </strong>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                ))
-              ) : (
-                <EmptyState title="لا توجد حركة مالية في الفترة المختارة" />
-              )}
-              <p className="text-sm leading-7 text-muted-foreground">
-                صافي حركة الفترة = الإيرادات − المصاريف التشغيلية − سحوبات المالك. ليس رصيد الصندوق
-                الفعلي؛ لا يشمل رصيد بداية الفترة. السحوبات منفصلة عن الرواتب والمصاريف، والعملات لا
-                تُجمع.
+              <Button variant="secondary" isLoading={copy.isPending} onClick={() => copy.mutate()}>
+                نسخ التقرير كرسالة
+              </Button>
+              <p className="text-xs leading-6 text-muted-foreground">
+                المجاميع والتفاصيل المجمّعة تشمل الفترة كاملة. الرواتب المدفوعة فقط، والرصيد السابق
+                منفصل عن دخل الفترة.
               </p>
-              <Card>
-                <h3 className="mb-4 text-lg font-black">الإيراد حسب الباقة والسعر وقت الدفع</h3>
-                <div className="grid gap-3 lg:grid-cols-2">
-                  {report.plans.map((plan, i) => (
-                    <div className="rounded-lg border border-border p-4" key={i}>
-                      <strong>{plan.name}</strong>
-                      <p className="mt-2 text-sm">
-                        {plan.durationDays ?? '—'} يوم · {money(plan.unitPriceMinor, plan.currency)}
-                      </p>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        {plan.players} لاعب · {plan.count} عملية دفع
-                      </p>
-                      <p className="mt-3 font-black" dir="ltr">
-                        {money(plan.totalMinor, plan.currency)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-                <p className="mt-4 text-xs leading-6 text-muted-foreground">
-                  قد يدفع اللاعب أكثر من مرة. عدد اللاعبين فريد داخل كل باقة وسعر؛ لا يُجمع كعدد
-                  فريد للفرع. لا تُعاد تسعيرة السجلات السابقة.
-                </p>
-              </Card>
-              <Card>
-                <h3 className="mb-4 font-black">استلام الدفعات حسب المراقب</h3>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {report.receivers.map((receiver, i) => (
-                    <div className="rounded-lg bg-muted p-3 text-sm" key={i}>
-                      <strong>{receiver.name}</strong>
-                      <p className="mt-2">
-                        {receiver.count} دفعة · {money(receiver.totalMinor, receiver.currency)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-              <h3 className="font-black">تفاصيل المصاريف</h3>
-              {report.salaries?.length ? (
-                <Card>
-                  <h3 className="font-black">الرواتب المدفوعة ضمن هذه الفترة</h3>
-                  <p className="mt-2 text-xs leading-6 text-muted-foreground">
-                    هذه مبالغ ضمن إجمالي المصاريف أعلاه، وليست مصاريف إضافية. تُحتسب بتاريخ الدفع،
-                    حتى لو كانت عن شهر سابق.
-                  </p>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {report.salaries.map((salary, i) => (
-                      <div key={i} className="min-w-0 rounded-lg border border-border p-3">
-                        <strong className="break-words">{salary.name}</strong>
-                        <p className="mt-2 text-xs text-muted-foreground">
-                          {salary.jobTitle || 'عامل بالفرع'} · عن {salaryMonthLabel(salary.month)} ·{' '}
-                          {salary.count} دفعة
-                        </p>
-                        <p className="mt-3 font-black" dir="ltr">
-                          {money(salary.totalMinor, salary.currency)}
-                        </p>
+              {familiarReportSections(report).map((section, i) => (
+                <Card key={i}>
+                  <h3 className="text-lg font-black">{section.title}</h3>
+                  <p className="mt-2 text-xs leading-6 text-muted-foreground">{section.hint}</p>
+                  <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                    {section.rows.map((row, j) => (
+                      <div key={j} className="min-w-0 rounded-lg border border-border p-3">
+                        <h4 className="break-words font-bold">{row.title}</h4>
+                        {row.lines.map((line, k) => (
+                          <p key={k} className="mt-2 break-words text-sm leading-7">
+                            {line}
+                          </p>
+                        ))}
                       </div>
                     ))}
                   </div>
                 </Card>
-              ) : null}
-              <ExpenseCards expenses={report.expenses} />
-              <h3 className="font-black">
-                الأموال التي سحبها المالك — {report.withdrawalCount ?? 0} عملية
-              </h3>
-              <WithdrawalCards withdrawals={report.withdrawals ?? []} />
+              ))}
+              <Dialog
+                open={message !== null}
+                onClose={() => setMessage(null)}
+                title="التقرير جاهز للنسخ"
+                description="المتصفح لم يسمح بالنسخ التلقائي؛ حدّد النص وانسخه يدويًا."
+              >
+                <Textarea
+                  className="min-h-80"
+                  readOnly
+                  value={message ?? ''}
+                  onFocus={(e) => e.target.select()}
+                />
+              </Dialog>
             </>
           ) : (
             <>
@@ -768,15 +750,13 @@ function BranchReportsContent() {
               </div>
             </>
           )}
-          <Pager
-            page={report.page}
-            count={
-              tab === 'financial'
-                ? Math.max(report.expenseCount, report.withdrawalCount ?? 0)
-                : report.receiptCount
-            }
-            onChange={(page) => generate.mutate({ page, dates: report.range })}
-          />
+          {tab === 'members' ? (
+            <Pager
+              page={report.page}
+              count={report.receiptCount}
+              onChange={(page) => generate.mutate({ page, dates: report.range })}
+            />
+          ) : null}
         </>
       ) : (
         <EmptyState

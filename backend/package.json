@@ -16,6 +16,7 @@
     "test:accounting": "node test/accounting.integration.cjs",
     "test:payroll": "node test/payroll.integration.cjs",
     "test:withdrawals": "node test/withdrawals.integration.cjs",
+    "test:bar": "node test/bar.integration.cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

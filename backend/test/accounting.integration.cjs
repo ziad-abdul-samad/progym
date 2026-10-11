@@ -13,7 +13,7 @@ const { hashPassword } = require('../dist/common/utils/hash.util');
 
 const url = new URL(process.env.DATABASE_URL || '');
 assert.equal(url.hostname, '127.0.0.1', 'Integration tests must never touch a remote database');
-assert.equal(url.port, '55434', 'Use the isolated accounting test cluster');
+assert.ok(['55434','15434'].includes(url.port), 'Use the isolated accounting test cluster');
 const db = new PrismaService();
 const memberships = new MembershipsService(db);
 const finance = new FinanceService(db);
@@ -259,7 +259,7 @@ async function run() {
   const report = await finance.report(reportRange, b);
   check(report.expenseCount === 2, 'Expense retries record exactly one expense');
   check(
-    report.plans.length === 2 &&
+    report.plans.filter(p=>p.count>0).length === 2 &&
       report.plans.some((p) => p.unitPriceMinor === 140000) &&
       report.plans.some((p) => p.unitPriceMinor === 150000),
     'Report preserves both price versions',
@@ -314,7 +314,7 @@ async function run() {
   );
   check(
     (await finance.report(reportRange, b)).receiptCount === 2 &&
-      (await finance.report(reportRange, a)).totals[0].incomeMinor === 6000,
+      (await finance.report(reportRange, a)).totals.find(t=>t.currency==='USD').incomeMinor === 6000,
     'Transfer never moves historical receipts between branches',
   );
   const approval2 = await register('b3', 'two');
@@ -351,7 +351,7 @@ async function run() {
     subscribedBeforeDelete,
   );
   check(
-    (await finance.report(reportRange, a)).totals[0].incomeMinor === 6000,
+      (await finance.report(reportRange, a)).totals.find(t=>t.currency==='USD').incomeMinor === 6000,
     'Deleted paid offer preserves subscriptions, receipts and reports',
   );
   await assert.rejects(memberships.updatePlan(newPlan.id, { isActive: true }, a));

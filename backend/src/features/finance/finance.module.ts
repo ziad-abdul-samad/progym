@@ -17,6 +17,14 @@ import {
 import { FinanceService } from './finance.service';
 import { PayrollService } from './payroll.service';
 import { OwnerWithdrawalsService } from './owner-withdrawals.service';
+import { BarService } from './bar.service';
+import {
+  BarCashDto,
+  BarProductDto,
+  BarProductsQueryDto,
+  BarSaleDto,
+  UpdateBarProductDto,
+} from './bar.dto';
 
 @Controller('finance')
 @Protected(UserRole.ADMIN, UserRole.OBSERVER)
@@ -25,6 +33,7 @@ class FinanceController {
     private readonly finance: FinanceService,
     private readonly payroll: PayrollService,
     private readonly withdrawals: OwnerWithdrawalsService,
+    private readonly bar: BarService,
   ) {}
   @Get('report')
   async report(@Query() query: FinanceRangeDto, @CurrentUser() actor: AuthenticatedUser) {
@@ -33,6 +42,46 @@ class FinanceController {
   @Post('expenses')
   async expense(@Body() dto: ExpenseDto, @CurrentUser() actor: AuthenticatedUser) {
     return { data: await this.finance.addExpense(dto, actor) };
+  }
+  @Get('bar/products')
+  async products(@Query() query: BarProductsQueryDto, @CurrentUser() actor: AuthenticatedUser) {
+    return { data: await this.bar.products(query, actor) };
+  }
+  @Post('bar/products')
+  async product(@Body() dto: BarProductDto, @CurrentUser() actor: AuthenticatedUser) {
+    return { data: await this.bar.product(dto, actor) };
+  }
+  @Patch('bar/products/:id')
+  async editProduct(
+    @Param('id') id: string,
+    @Body() dto: UpdateBarProductDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return { data: await this.bar.product(dto, actor, id) };
+  }
+  @Post('bar/sales')
+  async sale(@Body() dto: BarSaleDto, @CurrentUser() actor: AuthenticatedUser) {
+    return { data: await this.bar.sale(dto, actor) };
+  }
+  @Post('bar/cash')
+  async barCash(@Body() dto: BarCashDto, @CurrentUser() actor: AuthenticatedUser) {
+    return { data: await this.bar.cash(dto, actor) };
+  }
+  @Patch('bar/sales/:id/void')
+  async voidSale(
+    @Param('id') id: string,
+    @Body() dto: VoidExpenseDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return { data: await this.bar.void('sale', id, dto.reason, actor) };
+  }
+  @Patch('bar/cash/:id/void')
+  async voidBarCash(
+    @Param('id') id: string,
+    @Body() dto: VoidExpenseDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return { data: await this.bar.void('cash', id, dto.reason, actor) };
   }
   @Patch('expenses/:id/void')
   async void(
@@ -88,6 +137,6 @@ class FinanceController {
 }
 @Module({
   controllers: [FinanceController],
-  providers: [FinanceService, PayrollService, OwnerWithdrawalsService],
+  providers: [FinanceService, PayrollService, OwnerWithdrawalsService, BarService],
 })
 export class FinanceModule {}
