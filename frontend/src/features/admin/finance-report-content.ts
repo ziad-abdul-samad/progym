@@ -9,8 +9,15 @@ export type FamiliarSection = {
 const audienceLabel = (value: string) =>
   value === 'MEN' ? 'رجال' : value === 'WOMEN' ? 'نساء' : 'تصنيف غير محفوظ';
 const amount = (minor: number, currency: string) => '\u2066' + money(minor, currency) + '\u2069';
-const equation = (minor: number, operation: string, result: number, currency: string) =>
-  '\u2066' + money(minor, currency) + ' ' + operation + ' = ' + money(result, currency) + '\u2069';
+// Currency is already named by the section. Arabic units inside a numeric formula reorder its operands.
+const equation = (minor: number, operation: string, result: number) => {
+  const number = (n: number) =>
+    (n / 100).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  return '\u2066' + number(minor) + ' ' + operation + ' = ' + number(result) + '\u2069';
+};
 export function familiarReportSections(report: FinanceReport): FamiliarSection[] {
   const sections: FamiliarSection[] = [];
   for (const total of report.totals) {
@@ -187,7 +194,6 @@ export function familiarReportSections(report: FinanceReport): FamiliarSection[]
           total.fixedBaseMinor ?? Math.max(0, total.netMinor),
           '× 0.03',
           total.fixedMinor ?? 0,
-          currency,
         ),
         lines: [
           'الصافي: ' +
@@ -205,7 +211,6 @@ export function familiarReportSections(report: FinanceReport): FamiliarSection[]
           total.remainingMinor ?? total.cashMovementMinor,
           '÷ 2',
           total.halfMinor ?? Math.trunc(total.cashMovementMinor / 2),
-          currency,
         ),
         lines: total.roundingMinor
           ? ['فرق التقريب غير الموزّع: ' + amount(total.roundingMinor, currency)]
