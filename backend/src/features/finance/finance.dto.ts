@@ -70,6 +70,16 @@ export class OwnerWithdrawalDto {
   @Min(0)
   @Max(2000000000)
   sypNewMinor: number = 0;
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(2000000000)
+  barUsdMinor: number = 0;
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(2000000000)
+  barSypNewMinor: number = 0;
   @Matches(/^\d{4}-\d{2}-\d{2}$/)
   withdrawnOn!: string;
   @IsOptional()

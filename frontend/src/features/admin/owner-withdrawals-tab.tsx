@@ -17,6 +17,8 @@ export type OwnerWithdrawal = {
   ownerNameSnapshot: string;
   usdMinor: number;
   sypNewMinor: number;
+  barUsdMinor?: number;
+  barSypNewMinor?: number;
   withdrawnAt: string;
   notes: string | null;
   createdByName: string;
@@ -57,6 +59,12 @@ export function WithdrawalCards({
               </strong>
             )}
           </div>
+          {!!(record.barUsdMinor || record.barSypNewMinor) && (
+            <p className="mt-3 text-sm text-green-800 dark:text-green-200">
+              من الإجمالي أعلاه، أموال بار: {money(record.barUsdMinor ?? 0, 'USD')} ·{' '}
+              {money(record.barSypNewMinor ?? 0, 'SYP_NEW')}
+            </p>
+          )}
           <p className="mt-3 text-sm">
             تاريخ التسليم: {businessDate(new Date(record.withdrawnAt))}
           </p>
@@ -91,6 +99,7 @@ export function OwnerWithdrawalsTab({ withdrawals }: { withdrawals: OwnerWithdra
   const [adding, setAdding] = useState(false),
     [voiding, setVoiding] = useState<OwnerWithdrawal | null>(null);
   const [amounts, setAmounts] = useState({ usd: '', syp: '' });
+  const [barAmounts, setBarAmounts] = useState({ usd: '', syp: '' });
   const refresh = (message: string) => {
     setAdding(false);
     setVoiding(null);
@@ -105,6 +114,8 @@ export function OwnerWithdrawalsTab({ withdrawals }: { withdrawals: OwnerWithdra
           ownerName: form.get('ownerName'),
           usdMinor: Math.round(Number(amounts.usd) * 100),
           sypNewMinor: Math.round(Number(amounts.syp) * 100),
+          barUsdMinor: Math.round(Number(barAmounts.usd) * 100),
+          barSypNewMinor: Math.round(Number(barAmounts.syp) * 100),
           withdrawnOn: form.get('withdrawnOn'),
           notes: form.get('notes'),
           requestKey: form.get('requestKey'),
@@ -135,6 +146,7 @@ export function OwnerWithdrawalsTab({ withdrawals }: { withdrawals: OwnerWithdra
             onClick={() => {
               add.reset();
               setAmounts({ usd: '', syp: '' });
+              setBarAmounts({ usd: '', syp: '' });
               setAdding(true);
             }}
           >
@@ -211,6 +223,34 @@ export function OwnerWithdrawalsTab({ withdrawals }: { withdrawals: OwnerWithdra
                 </label>
               ))}
             </div>
+            <fieldset className="min-w-0 rounded-xl border border-green-500/30 p-4">
+              <legend className="px-2 text-sm font-bold">
+                كم من إجمالي التسليم أعلاه يخص البار؟
+              </legend>
+              <p className="mb-3 text-xs leading-6 text-muted-foreground">
+                هذا جزء من المبلغ الكلي، وليس مبلغًا إضافيًا. يخصم من المبيعات القديمة غير المسلّمة
+                أولًا ثم الجديدة. اتركه صفرًا إذا كانت الأموال من اشتراكات النادي فقط.
+              </p>
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                {(['usd', 'syp'] as const).map((c) => (
+                  <label key={c} className="grid min-w-0 gap-2 text-sm font-bold">
+                    {c === 'usd' ? 'منها بار بالدولار' : 'منها بار بالليرة الجديدة'}
+                    <Input
+                      dir="ltr"
+                      type="number"
+                      min="0"
+                      max={Number(amounts[c]) || 0}
+                      step="0.01"
+                      placeholder="0.00"
+                      value={barAmounts[c]}
+                      onChange={(e) =>
+                        setBarAmounts((previous) => ({ ...previous, [c]: e.target.value }))
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
+            </fieldset>
             <label className="grid min-w-0 gap-2 text-sm font-bold">
               تاريخ تسليم الأموال
               <Input

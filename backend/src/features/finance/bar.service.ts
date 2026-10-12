@@ -14,6 +14,7 @@ import type {
   BarProductDto,
   BarProductsQueryDto,
   BarSaleDto,
+  BarSaleBatchDto,
   UpdateBarProductDto,
 } from './bar.dto';
 
@@ -226,11 +227,124 @@ export class BarService {
       return entry;
     });
   }
+  async batch(dto: BarSaleBatchDto, actor: AuthenticatedUser) {
+    const branchId = requireBranchId(actor),
+      soldAt = cashDate(dto.soldOn);
+    if (!dto.lines.length || dto.lines.length > 50)
+      throw new BadRequestException('أضف من سطر واحد إلى 50 سطرًا للدفعة');
+    const payload = {
+      soldOn: dto.soldOn,
+      notes: dto.notes?.trim() || null,
+      lines: dto.lines.map((line) => ({
+        productId: line.productId,
+        expectedUpdatedAt: line.expectedUpdatedAt,
+        priceLabel: line.priceLabel.trim(),
+        quantity: line.quantity,
+        unitPriceMinor: line.unitPriceMinor,
+      })),
+    };
+    if (
+      payload.lines.some(
+        (l) =>
+          !Number.isInteger(l.quantity) ||
+          l.quantity < 1 ||
+          l.quantity > 10000 ||
+          !Number.isInteger(l.unitPriceMinor) ||
+          l.unitPriceMinor < 0 ||
+          !Number.isSafeInteger(l.quantity * l.unitPriceMinor) ||
+          l.quantity * l.unitPriceMinor > 2000000000,
+      )
+    )
+      throw new BadRequestException('راجع الكمية والسعر ومجموع كل سطر');
+    return this.prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${dto.requestKey},0))::text`;
+        const old = await tx.barSaleBatch.findUnique({
+          where: { requestKey: dto.requestKey },
+          include: { sales: true },
+        });
+        if (old) {
+          const oldPayload = old.payload as typeof payload;
+          if (
+            old.branchId !== branchId ||
+            old.createdById !== actor.id ||
+            oldPayload.soldOn !== payload.soldOn ||
+            oldPayload.notes !== payload.notes ||
+            oldPayload.lines.length !== payload.lines.length ||
+            oldPayload.lines.some((l, i) => {
+              const next = payload.lines[i];
+              return (
+                !next ||
+                l.productId !== next.productId ||
+                l.expectedUpdatedAt !== next.expectedUpdatedAt ||
+                l.priceLabel !== next.priceLabel ||
+                l.quantity !== next.quantity ||
+                l.unitPriceMinor !== next.unitPriceMinor
+              );
+            })
+          )
+            throw new ConflictException('مفتاح العملية مستخدم لدفعة مختلفة');
+          return old;
+        }
+        const products = new Map<string, Awaited<ReturnType<typeof tx.barProduct.findUnique>>>();
+        for (const id of [...new Set(payload.lines.map((l) => l.productId))].sort()) {
+          await tx.$queryRaw`SELECT id FROM "BarProduct" WHERE id=${id} AND "branchId"=${branchId} FOR UPDATE`;
+          const product = await tx.barProduct.findUnique({ where: { id } });
+          if (!product || product.branchId !== branchId || !product.isActive)
+            throw new NotFoundException('أحد منتجات الدفعة غير متاح في هذا الفرع');
+          products.set(id, product);
+        }
+        const batch = await tx.barSaleBatch.create({
+          data: { branchId, requestKey: dto.requestKey, payload, createdById: actor.id },
+        });
+        for (const [index, line] of payload.lines.entries()) {
+          const product = products.get(line.productId)!;
+          if (
+            !product ||
+            product.updatedAt.getTime() !== new Date(line.expectedUpdatedAt).getTime()
+          )
+            throw new ConflictException('تغيّر أحد المنتجات؛ حدّث القائمة وراجع الدفعة');
+          await tx.barSale.create({
+            data: {
+              branchId,
+              productId: product.id,
+              batchId: batch.id,
+              requestKey: dto.requestKey + ':' + index,
+              productNameSnapshot: product.name,
+              priceLabelSnapshot: line.priceLabel,
+              quantity: line.quantity,
+              unitPriceMinor: line.unitPriceMinor,
+              amountMinor: line.quantity * line.unitPriceMinor,
+              currency: product.currency,
+              soldAt,
+              notes: payload.notes,
+              createdById: actor.id,
+              createdByName: actor.fullName,
+            },
+          });
+        }
+        await tx.auditLog.create({
+          data: {
+            action: AuditAction.CREATE,
+            actorId: actor.id,
+            branchId,
+            entityType: 'BarSaleBatch',
+            entityId: batch.id,
+            metadata: { batch, payload },
+          },
+        });
+        return tx.barSaleBatch.findUnique({ where: { id: batch.id }, include: { sales: true } });
+      },
+      { timeout: 20000 },
+    );
+  }
   async void(type: 'sale' | 'cash', id: string, reason: string, actor: AuthenticatedUser) {
     const branchId = requireBranchId(actor),
       table = type === 'sale' ? 'BarSale' : 'BarCashEntry';
     if (reason.trim().length < 3) throw new BadRequestException('سبب إلغاء القيد مطلوب');
     return this.prisma.$transaction(async (tx) => {
+      if (type === 'sale')
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${'bar-settlement:' + branchId},0))::text`;
       await tx.$queryRawUnsafe(
         `SELECT id FROM "${table}" WHERE id=$1 AND "branchId"=$2 FOR UPDATE`,
         id,
@@ -242,6 +356,13 @@ export class BarService {
           : await tx.barCashEntry.findUnique({ where: { id } });
       if (!old || old.branchId !== branchId) throw new NotFoundException('Entry not found');
       if (old.voidedAt) return old;
+      if (
+        type === 'sale' &&
+        (await tx.barSettlement.count({ where: { saleId: id, withdrawal: { voidedAt: null } } }))
+      )
+        throw new ConflictException(
+          'استلم المالك أموالًا من هذا القيد؛ يجب تصحيح أو إلغاء التسليم المرتبط أولًا',
+        );
       const data = { voidedAt: new Date(), voidedById: actor.id, voidReason: reason.trim() };
       const saved =
         type === 'sale'
@@ -282,6 +403,8 @@ export async function barReport(
     balances,
     closingBalances,
     expenseGroups,
+    unpaid,
+    handovers,
   ] = await Promise.all([
     tx.barSale.groupBy({
       by: ['currency'],
@@ -329,6 +452,22 @@ export async function barReport(
     tx.$queryRaw<
       Array<{ title: string; currency: string; count: number; totalMinor: number }>
     >`SELECT title,currency,COUNT(*)::int count,SUM("amountMinor")::float8 AS "totalMinor" FROM "BarCashEntry" WHERE "branchId"=${branchId} AND kind='EXPENSE' AND "voidedAt" IS NULL AND "spentAt">=${range.gte} AND "spentAt"<${range.lt} GROUP BY title,currency ORDER BY title,currency`,
+    tx.$queryRaw<
+      Array<{ currency: string; oldUnwithdrawnMinor: number; newUnwithdrawnMinor: number }>
+    >`
+      SELECT s.currency,
+        COALESCE(SUM(s."amountMinor"-COALESCE(a.paid,0)) FILTER(WHERE s."soldAt"<${range.gte}),0)::float8 AS "oldUnwithdrawnMinor",
+        COALESCE(SUM(s."amountMinor"-COALESCE(a.paid,0)) FILTER(WHERE s."soldAt">=${range.gte}),0)::float8 AS "newUnwithdrawnMinor"
+      FROM "BarSale" s LEFT JOIN LATERAL (
+        SELECT SUM(x."amountMinor") paid FROM "BarSettlement" x
+          JOIN "OwnerWithdrawal" w ON w.id=x."withdrawalId"
+        WHERE x."saleId"=s.id AND w."voidedAt" IS NULL AND w."withdrawnAt"<${range.lt}
+      ) a ON true WHERE s."branchId"=${branchId} AND s."voidedAt" IS NULL AND s."soldAt"<${range.lt}
+      GROUP BY s.currency`,
+    tx.ownerWithdrawal.aggregate({
+      where: { branchId, voidedAt: null, withdrawnAt: range },
+      _sum: { barUsdMinor: true, barSypNewMinor: true },
+    }),
   ]);
   const currencies = [
     ...new Set([
@@ -337,6 +476,7 @@ export async function barReport(
       ...expenseTotals.map((t) => t.currency),
       ...balances.map((t) => t.currency),
       ...closingBalances.map((t) => t.currency),
+      ...unpaid.map((t) => t.currency),
     ]),
   ];
   return {
@@ -359,6 +499,17 @@ export async function barReport(
         incomeMinor,
         expenseMinor,
         netMinor,
+        oldUnwithdrawnMinor: unpaid.find((t) => t.currency === currency)?.oldUnwithdrawnMinor ?? 0,
+        newUnwithdrawnMinor: unpaid.find((t) => t.currency === currency)?.newUnwithdrawnMinor ?? 0,
+        unwithdrawnMinor:
+          (unpaid.find((t) => t.currency === currency)?.oldUnwithdrawnMinor ?? 0) +
+          (unpaid.find((t) => t.currency === currency)?.newUnwithdrawnMinor ?? 0),
+        handedOverMinor:
+          currency === 'USD'
+            ? (handovers._sum.barUsdMinor ?? 0)
+            : currency === 'SYP_NEW'
+              ? (handovers._sum.barSypNewMinor ?? 0)
+              : 0,
         openingMinor,
         openingAt: balance?.anchorAt ?? null,
         totalAvailableMinor: openingMinor === null ? null : openingMinor + incomeMinor,

@@ -45,6 +45,10 @@ const fixture: FinanceReport = {
         incomeMinor: 15000,
         expenseMinor: 5000,
         netMinor: 10000,
+        oldUnwithdrawnMinor: 30000,
+        newUnwithdrawnMinor: 10000,
+        unwithdrawnMinor: 40000,
+        handedOverMinor: 5000,
         openingMinor: 999999,
         openingAt: '2026-10-01T00:00:00Z',
         totalAvailableMinor: 1014999,
@@ -93,6 +97,9 @@ describe('same familiar financial content on screen, PDF and copied message', ()
     expect(text).toContain('338.00');
     expect(text.indexOf('المصاري يلي سحبها المالك')).toBeLessThan(text.indexOf('÷ 2'));
     expect(text).toContain('ليس إيرادًا جديدًا');
+    expect(text).toContain('مجموع بار قديم وجديد');
+    expect(text).toContain('400.00');
+    expect(text).not.toContain('9999.99');
   });
   it('does not fabricate old cash or apply3% to other branches', () => {
     const copy: FinanceReport = {
@@ -109,7 +116,7 @@ describe('same familiar financial content on screen, PDF and copied message', ()
       },
     };
     const text = financialReportMessage(copy);
-    expect(text).toContain('غير مسجل');
+    expect(text).toContain('مجموع بار قديم');
     expect(text).not.toContain('× 0.03');
     expect(text).toContain('÷ 2');
   });

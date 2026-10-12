@@ -377,7 +377,13 @@ function ExpensesContent() {
                 </>
               ) : tab === 'bar' ? (
                 <>
-                  <BarTab report={report.data.bar} />
+                  <BarTab
+                    report={report.data.bar}
+                    onHandover={() => {
+                      setTab('withdrawals');
+                      setPage(1);
+                    }}
+                  />
                   <Pager
                     page={page}
                     count={Math.max(report.data.bar.saleCount, report.data.bar.cashCount)}

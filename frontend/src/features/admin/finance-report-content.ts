@@ -58,7 +58,8 @@ export function familiarReportSections(report: FinanceReport): FamiliarSection[]
         bar.incomeMinor ||
         bar.expenseMinor ||
         bar.openingMinor !== null ||
-        bar.closingMinor !== null)
+        bar.closingMinor !== null ||
+        bar.unwithdrawnMinor > 0)
     ) {
       sections.push({
         title: 'مصاريف البار — ' + unit,
@@ -103,36 +104,24 @@ export function familiarReportSections(report: FinanceReport): FamiliarSection[]
       });
       sections.push({
         title: 'مجموع البار — ' + unit,
-        hint:
-          'الرصيد القديم معلوم فقط بعد تسجيل رصيد افتتاحي. الرصيد القديم ليس إيرادًا جديدًا ولا يدخل في قسمة حركة الفترة.' +
-          (bar.balanceResetDuringPeriod
-            ? ' يوجد رصيد موثّق أحدث داخل الفترة؛ رصيد النهاية محسوب من آخر تصريح بالرصيد.'
-            : ''),
+        hint: 'الجديد: مبيعات هذه الفترة المقبوضة التي لم يستلمها المالك حتى نهايتها. القديم: مبيعات ما قبل الفترة غير المسلّمة حتى نهايتها. التسليم المخصص للبار يخصم من الأقدم أولًا. هذه المجاميع إجمالي مبيعات غير مسلّمة، وليست رصيد الصندوق بعد المصاريف؛ القديم ليس إيرادًا جديدًا ولا يدخل مجددًا في قسمة أرباح الفترة.',
         icon: 'balance',
         rows: [
-          { title: 'مجموع بار جديد (مبيعات الفترة)', lines: [amount(bar.incomeMinor, currency)] },
+          { title: 'مجموع بار جديد', lines: [amount(bar.newUnwithdrawnMinor, currency)] },
           {
-            title: 'مجموع بار قديم (رصيد قبل الفترة)',
-            lines: [
-              bar.openingMinor === null
-                ? 'غير مسجل — لا يُفترض صفرًا'
-                : amount(bar.openingMinor, currency),
-            ],
+            title: 'مجموع بار قديم',
+            lines: [amount(bar.oldUnwithdrawnMinor, currency)],
           },
           {
-            title: 'مجموع بار جديد وقديم',
-            lines: [
-              bar.totalAvailableMinor === null
-                ? 'غير معلوم حتى تسجيل الرصيد السابق'
-                : amount(bar.totalAvailableMinor, currency),
-            ],
+            title: 'مجموع بار قديم وجديد',
+            lines: [amount(bar.unwithdrawnMinor, currency)],
+          },
+          {
+            title: 'استلم المالك من البار خلال الفترة (جزء من سحوبات المالك)',
+            lines: [amount(bar.handedOverMinor, currency)],
           },
           { title: 'مصاريف بار', lines: [amount(bar.expenseMinor, currency)] },
           { title: 'صافي بار خلال الفترة', lines: [amount(bar.netMinor, currency)] },
-          {
-            title: 'رصيد بار بعد حركة الفترة (قبل سحوبات الفرع)',
-            lines: [bar.closingMinor === null ? 'غير معلوم' : amount(bar.closingMinor, currency)],
-          },
         ],
       });
       if (report.bar.products.some((p) => p.currency === currency))

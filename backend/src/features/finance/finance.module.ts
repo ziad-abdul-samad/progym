@@ -23,6 +23,7 @@ import {
   BarProductDto,
   BarProductsQueryDto,
   BarSaleDto,
+  BarSaleBatchDto,
   UpdateBarProductDto,
 } from './bar.dto';
 
@@ -62,6 +63,10 @@ class FinanceController {
   @Post('bar/sales')
   async sale(@Body() dto: BarSaleDto, @CurrentUser() actor: AuthenticatedUser) {
     return { data: await this.bar.sale(dto, actor) };
+  }
+  @Post('bar/sale-batches')
+  async batch(@Body() dto: BarSaleBatchDto, @CurrentUser() actor: AuthenticatedUser) {
+    return { data: await this.bar.batch(dto, actor) };
   }
   @Post('bar/cash')
   async barCash(@Body() dto: BarCashDto, @CurrentUser() actor: AuthenticatedUser) {

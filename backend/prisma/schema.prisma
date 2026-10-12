@@ -234,6 +234,8 @@ model Branch {
   barProducts           BarProduct[]
   barSales              BarSale[]
   barCashEntries        BarCashEntry[]
+  barSaleBatches        BarSaleBatch[]
+  barSettlements        BarSettlement[]
 
   @@index([isActive, sortOrder])
 }
@@ -646,6 +648,7 @@ model BarSale {
   branchId String
   productId String
   requestKey String @unique
+  batchId String?
   productNameSnapshot String
   priceLabelSnapshot String
   quantity Int
@@ -662,7 +665,38 @@ model BarSale {
   voidReason String?
   product BarProduct @relation(fields: [productId, branchId], references: [id, branchId], onDelete: Restrict)
   branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  batch BarSaleBatch? @relation(fields: [batchId, branchId], references: [id, branchId], onDelete: Restrict)
+  settlements BarSettlement[]
+  @@unique([id, branchId])
   @@index([branchId, soldAt])
+}
+
+model BarSaleBatch {
+  id String @id @default(cuid())
+  branchId String
+  requestKey String @unique
+  payload Json
+  createdById String
+  createdAt DateTime @default(now())
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  sales BarSale[]
+  @@unique([id, branchId])
+}
+
+// Allocation of an owner handover to actual sales. It is not an extra cash withdrawal.
+model BarSettlement {
+  id String @id @default(cuid())
+  branchId String
+  saleId String
+  withdrawalId String
+  amountMinor Int
+  createdAt DateTime @default(now())
+  sale BarSale @relation(fields: [saleId, branchId], references: [id, branchId], onDelete: Restrict)
+  withdrawal OwnerWithdrawal @relation(fields: [withdrawalId, branchId], references: [id, branchId], onDelete: Restrict)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  @@unique([withdrawalId, saleId])
+  @@index([branchId, saleId])
+  @@index([saleId])
 }
 
 // EXPENSE is cash paid for the bar; OPENING is a known balance before that business day.
@@ -693,6 +727,8 @@ model OwnerWithdrawal {
   ownerNameSnapshot String
   usdMinor          Int      @default(0)
   sypNewMinor       Int      @default(0)
+  barUsdMinor       Int      @default(0)
+  barSypNewMinor    Int      @default(0)
   withdrawnAt       DateTime
   notes             String?
   createdById       String
@@ -702,7 +738,9 @@ model OwnerWithdrawal {
   voidedById        String?
   voidReason        String?
   branch            Branch   @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  barSettlements    BarSettlement[]
 
+  @@unique([id, branchId])
   @@index([branchId, withdrawnAt])
 }
 

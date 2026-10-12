@@ -2,7 +2,7 @@
 import { useDeferredValue, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
-import { Plus, Coffee, Pencil, Search } from 'lucide-react';
+import { Plus, Coffee, Pencil, Search, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogCancelButton, DialogForm } from '@/components/ui/dialog';
@@ -22,6 +22,7 @@ export type BarProduct = {
 };
 export type BarSale = {
   id: string;
+  batchId?: string | null;
   productNameSnapshot: string;
   priceLabelSnapshot: string;
   quantity: number;
@@ -68,6 +69,10 @@ export type BarReport = {
     incomeMinor: number;
     expenseMinor: number;
     netMinor: number;
+    oldUnwithdrawnMinor: number;
+    newUnwithdrawnMinor: number;
+    unwithdrawnMinor: number;
+    handedOverMinor: number;
     openingMinor: number | null;
     openingAt: string | null;
     totalAvailableMinor: number | null;
@@ -81,7 +86,14 @@ const priceRows = (product?: BarProduct) =>
     { label: 'لاعب', amount: '' },
     { label: 'مراقب / موظف', amount: '' },
   ];
-export function BarTab({ report }: { report: BarReport }) {
+type DraftLine = {
+  id: string;
+  product: BarProduct;
+  label: string;
+  quantity: number;
+  unitPriceMinor: number;
+};
+export function BarTab({ report, onHandover }: { report: BarReport; onHandover?: () => void }) {
   const params = useParams(),
     client = useQueryClient(),
     { push } = useToast();
@@ -101,6 +113,7 @@ export function BarTab({ report }: { report: BarReport }) {
     [prices, setPrices] = useState(() => priceRows()),
     [currency, setCurrency] = useState('SYP_NEW');
   const [selling, setSelling] = useState(false),
+    [saleLines, setSaleLines] = useState<DraftLine[]>([]),
     [selected, setSelected] = useState<BarProduct | null>(null),
     [label, setLabel] = useState(''),
     [unit, setUnit] = useState(''),
@@ -134,14 +147,16 @@ export function BarTab({ report }: { report: BarReport }) {
   });
   const sale = useMutation({
     mutationFn: (form: FormData) =>
-      apiRequest('/finance/bar/sales', {
+      apiRequest('/finance/bar/sale-batches', {
         method: 'POST',
         body: jsonBody({
-          productId: selected?.id,
-          expectedUpdatedAt: selected?.updatedAt,
-          priceLabel: label,
-          quantity: Number(quantity),
-          unitPriceMinor: Math.round(Number(unit) * 100),
+          lines: saleLines.map((line) => ({
+            productId: line.product.id,
+            expectedUpdatedAt: line.product.updatedAt,
+            priceLabel: line.label,
+            quantity: line.quantity,
+            unitPriceMinor: line.unitPriceMinor,
+          })),
           soldOn: form.get('date'),
           notes: form.get('notes'),
           requestKey: form.get('requestKey'),
@@ -149,7 +164,8 @@ export function BarTab({ report }: { report: BarReport }) {
       }),
     onSuccess: () => {
       setSelling(false);
-      refresh('تم تسجيل البيع والمبلغ المقبوض');
+      setSaleLines([]);
+      refresh('تم حفظ جرد الدفعة والمبالغ المقبوضة بنجاح');
     },
     onError: (error) => {
       void client.invalidateQueries({ queryKey: ['bar-products'] });
@@ -211,6 +227,18 @@ export function BarTab({ report }: { report: BarReport }) {
     </label>
   );
   const pending = saveProduct.isPending || sale.isPending || cash.isPending || cancel.isPending;
+  const lineQuantity = Number(quantity),
+    linePrice = Math.round(Number(unit) * 100);
+  const canAddLine =
+    !!selected &&
+    saleLines.length < 50 &&
+    unit.trim() !== '' &&
+    Number.isInteger(lineQuantity) &&
+    lineQuantity > 0 &&
+    lineQuantity <= 10000 &&
+    Number.isSafeInteger(linePrice) &&
+    linePrice >= 0 &&
+    linePrice * lineQuantity <= 2000000000;
   return (
     <div className="min-w-0 space-y-4">
       <Card>
@@ -220,8 +248,8 @@ export function BarTab({ report }: { report: BarReport }) {
               <Coffee className="h-5 w-5" /> بار الفرع
             </h2>
             <p className="mt-2 text-sm leading-7 text-muted-foreground">
-              منتجات وأسعار محفوظة، ومبيعات بالكمية والسعر الفعلي. مصاريف البار منفصلة عن مصاريف
-              النادي.
+              جرد دفعات مبيوعة ومقبوضة: أضف كمية وسعرًا لكل مجموعة، ولو لنفس النوع بأسعار مختلفة.
+              ليس عليك تسجيل كل بيعة منفردة. القديم والجديد هما الأموال التي لم يستلمها المالك.
             </p>
           </div>
           <Button onClick={() => openProduct()}>
@@ -233,6 +261,7 @@ export function BarTab({ report }: { report: BarReport }) {
             variant="secondary"
             onClick={() => {
               sale.reset();
+              setSaleLines([]);
               setSelected(null);
               setQuantity('1');
               setUnit('');
@@ -243,7 +272,7 @@ export function BarTab({ report }: { report: BarReport }) {
               setSelling(true);
             }}
           >
-            تسجيل بيع
+            تسجيل جرد دفعة مبيعات
           </Button>
           <Button
             variant="secondary"
@@ -261,21 +290,40 @@ export function BarTab({ report }: { report: BarReport }) {
               setCashKind('OPENING');
             }}
           >
-            تسجيل رصيد سابق معلوم
+            تسجيل رصيد نقدي يدوي (ليس بارًا قديمًا)
           </Button>
         </div>
+        {onHandover && (
+          <Button className="mt-3" variant="secondary" onClick={onHandover}>
+            تسجيل أموال بار استلمها المالك
+          </Button>
+        )}
       </Card>
       <div className="grid gap-3 sm:grid-cols-2">
         {report.totals.map((t) => (
           <Card key={t.currency}>
-            <p className="text-sm text-muted-foreground">حركة البار خلال الفترة</p>
+            <p className="text-sm text-muted-foreground">
+              مبيعات مقبوضة لم يستلمها المالك حتى نهاية الفترة
+            </p>
+            <p className="mt-3 font-bold">
+              مجموع بار جديد: {money(t.newUnwithdrawnMinor, t.currency)}
+            </p>
+            <p className="mt-2 font-bold">
+              مجموع بار قديم: {money(t.oldUnwithdrawnMinor, t.currency)}
+            </p>
+            <p className="mt-3 rounded-xl bg-green-100 p-3 font-black text-green-950 dark:bg-green-950 dark:text-green-100">
+              مجموع بار قديم وجديد: {money(t.unwithdrawnMinor, t.currency)}
+            </p>
+            <p className="mt-2 text-sm">
+              استلم المالك من البار خلال الفترة: {money(t.handedOverMinor, t.currency)}
+            </p>
             <p className="mt-3 font-bold">مبيعات: {money(t.incomeMinor, t.currency)}</p>
             <p className="mt-2">مصاريف: {money(t.expenseMinor, t.currency)}</p>
             <p className="mt-2 font-bold">صافي الفترة: {money(t.netMinor, t.currency)}</p>
             <p className="mt-3 text-xs leading-6 text-muted-foreground">
-              الرصيد السابق:{' '}
+              رصيد نقدي يدوي منفصل عن المجاميع أعلاه:{' '}
               {t.openingMinor === null ? 'غير مسجل' : money(t.openingMinor, t.currency)} · الرصيد
-              بعد حركة الفترة:{' '}
+              المحسوب قبل تسليم المالك:{' '}
               {t.closingMinor === null ? 'غير معلوم' : money(t.closingMinor, t.currency)}
             </p>
           </Card>
@@ -360,6 +408,7 @@ export function BarTab({ report }: { report: BarReport }) {
                       className="mt-4"
                       onClick={() => {
                         sale.reset();
+                        setSaleLines([]);
                         const first = p.prices[0];
                         if (!first) return;
                         setSelected(p);
@@ -369,7 +418,7 @@ export function BarTab({ report }: { report: BarReport }) {
                         setSelling(true);
                       }}
                     >
-                      بيع هذا المنتج
+                      جرد دفعة من هذا النوع
                     </Button>
                   )}
                 </Card>
@@ -578,8 +627,8 @@ export function BarTab({ report }: { report: BarReport }) {
         onClose={() => {
           if (!sale.isPending) setSelling(false);
         }}
-        title="تسجيل بيع من البار"
-        description="اختر السعر المناسب، أو أدخل سعرًا خاصًا حسب المبلغ الذي استلمته فعليًا."
+        title="جرد دفعة مبيعات مقبوضة"
+        description="مثال: 10 قطع بسعر و20 قطعة من نفس النوع بسعر آخر. أضف المجموعتين ثم احفظ الدفعة مرة واحدة. لا تسجّل مخزونًا غير مباع."
       >
         {selling && (
           <DialogForm
@@ -590,8 +639,8 @@ export function BarTab({ report }: { report: BarReport }) {
             actions={
               <>
                 <DialogCancelButton disabled={sale.isPending} onClick={() => setSelling(false)} />
-                <Button disabled={!selected} isLoading={sale.isPending}>
-                  تأكيد البيع والمبلغ
+                <Button disabled={!saleLines.length} isLoading={sale.isPending}>
+                  حفظ الدفعة ({saleLines.length} مجموعات)
                 </Button>
               </>
             }
@@ -673,7 +722,6 @@ export function BarTab({ report }: { report: BarReport }) {
                   min="1"
                   max="10000"
                   step="1"
-                  required
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
                 />
@@ -686,7 +734,6 @@ export function BarTab({ report }: { report: BarReport }) {
                   min="0"
                   max="20000000"
                   step="0.01"
-                  required
                   value={unit}
                   onChange={(e) => {
                     setUnit(e.target.value);
@@ -695,13 +742,75 @@ export function BarTab({ report }: { report: BarReport }) {
                 />
               </label>
             </div>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={!canAddLine || sale.isPending}
+              onClick={() => {
+                if (!selected || !canAddLine) return;
+                setSaleLines((previous) => [
+                  ...previous,
+                  {
+                    id: crypto.randomUUID(),
+                    product: selected,
+                    label,
+                    quantity: lineQuantity,
+                    unitPriceMinor: linePrice,
+                  },
+                ]);
+                setQuantity('1');
+              }}
+            >
+              <Plus className="h-4 w-4" /> إضافة هذه الكمية والسعر إلى الدفعة
+            </Button>
+            <div className="space-y-2">
+              {saleLines.map((line, index) => (
+                <div
+                  key={line.id}
+                  className="flex min-w-0 items-start justify-between gap-2 rounded-xl border p-3"
+                >
+                  <div className="min-w-0 break-words text-sm leading-6">
+                    <p className="font-bold">
+                      {index + 1}. {line.product.name}
+                    </p>
+                    <p>
+                      {line.quantity} قطعة × {money(line.unitPriceMinor, line.product.currency)} ·{' '}
+                      {line.label}
+                    </p>
+                    <p className="font-bold">
+                      المجموع: {money(line.quantity * line.unitPriceMinor, line.product.currency)}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={sale.isPending}
+                    aria-label={'حذف المجموعة ' + (index + 1)}
+                    onClick={() =>
+                      setSaleLines((previous) => previous.filter((l) => l.id !== line.id))
+                    }
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
             {dateField}
             <Textarea name="notes" maxLength={2000} placeholder="ملاحظات اختيارية" />
             <p className="rounded-lg bg-green-100 p-4 font-bold text-green-950 dark:bg-green-950 dark:text-green-100">
-              المجموع:{' '}
-              {money(
-                Math.round(Number(quantity) * Number(unit) * 100),
-                selected?.currency ?? 'SYP_NEW',
+              إجمالي الدفعة المضاف:
+              {[...new Set(saleLines.map((l) => l.product.currency))].map((c) => (
+                <span key={c} className="block" dir="ltr">
+                  {money(
+                    saleLines
+                      .filter((l) => l.product.currency === c)
+                      .reduce((n, l) => n + l.quantity * l.unitPriceMinor, 0),
+                    c,
+                  )}
+                </span>
+              ))}
+              {!saleLines.length && (
+                <span className="block text-sm">أضف مجموعة على الأقل قبل الحفظ.</span>
               )}
             </p>
             {sale.error && <ErrorState message={sale.error.message} />}

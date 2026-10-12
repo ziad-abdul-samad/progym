@@ -59,3 +59,22 @@ export class BarCashDto {
   @IsOptional() @IsString() @MaxLength(2000) notes?: string;
   @IsString() @MinLength(16) @MaxLength(120) requestKey!: string;
 }
+
+export class BarBatchLineDto {
+  @IsString() @MinLength(1) @MaxLength(120) productId!: string;
+  @IsDateString() expectedUpdatedAt!: string;
+  @IsString() @MinLength(2) @MaxLength(60) priceLabel!: string;
+  @Type(() => Number) @IsInt() @Min(1) @Max(10000) quantity!: number;
+  @Type(() => Number) @IsInt() @Min(0) @Max(2000000000) unitPriceMinor!: number;
+}
+export class BarSaleBatchDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => BarBatchLineDto)
+  lines!: BarBatchLineDto[];
+  @Matches(/^\d{4}-\d{2}-\d{2}$/) soldOn!: string;
+  @IsOptional() @IsString() @MaxLength(2000) notes?: string;
+  @IsString() @MinLength(16) @MaxLength(90) requestKey!: string;
+}
